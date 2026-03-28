@@ -4,6 +4,9 @@
 #ssh files
 002_ssh_key/*
 
+#dev files
+.env.development
+.env.production
 # .tfstate files
 *.tfstate
 *.tfstate.*
