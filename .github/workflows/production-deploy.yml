@@ -1,0 +1,45 @@
+name: Deploy to Hetzner VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: 🚀 Push to Production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Clonar el código fuente
+        uses: actions/checkout@v4
+
+      - name: 📦 Copiar archivos al servidor
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "."
+          target: "/opt/gis_platform"
+
+      - name: 🐋 Despliegue con Docker Compose
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/gis_platform
+            
+            # Limpiar contenedores fantasma si existen
+            docker compose down || true
+            
+            # Cargar el entorno purista
+            cp .env.production .env
+            
+            # Reconstruir imágenes estáticas y levantar orquestador
+            docker compose up --build -d
+            
+            # Limpiar imágenes colgadas param ahorrar SSD (Menos es Más)
+            docker image prune -f

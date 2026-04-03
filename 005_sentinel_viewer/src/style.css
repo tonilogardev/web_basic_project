@@ -1,0 +1,23 @@
+/* Estilos Globales GIS */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 100vw;
+  height: 100vh;
+  background-color: #0f1520;
+  overflow: hidden;
+  font-family: -apple-system, system-ui, sans-serif;
+}
+
+#map {
+  width: 100vw;
+  height: 100vh;
+}
+
+.leaflet-container {
+  background: #0f1520;
+}

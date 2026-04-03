@@ -1,20 +1,31 @@
+#!/bin/bash
 
-# 1. Parar contenedores actuales si existen
+# =================================================================
+# Script: dev.run.sh
+# Propósito: Ciclo de limpieza y levantamiento en desarrollo (WSL)
+# =================================================================
+
+# 1. Validación de existencia del archivo .env.development
+if [ ! -f .env.development ]; then
+    echo "ERROR: No se encuentra el archivo .env.development"
+    echo "Copia el archivo de ejemplo o configúralo antes de continuar."
+    exit 1
+fi
+
+echo "Iniciando entorno de desarrollo..."
+
+# 2. Parar contenedores actuales y limpiar huérfanos
 echo "Stopping containers..."
-docker-compose --env-file .env.development down --remove-orphans
+docker compose --env-file .env.development down --remove-orphans
 
-# 2. Limpieza de temporales y basura de Docker
-# -f para no pedir confirmación, --volumes para limpiar volúmenes anónimos
+# 3. Limpieza de temporales (prune)
+# Mantenemos el entorno limpio de imágenes sin nombre y volúmenes basura
 echo "Cleaning Docker artifacts..."
 docker system prune -f
 docker image prune -f
 
-# 3. Construir las imágenes (asegurando que lean el .env de desarrollo)
-echo "Building images..."
-docker-compose --env-file .env.development build
+# 4. Construir y Levantar
+echo "Building and launching services on localhost..."
+docker compose --env-file .env.development up --build -d
 
-# 4. Levantar la herramienta en segundo plano (detached)
-echo "Launching services on localhost..."
-docker-compose --env-file .env.development up -d
-
-echo "Entorno listo. Accede a través de localhost."
+echo "Entorno listo. Servicios corriendo en segundo plano."
