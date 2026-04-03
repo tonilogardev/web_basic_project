@@ -4,17 +4,18 @@ on:
   push:
     branches:
       - main
+      - main_dev_pro
 
 jobs:
   deploy:
-    name: 🚀 Push to Production
+    name: Push to Production
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Clonar el código fuente
+      - name: Clonar el código fuente
         uses: actions/checkout@v4
 
-      - name: 📦 Copiar archivos al servidor
+      - name: Copiar archivos al servidor
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.VPS_IP }}
@@ -23,7 +24,7 @@ jobs:
           source: "."
           target: "/opt/gis_platform"
 
-      - name: 🐋 Despliegue con Docker Compose
+      - name: Despliegue con Docker Compose
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_IP }}
