@@ -9,6 +9,7 @@
 .env.production
 
 # .tfstate files
+letsencrypt/
 *.tfstate
 *.tfstate.*
 

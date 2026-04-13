@@ -1,18 +1,13 @@
-# --------- Fase 1: Base OS and Build ---------
 FROM node:22-alpine AS build
 
 WORKDIR /app
 
-# Instalar dependencias prioritariamente para aprovechar el caché de capas de Docker
+# Instalar dependencias
 COPY package*.json ./
 RUN npm install
 
 # Copiar el código fuente y compilar
 COPY . .
-ARG VITE_SENTINEL_URL
-ENV VITE_SENTINEL_URL=$VITE_SENTINEL_URL
-ARG VITE_CASSINI_URL
-ENV VITE_CASSINI_URL=$VITE_CASSINI_URL
 RUN npm run build
 
 # --------- Fase 2: Producción Nginx ---------
@@ -21,7 +16,6 @@ FROM nginx:alpine
 # Copiar el output de compilación
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Configuración Nginx para SPA (React Router fallback)
 RUN echo $'server { \n\
     listen 80; \n\
     location / { \n\
