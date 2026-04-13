@@ -39,6 +39,12 @@ jobs:
             # Cargar el entorno purista dinámicamente param saltar la restricción del .gitignore
             echo "DOMAIN_NAME=tonilogar.com" > .env
             echo "TRAEFIK_HTTP_PORT=80" >> .env
+            echo "LETSENCRYPT_EMAIL=tologar@gmail.com" >> .env
+            
+            # Preparar escudo de volumen ACME param mantener los SSL sin agotar límites
+            mkdir -p letsencrypt
+            touch letsencrypt/acme.json
+            chmod 600 letsencrypt/acme.json
             
             # Reconstruir imágenes estáticas y levantar orquestador
             docker compose up --build -d
