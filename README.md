@@ -43,3 +43,4 @@ basic_server
 -   **Skills**: Proceed to [001_Hetzner_login_domain_tokens.md](./001_documentation/001_Hetzner_login_domain_tokens.md)
 
 
+

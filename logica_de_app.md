@@ -44,3 +44,4 @@ Componentes core gestionados por Docker en el nodo principal:
 * **Traefik:** Reverse Proxy con gestión automática de certificados SSL.
 * **Jenkins:** Motor de CI/CD para la automatización total.
 * **Homepage:** Dashboard visual para monitorización de servicios.
+

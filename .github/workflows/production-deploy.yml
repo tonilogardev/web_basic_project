@@ -36,8 +36,9 @@ jobs:
             # Limpiar contenedores fantasma si existen
             docker compose down || true
             
-            # Cargar el entorno purista
-            cp .env.production .env
+            # Cargar el entorno purista dinámicamente param saltar la restricción del .gitignore
+            echo "DOMAIN_NAME=tonilogar.com" > .env
+            echo "TRAEFIK_HTTP_PORT=80" >> .env
             
             # Reconstruir imágenes estáticas y levantar orquestador
             docker compose up --build -d

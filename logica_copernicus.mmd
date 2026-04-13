@@ -1,0 +1,41 @@
+<pre>
+<code>
+sequenceDiagram
+    autonumber
+    actor Usuario
+    participant Frontend as MapLibre / Vite (Browser)
+    participant STAC as STAC API (Element 84)
+    participant Proxy as Traefik (Hetzner)
+    participant Titiler as Titiler (Hetzner)
+    participant S3 as AWS S3 (Copernicus COGs)
+
+    %% Fase 1: Descubrimiento de Datos
+    rect rgb(240, 248, 255)
+    Note over Usuario, S3: FASE 1: BÚSQUEDA Y METADATOS
+    Usuario->>Frontend: Dibuja polígono y elige fechas
+    Frontend->>STAC: fetch POST /search (bbox, datetime, collection=sentinel-2-l2a)
+    STAC-->>Frontend: Devuelve GeoJSON con IDs, % nubes y URLs (s3://...)
+    Frontend->>Frontend: Filtra y selecciona las URLs de los COGs válidos
+    end
+
+    %% Fase 2: Renderizado Dinámico
+    rect rgb(245, 255, 245)
+    Note over Usuario, S3: FASE 2: RENDERIZADO "ON THE FLY" (Píxeles)
+    Frontend->>Frontend: Crea fuente raster apuntando a tu subdominio (Titiler)
+    
+    par Múltiples peticiones por pantalla
+        Frontend->>Proxy: GET tiles.tudominio.com/cog/tiles/WebMercatorQuad/Z/X/Y@2x.png?url=s3://...&bidx=4,3,2
+        Proxy->>Titiler: Enruta tráfico interno
+        Titiler->>S3: HTTP GET Range Request (Lee solo cabeceras TIFF)
+        S3-->>Titiler: Devuelve metadatos del archivo binario
+        Titiler->>S3: HTTP GET Range Request (Lee bloque Z/X/Y exacto)
+        S3-->>Titiler: Devuelve píxeles crudos de Bandas 4, 3, 2
+        
+        Titiler->>Titiler: Alinea resolución, reproyecta EPSG y mezcla Color Real
+        Titiler-->>Proxy: Devuelve tesela PNG optimizada (ej. 25KB)
+        Proxy-->>Frontend: Entrega PNG al navegador
+        Frontend->>Usuario: Pinta el fragmento de mapa por WebGL
+    end
+    end
+    </code>
+</pre>
