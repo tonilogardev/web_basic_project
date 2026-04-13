@@ -9,6 +9,8 @@ RUN npm install
 
 # Copiar el código fuente y compilar
 COPY . .
+ARG VITE_SENTINEL_URL
+ENV VITE_SENTINEL_URL=$VITE_SENTINEL_URL
 RUN npm run build
 
 # --------- Fase 2: Producción Nginx ---------

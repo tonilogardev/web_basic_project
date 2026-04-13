@@ -31,6 +31,8 @@ services:
     build:
       context: ./004_homepage
       dockerfile: Dockerfile
+      args:
+        VITE_SENTINEL_URL: "${SENTINEL_URL}"
     restart: always
     # ELIMINADO env_file: No requerimos que el servidor estático "Nginx" asimile .envs crudos
     labels:
