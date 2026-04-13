@@ -5,8 +5,6 @@ basic_server
 1.  [Requirements](#1-requirements)
 2.  [Goals](#2-goals)
 3.  [Tech Stack](#3-tech-stack)
-4.  [Architecture & Logic](#4-architecture--logic)
-5.  [Getting Started](#5-getting-started)
 
 ---
 
@@ -43,3 +41,6 @@ basic_server
 ## Next Steps
 
 -   **Skills**: Proceed to [001_Hetzner_login_domain_tokens.md](./001_documentation/001_Hetzner_login_domain_tokens.md)
+
+
+

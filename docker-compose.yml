@@ -1,0 +1,64 @@
+services:
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    environment:
+      - DOCKER_API_VERSION=1.41
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=${LETSENCRYPT_EMAIL:-tologar@gmail.com}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      # Absorbe dinámicamente el puerto del .env (8001 local contra el 80 que será en prod)
+      - "${TRAEFIK_HTTP_PORT:-80}:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - traefik-net
+
+  homepage:
+    container_name: homepage
+    build:
+      context: ./004_homepage
+      dockerfile: Dockerfile
+      args:
+        VITE_SENTINEL_URL: "${SENTINEL_URL}"
+    restart: always
+    # ELIMINADO env_file: No requerimos que el servidor estático "Nginx" asimile .envs crudos
+    labels:
+      - "traefik.enable=true"
+      # Magia dinámica: Si la variable falla, fallback brutal a localhost
+      - "traefik.http.routers.homepage.rule=Host(`homepage.${DOMAIN_NAME:-localhost}`) || Host(`${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.homepage.entrypoints=websecure"
+      - "traefik.http.routers.homepage.tls.certresolver=myresolver"
+    networks:
+      - traefik-net
+
+  sentinel-viewer:
+    container_name: sentinel_viewer
+    build:
+      context: ./005_sentinel_viewer
+      dockerfile: Dockerfile
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      # Subdominio asilado y gobernado dinámicamente:
+      - "traefik.http.routers.sentinel.rule=Host(`sentinel.${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.sentinel.entrypoints=websecure"
+      - "traefik.http.routers.sentinel.tls.certresolver=myresolver"
+    networks:
+      - traefik-net
+
+networks:
+  traefik-net:
+    driver: bridge

@@ -9,3 +9,5 @@ docker rm c1802b6f49f3
 ver logs en consola:
 docker compose logs -f
 docker compose logs -f backend
+
+

@@ -3,6 +3,9 @@
 
 #ssh files
 002_ssh_key/*
+#.env
+.env.development
+#.env.production
 
 #dev files
 .env.development
