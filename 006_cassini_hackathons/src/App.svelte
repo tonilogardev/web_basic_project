@@ -8,7 +8,28 @@
   onMount(() => {
     map = new maplibregl.Map({
       container: mapContainer,
-      style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      style: {
+        version: 8,
+        sources: {
+          'osm': {
+            type: 'raster',
+            tiles: [
+              'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+            ],
+            tileSize: 256,
+            attribution: '&copy; OpenStreetMap Contributors'
+          }
+        },
+        layers: [
+          {
+            id: 'osm-layer',
+            type: 'raster',
+            source: 'osm',
+            minzoom: 0,
+            maxzoom: 19
+          }
+        ]
+      },
       center: [1.5, 41.8], // Cataluña
       zoom: 7,
       attributionControl: false
