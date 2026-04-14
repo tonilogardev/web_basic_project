@@ -1,4 +1,3 @@
-# --------- Fase 1: Base OS and Build ---------
 FROM node:22-alpine AS build
 
 WORKDIR /app
@@ -9,10 +8,6 @@ RUN npm install
 
 # Copiar el código fuente y compilar
 COPY . .
-ARG VITE_SENTINEL_URL
-ENV VITE_SENTINEL_URL=$VITE_SENTINEL_URL
-ARG VITE_CASSINI_URL
-ENV VITE_CASSINI_URL=$VITE_CASSINI_URL
 RUN npm run build
 
 # --------- Fase 2: Producción Nginx ---------

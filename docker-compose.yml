@@ -10,8 +10,7 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.websecure.http.tls.certResolver=myresolver"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
       - "--certificatesresolvers.myresolver.acme.email=${LETSENCRYPT_EMAIL:-tologar@gmail.com}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
@@ -23,6 +22,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./letsencrypt:/letsencrypt
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.http-catchall.rule=${TRAEFIK_HTTPS_RULE:-Host(`none`)}"
+      - "traefik.http.routers.http-catchall.entrypoints=web"
+      - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
     networks:
       - traefik-net
 
@@ -33,14 +38,27 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_SENTINEL_URL: "${SENTINEL_URL}"
+        VITE_CASSINI_URL: "${CASSINI_URL}"
     restart: always
     # ELIMINADO env_file: No requerimos que el servidor estático "Nginx" asimile .envs crudos
     labels:
       - "traefik.enable=true"
       # Magia dinámica: Si la variable falla, fallback brutal a localhost
       - "traefik.http.routers.homepage.rule=Host(`homepage.${DOMAIN_NAME:-localhost}`) || Host(`${DOMAIN_NAME:-localhost}`)"
-      - "traefik.http.routers.homepage.entrypoints=websecure"
-      - "traefik.http.routers.homepage.tls.certresolver=myresolver"
+      - "traefik.http.routers.homepage.entrypoints=web,websecure"
+    networks:
+      - traefik-net
+
+  cassini-hackathons:
+    container_name: cassini_hackathons
+    build:
+      context: ./006_cassini_hackathons
+      dockerfile: Dockerfile
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cassini.rule=Host(`cassini.${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.cassini.entrypoints=web,websecure"
     networks:
       - traefik-net
 
@@ -54,8 +72,7 @@ services:
       - "traefik.enable=true"
       # Subdominio asilado y gobernado dinámicamente:
       - "traefik.http.routers.sentinel.rule=Host(`sentinel.${DOMAIN_NAME:-localhost}`)"
-      - "traefik.http.routers.sentinel.entrypoints=websecure"
-      - "traefik.http.routers.sentinel.tls.certresolver=myresolver"
+      - "traefik.http.routers.sentinel.entrypoints=web,websecure"
     networks:
       - traefik-net
 

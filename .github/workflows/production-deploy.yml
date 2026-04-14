@@ -41,6 +41,8 @@ jobs:
             echo "TRAEFIK_HTTP_PORT=80" >> .env
             echo "LETSENCRYPT_EMAIL=tologar@gmail.com" >> .env
             echo "SENTINEL_URL=https://sentinel.tonilogar.com/" >> .env
+            echo "CASSINI_URL=https://cassini.tonilogar.com/" >> .env
+            echo "TRAEFIK_HTTPS_RULE=HostRegexp('{host:.+}')" >> .env
             
             # Preparar escudo de volumen ACME param mantener los SSL sin agotar límites
             mkdir -p letsencrypt
