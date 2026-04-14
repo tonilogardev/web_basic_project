@@ -1,0 +1,26 @@
+services:
+  tippecanoe:
+    image: klokantech/tippecanoe:latest
+    container_name: maptiler_tippecanoe
+    volumes:
+      - ./input:/workspace/input
+      - ./output:/workspace/output
+    working_dir: /workspace
+    # Sobrescribimos el entrypoint por defecto para permitir meter cadenas de shell dinámicas desde Bash
+    entrypoint: ["/bin/sh", "-c"]
+
+  gdal:
+    image: ghcr.io/osgeo/gdal:ubuntu-small-latest
+    container_name: maptiler_gdal
+    volumes:
+      - ./input:/workspace/input
+      - ./output:/workspace/output
+    working_dir: /workspace
+    entrypoint: ["/bin/sh", "-c"]
+
+  pmtiles:
+    image: protomaps/go-pmtiles:latest
+    container_name: maptiler_pmtiles
+    volumes:
+      - ./output:/workspace/output
+    working_dir: /workspace
