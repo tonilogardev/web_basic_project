@@ -8,7 +8,8 @@
   let map: maplibregl.Map;
 
   // --- ESTADO DE INTERFAZ ---
-  let sidebarOpen = true; // Por defecto abierto
+  let sidebarOpen = true;
+  let showLegend = true;
 
   // --- CONFIGURACIÓN DE CAPAS ---
   const RASTERS = [
@@ -33,7 +34,6 @@
     { id: "viales_bdn", label: "Viales (Líneas)", color: "#10b981" },
   ];
 
-  // --- ESTADO REACTIVO CAPAS ---
   let activeRaster = RASTERS[0];
   let activeVectors = new Set(VECTORS.map((v) => v.id));
 
@@ -67,16 +67,16 @@
   }
 
   function toggleVector(id: string) {
-    if (activeVectors.has(id)) {
-      activeVectors.delete(id);
-    } else {
-      activeVectors.add(id);
-    }
+    if (activeVectors.has(id)) activeVectors.delete(id);
+    else activeVectors.add(id);
     activeVectors = activeVectors;
   }
 
   function toggleSidebar() {
     sidebarOpen = !sidebarOpen;
+  }
+  function toggleLegend() {
+    showLegend = !showLegend;
   }
 
   async function zoomToLayer(filename: string, type: "raster" | "vector") {
@@ -89,22 +89,17 @@
         zoom: header.centerZoom || 14,
         duration: 1000,
       });
-
-      // Auto-cerrar menú en móviles al hacer click en una capa
-      if (window.innerWidth <= 768) {
-        sidebarOpen = false;
-      }
+      if (window.innerWidth <= 768) sidebarOpen = false;
     } catch (e) {
       console.error("Error al centrar:", e);
     }
   }
 
   onMount(() => {
-    // Si es pantalla pequeña (móvil/tablet), empieza cerrado
     if (window.innerWidth <= 768) {
       sidebarOpen = false;
+      showLegend = false;
     }
-
     const protocol = new Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
@@ -169,10 +164,8 @@
           paint: { "line-color": v.color, "line-width": 2 },
         });
       });
-
       await zoomToLayer(activeRaster, "raster");
     });
-
     return () => map?.remove();
   });
 </script>
@@ -212,12 +205,9 @@
 </button>
 
 <div class="sidebar {sidebarOpen ? 'open' : ''}">
-  <header>
-    <h2>Explorador Hidrológico</h2>
-  </header>
-
+  <header><h2>Explorador Hidrológico</h2></header>
   <section>
-    <h3>Capas Ráster (Análisis)</h3>
+    <h3>Capas Ráster</h3>
     <div class="layer-list">
       {#each RASTERS as id}
         <label class="layer-item {activeRaster === id ? 'active' : ''}">
@@ -233,9 +223,8 @@
       {/each}
     </div>
   </section>
-
   <section>
-    <h3>Capas Vectoriales (Contexto)</h3>
+    <h3>Capas Vectoriales</h3>
     <div class="layer-list">
       {#each VECTORS as v}
         <label class="layer-item {activeVectors.has(v.id) ? 'active' : ''}">
@@ -253,6 +242,26 @@
   </section>
 </div>
 
+<div class="legend-widget">
+  <button class="legend-header" on:click={toggleLegend}>
+    <span>Escala de Inundación</span>
+    <svg
+      class="chevron {showLegend ? 'open' : ''}"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg
+    >
+  </button>
+  {#if showLegend}
+    <div class="legend-body">
+      <img src="/data/quicklook_modelo_inundacao.png" alt="Leyenda" />
+    </div>
+  {/if}
+</div>
+
 <div class="map-wrapper" bind:this={mapContainer}></div>
 
 <style>
@@ -260,18 +269,15 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
-    font-family: "Inter", system-ui, sans-serif;
+    font-family: "Inter", sans-serif;
     background: #0f172a;
   }
-
-  /* El mapa ahora ocupa SIEMPRE toda la pantalla */
   .map-wrapper {
     position: absolute;
     inset: 0;
     z-index: 1;
   }
 
-  /* Botón flotante */
   .toggle-btn {
     position: absolute;
     top: 16px;
@@ -288,19 +294,8 @@
     align-items: center;
     justify-content: center;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    transition: background 0.2s;
   }
 
-  .toggle-btn:hover {
-    background: #334155;
-  }
-
-  .toggle-btn svg {
-    width: 24px;
-    height: 24px;
-  }
-
-  /* Sidebar flotante con animación */
   .sidebar {
     position: absolute;
     left: 0;
@@ -314,18 +309,12 @@
     display: flex;
     flex-direction: column;
     box-shadow: 4px 0 15px rgba(0, 0, 0, 0.5);
-    overflow-y: auto;
-    /* Comienza oculta desplazada a la izquierda */
     transform: translateX(-100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
-
-  /* Clase que activa la visibilidad */
   .sidebar.open {
     transform: translateX(0);
   }
-
-  /* Desplazamos el contenido del header para no chocar con el botón flotante */
   header {
     padding: 24px 24px 24px 76px;
     border-bottom: 1px solid #334155;
@@ -333,28 +322,23 @@
   h2 {
     margin: 0;
     font-size: 16px;
-    font-weight: 600;
     color: #3b82f6;
   }
-
   section {
     padding: 20px;
     border-bottom: 1px solid #334155;
   }
   h3 {
     margin: 0 0 12px 0;
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
     color: #94a3b8;
   }
-
   .layer-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
-
   .layer-item {
     display: flex;
     align-items: center;
@@ -363,28 +347,76 @@
     border-radius: 6px;
     cursor: pointer;
     font-size: 13px;
-    transition: background 0.2s;
-    border: 1px solid transparent;
-  }
-
-  .layer-item:hover {
-    background: #334155;
   }
   .layer-item.active {
     background: rgba(59, 130, 246, 0.1);
-    border-color: #3b82f6;
     color: #60a5fa;
   }
 
-  input {
-    cursor: pointer;
+  /* --- ESTILOS DE LEYENDA MEJORADOS --- */
+  .legend-widget {
+    position: absolute;
+    bottom: 30px;
+    right: 30px;
+    z-index: 20;
+    background: rgba(30, 41, 59, 0.98);
+    backdrop-filter: blur(12px);
+    border-radius: 12px;
+    border: 1px solid #334155;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+    /* Incremento de tamaño */
+    width: auto;
+    min-width: 500px;
+    max-width: 800px;
   }
 
-  /* Ajustes para móviles */
+  .legend-header {
+    background: #1e293b;
+    color: #f8fafc;
+    border: none;
+    padding: 16px 20px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    font-size: 15px;
+    border-bottom: 1px solid #0f172a;
+    width: 100%;
+  }
+
+  .legend-header .chevron {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s;
+  }
+  .legend-header .chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .legend-body {
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+  }
+
+  .legend-body img {
+    width: 100%; /* Ocupa todo el ancho del contenedor redimensionado */
+    height: auto;
+    min-width: 450px; /* Asegura que la imagen no se encoja nunca de este punto */
+    image-rendering: -webkit-optimize-contrast; /* Mejora la nitidez del texto en la imagen */
+  }
+
   @media (max-width: 768px) {
-    .sidebar {
-      width: 100%; /* Ocupa toda la pantalla al abrirse */
-      max-width: 360px;
+    .legend-widget {
+      left: 16px;
+      right: 16px;
+      bottom: 20px;
+      min-width: 0;
+    }
+    .legend-body img {
+      min-width: 0;
     }
   }
 </style>
