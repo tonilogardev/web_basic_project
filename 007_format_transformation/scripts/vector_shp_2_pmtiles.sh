@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Asegura contexto de ejecución
+# Asegura el contexto de ejecución correcto
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 cd "$DIR" || exit
 
@@ -8,34 +8,45 @@ shopt -s nullglob
 FILES=(input/*.shp)
 
 if [ ${#FILES[@]} -eq 0 ]; then
-    echo "ERROR: No hay archivos Shapefile (.shp) en la carpeta input/. Asegúrate de poner también sus ficheros hermanos (.shx, .dbf, .prj)."
+    echo "ERROR: No hay archivos Shapefile (.shp) en la carpeta input/."
     exit 1
 fi
 
-echo "Iniciando SHP -> PMTiles pipeline usando GDAL (Intermedio) + Tippecanoe..."
+echo "Iniciando Pipeline Robusto: SHP -> GeoJSON -> MBTiles -> PMTiles..."
 
 for file in "${FILES[@]}"; do
     filename=$(basename "$file")
     name="${filename%.*}"
     
     echo "======================================"
-    echo "⏳ Transformando Shapefile: $filename"
+    echo "⏳ Transformando: $filename"
     echo "======================================"
     
-    # 1. GDAL (Ogr2ogr) traduce el binario SHP a GeoJSON en la carpeta output
-    echo "   [1/2] GDAL -> Extrayendo geometrías a GeoJSON temporal..."
-    docker compose run --rm gdal "ogr2ogr -f GeoJSON output/${name}_temp.geojson input/${filename}"
+    # Gatekeeper: Verificación de Proyección
+    if [ ! -f "input/${name}.prj" ]; then
+        echo "❌ ERROR CRÍTICO: Falta el archivo input/${name}.prj"
+        echo "   GDAL necesita el archivo .prj para re-proyectar correctamente."
+        exit 1
+    fi
+
+    # 1. GDAL reproyecta a web (WGS84)
+    echo "   [1/4] GDAL -> Extrayendo a GeoJSON (EPSG:4326)..."
+    docker compose run --rm gdal "ogr2ogr -f GeoJSON -t_srs EPSG:4326 output/${name}_temp.geojson input/${filename}"
     
-    # 2. Tippecanoe comprime el GeoJSON a PMTiles
-    echo "   [2/2] Tippecanoe -> Comprimiendo en pirámide PMTiles (0-15)..."
-    docker compose run --rm tippecanoe "tippecanoe -f -Z0 -z15 --drop-densest-as-needed -o output/${name}.pmtiles output/${name}_temp.geojson"
+    # 2. Tippecanoe genera la pirámide vectorial en formato nativo MBTiles
+    echo "   [2/4] Tippecanoe -> Generando pirámide MBTiles (Capa: '${name}')..."
+    docker compose run --rm tippecanoe "tippecanoe -l \"${name}\" -f -Z0 -z15 --drop-densest-as-needed -o output/${name}_temp.mbtiles output/${name}_temp.geojson"
     
-    # 3. Limpieza de rastros
-    echo "   [3/3] Limpiando archivos intermedios..."
-    rm -f "output/${name}_temp.geojson"
+    # 3. Protomaps empaqueta a PMTiles (El paso clave que faltaba)
+    echo "   [3/4] Protomaps -> Empaquetando MBTiles a PMTiles..."
+    docker compose run --rm pmtiles convert "output/${name}_temp.mbtiles" "output/${name}.pmtiles"
     
-    echo "✅ Terminado: output/${name}.pmtiles"
+    # 4. Limpieza
+    echo "   [4/4] Limpiando archivos temporales pesados..."
+    rm -f "output/${name}_temp.geojson" "output/${name}_temp.mbtiles"
+    
+    echo "✅ Terminado con éxito: output/${name}.pmtiles"
     echo ""
 done
 
-echo "Transformación Shapefile Completa. Puedes subirlos a /006_cassini_hackathons/public/data/vector"
+echo "Transformación Completa. Listo para test en Protomaps."
