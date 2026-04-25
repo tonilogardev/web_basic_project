@@ -30,7 +30,6 @@ basic_server
 
 ## 3 Tech Stack
 
-
 -   **App**: Node.js (Express) & Vite (React/Vue).
 -   **Containerization**: Docker & Docker Compose.
 -   **Routing & SSL**: Traefik (Auto HTTPS).
