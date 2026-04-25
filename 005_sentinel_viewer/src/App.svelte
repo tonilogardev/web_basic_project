@@ -1,161 +1,109 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { MapLibre, NavigationControl } from 'svelte-maplibre-gl';
+  import maplibregl from 'maplibre-gl';
   import MapboxDraw from '@mapbox/mapbox-gl-draw';
+  import PanelControles from './components/PanelControles.svelte';
+
+  // Importar estilos necesarios
   import 'maplibre-gl/dist/maplibre-gl.css';
   import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 
-  // --- ESTADO (Svelte 5 Runes) ---
-  let satelites = [
-    { id: "sentinel-1", name: "Sentinel-1", enabled: false },
-    { id: "sentinel-2", name: "Sentinel-2", enabled: true },
-    { id: "sentinel-3", name: "Sentinel-3", enabled: false }
-  ];
-
-  let sateliteSeleccionado = $state("sentinel-2");
+  // 1. ESTADO GLOBAL (Cerebro de la App)
+  let satelite = $state("sentinel-2");
   let coberturaNubes = $state(20);
   let fechaInicio = $state("");
   let fechaFin = $state("");
   let boundingBox = $state<number[] | null>(null);
-  let mapInstance = $state<any>(null);
-  let drawInstance = $state<any>(null);
 
-  // --- LÓGICA DEL MAPA ---
-  function initDraw(map: any) {
-    drawInstance = new MapboxDraw({
-      displayControlsDefault: false,
-      controls: {
-        polygon: false, // Usaremos un modo personalizado o lógica simple para el rectángulo después
-        trash: true
-      },
-      // Restringimos a un solo elemento para no ensuciar el mapa
-      defaultMode: 'simple_select'
+  // Referencias internas
+  let mapContainer: HTMLElement;
+  let map: maplibregl.Map;
+  let draw: any;
+
+  onMount(() => {
+    // Inicializar Mapa
+    map = new maplibregl.Map({
+      container: mapContainer,
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [1.74, 41.69], // Catalunya
+      zoom: 7.5
     });
 
-    map.addControl(drawInstance);
+    // Inicializar Herramienta de Dibujo
+    draw = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: { trash: true },
+      defaultMode: 'simple_select'
+    });
+    map.addControl(draw);
 
-    map.on('draw.create', updateBBox);
-    map.on('draw.update', updateBBox);
+    // Capturar el área dibujada
+    map.on('draw.create', actualizarBBox);
+    map.on('draw.update', actualizarBBox);
     map.on('draw.delete', () => boundingBox = null);
-  }
 
-  function activarDibujoRectangulo() {
-    if (!drawInstance) return;
-    drawInstance.changeMode('draw_polygon'); 
-    // Nota: Por simplicidad inicial usamos polygon, en la siguiente iteración 
-    // inyectaremos el modo 'rectángulo' específico para mayor precisión.
-  }
+    return () => map.remove();
+  });
 
-  function updateBBox(e: any) {
+  function actualizarBBox(e: any) {
     const feature = e.features[0];
-    if (feature.geometry.type === 'Polygon') {
-      const coords = feature.geometry.coordinates[0];
-      const lngs = coords.map((c: any) => c[0]);
-      const lats = coords.map((c: any) => c[1]);
-      boundingBox = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
-    }
+    const coords = feature.geometry.coordinates[0];
+    const lngs = coords.map((c: any) => c[0]);
+    const lats = coords.map((c: any) => c[1]);
+    
+    // Formato STAC: [minLng, minLat, maxLng, maxLat]
+    boundingBox = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
   }
 
-  function buscarImagenes() {
-    console.log("Consultando Catálogo STAC de Copernicus...", {
+  function activarDibujo() {
+    if (draw) draw.changeMode('draw_polygon');
+  }
+
+  function ejecutarBusqueda() {
+    console.log("🚀 Iniciando búsqueda en Copernicus CDSE...", {
+      satelite,
       bbox: boundingBox,
-      start: fechaInicio,
-      end: fechaFin,
-      cloud: coberturaNubes
+      fechas: [fechaInicio, fechaFin],
+      nubes: coberturaNubes
     });
   }
 </script>
 
-<main class="visor-layout">
-  <aside class="panel-controles">
-    <h2>Visor Copernicus</h2>
-    
-    <section class="control-group">
-      <label for="satelite">Satélite</label>
-      <select id="satelite" bind:value={sateliteSeleccionado}>
-        {#each satelites as sat}
-          <option value={sat.id} disabled={!sat.enabled}>
-            {sat.name} {!sat.enabled ? '(Próximamente)' : ''}
-          </option>
-        {/each}
-      </select>
-    </section>
+<main class="contenedor-principal">
+  <div bind:this={mapContainer} class="mapa"></div>
 
-    <section class="control-group">
-      <label>Zona de Interés (AOI)</label>
-      <button class="btn-tool active" onclick={activarDibujoRectangulo}>
-        Seleccionar Rectángulo
-      </button>
-      <button class="btn-tool disabled" disabled>Municipios (PMTiles)</button>
-      <button class="btn-tool disabled" disabled>Importar SHP</button>
-      
-      {#if boundingBox}
-        <div class="bbox-info">
-          BBOX: {boundingBox.map(n => n.toFixed(3)).join(', ')}
-        </div>
-      {/if}
-    </section>
-
-    <section class="control-group">
-      <label>Rango de Fechas</label>
-      <div class="grid-2">
-        <input type="date" bind:value={fechaInicio} />
-        <input type="date" bind:value={fechaFin} min={fechaInicio} />
-      </div>
-    </section>
-
-    <section class="control-group">
-      <label>Nubosidad máxima: {coberturaNubes}%</label>
-      <input type="range" min="0" max="100" bind:value={coberturaNubes} />
-    </section>
-
-    <button 
-      class="btn-primary" 
-      onclick={buscarImagenes}
-      disabled={!boundingBox || !fechaInicio || !fechaFin}
-    >
-      Show the images
-    </button>
-  </aside>
-
-  <section class="mapa-view">
-    <MapLibre
-      style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
-      standardControls
-      on:load={(e) => initDraw(e.detail.map)}
-    >
-      <NavigationControl position="top-right" />
-    </MapLibre>
-  </section>
+  <PanelControles 
+    bind:satelite
+    bind:coberturaNubes
+    bind:fechaInicio
+    bind:fechaFin
+    {boundingBox}
+    onDibujarRectangulo={activarDibujo}
+    onBuscar={ejecutarBusqueda}
+  />
 </main>
 
 <style>
-  /* Layout Base */
-  .visor-layout { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
-  .panel-controles { 
-    width: 320px; background: #fff; padding: 20px; 
-    display: flex; flex-direction: column; gap: 20px;
-    border-right: 1px solid #eee; z-index: 2;
+  :global(body, html) {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
   }
-  .mapa-view { flex-grow: 1; position: relative; background: #f0f0f0; }
 
-  /* Componentes UI */
-  .control-group { display: flex; flex-direction: column; gap: 8px; }
-  label { font-size: 0.8rem; font-weight: bold; color: #666; text-transform: uppercase; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  
-  .btn-tool { 
-    padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
-    cursor: pointer; text-align: left; background: #fff;
+  .contenedor-principal {
+    position: relative; /* Necesario para que el panel absoluto se posicione bien */
+    width: 100vw;
+    height: 100vh;
   }
-  .btn-tool.active { border-color: #2196f3; color: #2196f3; font-weight: bold; }
-  .btn-tool.disabled { background: #f9f9f9; color: #ccc; cursor: not-allowed; border-style: dashed; }
-  
-  .btn-primary { 
-    margin-top: auto; padding: 15px; background: #2196f3; color: #fff; 
-    border: none; border-radius: 4px; font-weight: bold; cursor: pointer;
-  }
-  .btn-primary:disabled { background: #eee; color: #aaa; cursor: not-allowed; }
 
-  .bbox-info { font-size: 0.7rem; color: #4caf50; background: #e8f5e9; padding: 5px; border-radius: 3px; }
+  .mapa {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1; /* El mapa queda al fondo */
+  }
 </style>
