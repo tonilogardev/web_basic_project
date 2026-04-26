@@ -55,6 +55,8 @@ services:
       context: ./006_cassini_hackathons
       dockerfile: Dockerfile
     restart: always
+    volumes:
+      - ./006_cassini_hackathons/public/images:/usr/share/nginx/html/images
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.cassini.rule=Host(`cassini.${DOMAIN_NAME:-localhost}`)"
