@@ -84,13 +84,20 @@
     loading = true;
     try {
       const ref = `${manifest[p][0]}`;
-      const pt  = new PMTiles(`/images/places/${p}/${ref}.pmtiles`);
+      const url = `${window.location.origin}/images/places/${p}/${ref}.pmtiles`;
+      console.log('Intentando leer cabecera de:', url);
+      const pt  = new PMTiles(url);
       const h   = await pt.getHeader();
+      console.log('Cabecera recibida:', h);
       
       const isMobile = window.innerWidth < 600;
-      map?.fitBounds([[h.minLon, h.minLat], [h.maxLon, h.maxLat]],
-        { padding: isMobile ? 20 : 60, duration: 1200, maxZoom: 14 });
-    } catch { /* bounds no disponibles */ }
+      if (h.minLon !== undefined && h.minLat !== undefined) {
+        map?.fitBounds([[h.minLon, h.minLat], [h.maxLon, h.maxLat]],
+          { padding: isMobile ? 20 : 60, duration: 1200, maxZoom: 14 });
+      }
+    } catch (err) { 
+      console.error("Error al obtener bounds para zoom:", err);
+    }
     loading = false;
   }
 
@@ -98,9 +105,10 @@
     if (!map) return;
     if (activeFile === file) { clearLayer(); activeFile = null; return; }
     clearLayer();
+    const url = `${window.location.origin}/images/places/${place}/${file}.pmtiles`;
     map.addSource(SRC, {
       type: 'raster',
-      url: `pmtiles:///images/places/${place}/${file}.pmtiles`,
+      url: `pmtiles://${url}`,
       tileSize: 256
     });
     map.addLayer({ id: LYR, type: 'raster', source: SRC });
