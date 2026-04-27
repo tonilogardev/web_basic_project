@@ -9,9 +9,15 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
   },
+  "dependencies": {
+    "@mapbox/mapbox-gl-draw": "^1.4.3",
+    "maplibre-gl": "^4.0.0",
+    "svelte-maplibre-gl": "^1.0.0"
+  },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tsconfig/svelte": "^5.0.8",
+    "@types/mapbox__mapbox-gl-draw": "^1.4.6",
     "@types/node": "^24.12.2",
     "svelte": "^5.55.1",
     "svelte-check": "^4.4.6",

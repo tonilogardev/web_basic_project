@@ -1,89 +1,109 @@
-<script>
-  import svelteLogo from './assets/svelte.svg'
-  import viteLogo from './assets/vite.svg'
-  import heroImg from './assets/hero.png'
-  import Counter from './lib/Counter.svelte'
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import maplibregl from 'maplibre-gl';
+  import MapboxDraw from '@mapbox/mapbox-gl-draw';
+  import PanelControles from './components/PanelControles.svelte';
+
+  // Importar estilos necesarios
+  import 'maplibre-gl/dist/maplibre-gl.css';
+  import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
+
+  // 1. ESTADO GLOBAL (Cerebro de la App)
+  let satelite = $state("sentinel-2");
+  let coberturaNubes = $state(20);
+  let fechaInicio = $state("");
+  let fechaFin = $state("");
+  let boundingBox = $state<number[] | null>(null);
+
+  // Referencias internas
+  let mapContainer: HTMLElement;
+  let map: maplibregl.Map;
+  let draw: any;
+
+  onMount(() => {
+    // Inicializar Mapa
+    map = new maplibregl.Map({
+      container: mapContainer,
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [1.74, 41.69], // Catalunya
+      zoom: 7.5
+    });
+
+    // Inicializar Herramienta de Dibujo
+    draw = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: { trash: true },
+      defaultMode: 'simple_select'
+    });
+    map.addControl(draw);
+
+    // Capturar el área dibujada
+    map.on('draw.create', actualizarBBox);
+    map.on('draw.update', actualizarBBox);
+    map.on('draw.delete', () => boundingBox = null);
+
+    return () => map.remove();
+  });
+
+  function actualizarBBox(e: any) {
+    const feature = e.features[0];
+    const coords = feature.geometry.coordinates[0];
+    const lngs = coords.map((c: any) => c[0]);
+    const lats = coords.map((c: any) => c[1]);
+    
+    // Formato STAC: [minLng, minLat, maxLng, maxLat]
+    boundingBox = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+  }
+
+  function activarDibujo() {
+    if (draw) draw.changeMode('draw_polygon');
+  }
+
+  function ejecutarBusqueda() {
+    console.log("🚀 Iniciando búsqueda en Copernicus CDSE...", {
+      satelite,
+      bbox: boundingBox,
+      fechas: [fechaInicio, fechaFin],
+      nubes: coberturaNubes
+    });
+  }
 </script>
 
-<section id="center">
-  <div class="hero">
-    <img src={heroImg} class="base" width="170" height="179" alt="" />
-    <img src={svelteLogo} class="framework" alt="Svelte logo" />
-    <img src={viteLogo} class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/App.svelte</code> and save to test <code>HMR</code></p>
-  </div>
-  <Counter />
-</section>
+<main class="contenedor-principal">
+  <div bind:this={mapContainer} class="mapa"></div>
 
-<div class="ticks"></div>
+  <PanelControles 
+    bind:satelite
+    bind:coberturaNubes
+    bind:fechaInicio
+    bind:fechaFin
+    {boundingBox}
+    onDibujarRectangulo={activarDibujo}
+    onBuscar={ejecutarBusqueda}
+  />
+</main>
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true">
-      <use href="/icons.svg#documentation-icon"></use>
-    </svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank" rel="noreferrer">
-          <img class="logo" src={viteLogo} alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://svelte.dev/" target="_blank" rel="noreferrer">
-          <img class="button-icon" src={svelteLogo} alt="" />
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true">
-      <use href="/icons.svg#social-icon"></use>
-    </svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li>
-        <a href="https://github.com/vitejs/vite" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#github-icon"></use>
-          </svg>
-          GitHub
-        </a>
-      </li>
-      <li>
-        <a href="https://chat.vite.dev/" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#discord-icon"></use>
-          </svg>
-          Discord
-        </a>
-      </li>
-      <li>
-        <a href="https://x.com/vite_js" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#x-icon"></use>
-          </svg>
-          X.com
-        </a>
-      </li>
-      <li>
-        <a href="https://bsky.app/profile/vite.dev" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#bluesky-icon"></use>
-          </svg>
-          Bluesky
-        </a>
-      </li>
-    </ul>
-  </div>
-</section>
+<style>
+  :global(body, html) {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
 
-<div class="ticks"></div>
-<section id="spacer"></section>
+  .contenedor-principal {
+    position: relative; /* Necesario para que el panel absoluto se posicione bien */
+    width: 100vw;
+    height: 100vh;
+  }
+
+  .mapa {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1; /* El mapa queda al fondo */
+  }
+</style>

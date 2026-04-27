@@ -45,3 +45,9 @@ Componentes core gestionados por Docker en el nodo principal:
 * **Jenkins:** Motor de CI/CD para la automatización total.
 * **Homepage:** Dashboard visual para monitorización de servicios.
 
+2. El Repositorio Oficial (La fuente de la verdad)
+Si de verdad necesitas acceso al 100% de los datos de Copernicus (todos los satélites, desde el día 1, en todos sus niveles de procesamiento), la única fuente oficial actual es el Copernicus Data Space Ecosystem (CDSE), impulsado por T-Systems y la ESA (sustituyó al antiguo SciHub).
+
+Pros: Tienen absolutamente todo. S1, S2, S3, S5P. Tienen su propia API STAC y sus propios buckets S3.
+
+Contras: Sus archivos nativos suelen venir en formato .SAFE (un zip gigante), no en COG individual por banda. Hacer renderizado al vuelo leyendo directamente del CDSE es mucho más duro y lento que hacerlo desde AWS, porque te obliga a procesar archivos que no están nativamente optimizados para streaming web.
