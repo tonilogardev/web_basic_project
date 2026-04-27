@@ -300,17 +300,30 @@
   /* Responsive */
   @media (max-width: 600px) {
     .pv-wrap {
-      top: auto;
-      bottom: 1.5rem;    /* Pegado al BaseSwitcher para ahorrar espacio */
+      top: 1rem;
+      bottom: auto;
       right: 0.5rem;
       height: auto;
       max-height: 80vh;  /* Ocupar hasta el 80% de la pantalla */
-      flex-direction: column-reverse; /* CRECE HACIA ARRIBA */
+      flex-direction: column;
     }
 
     .pv-panel {
-      width: min(220px, calc(100vw - 1rem));
+      width: fit-content;
+      min-width: 140px;
+      max-width: calc(100vw - 1rem);
       margin-bottom: 0.3rem; /* Espacio con el botón que ahora está debajo */
+    }
+
+    .pv-places {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+
+    .pv-place {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.7rem;
     }
 
     .pv-toggle span:first-child { display: none; }

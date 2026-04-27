@@ -139,7 +139,8 @@
     padding: 0.65rem 0.75rem;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     animation: slideUp 0.2s ease-out;
-    min-width: 200px;
+    width: fit-content;
+    min-width: 160px;
     max-width: 260px;
   }
 
