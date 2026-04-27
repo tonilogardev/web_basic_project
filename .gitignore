@@ -1,7 +1,7 @@
 # Local .terraform directories
 .terraform/
-./006_cassini_hackathons/public/images/places/*
-!./006_cassini_hackathons/public/images/places/manifest.json
+006_cassini_hackathons/public/images/places/**
+!006_cassini_hackathons/public/images/places/manifest.json
 #ssh files
 002_ssh_key/*
 #.env files
@@ -44,3 +44,5 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+*.zip
+
