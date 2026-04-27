@@ -300,30 +300,29 @@
   /* Responsive */
   @media (max-width: 600px) {
     .pv-wrap {
-      top: 1rem;
-      bottom: auto;
-      right: 0.5rem;
+      top: 0.75rem !important;
+      bottom: auto !important;
+      right: 0.5rem !important;
       height: auto;
-      max-height: 80vh;  /* Ocupar hasta el 80% de la pantalla */
+      max-height: 65vh;
       flex-direction: column;
     }
 
     .pv-panel {
       width: fit-content;
-      min-width: 140px;
-      max-width: calc(100vw - 1rem);
-      margin-bottom: 0.3rem; /* Espacio con el botón que ahora está debajo */
+      min-width: 130px;
+      max-width: 200px;
+      margin-top: 0.35rem; /* Espacio con el botón que ahora está ARRIBA */
     }
 
     .pv-places {
-      flex-direction: row;
-      flex-wrap: wrap;
-      gap: 0.3rem;
+      flex-direction: column;
+      gap: 0.2rem;
     }
 
     .pv-place {
-      padding: 0.3rem 0.6rem;
-      font-size: 0.7rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.68rem;
     }
 
     .pv-toggle span:first-child { display: none; }

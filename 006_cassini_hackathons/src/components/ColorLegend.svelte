@@ -1,5 +1,5 @@
 <script lang="ts">
-  let isOpen = true; // Visible por defecto para que el usuario lea la leyenda
+  let isOpen = false; // Empezar cerrado para no tapar el mapa inicialmente
 
   const items = [
     { id: 1, color: '#2196F3', label: 'Clear Water / No Anomalies' },
