@@ -2,11 +2,11 @@
   let isOpen = true; // Visible por defecto para que el usuario lea la leyenda
 
   const items = [
-    { id: 1, color: '#2196F3', label: 'Agua sin anomalías' },
-    { id: 2, color: '#E8430F', label: 'Alta turbidez / Sedimentos' },
-    { id: 3, color: '#BEFF6B', label: 'Alta clorofila (Fitoplancton)' },
-    { id: 4, color: '#1B8A0A', label: 'Algas superficiales (Bloom)' },
-    { id: 5, color: '#7A0000', label: 'Posible contaminación / Puntos anómalos' }
+    { id: 1, color: '#2196F3', label: 'Clear Water / No Anomalies' },
+    { id: 2, color: '#E8430F', label: 'High Turbidity / Sediments' },
+    { id: 3, color: '#BEFF6B', label: 'High Chlorophyll (Phytoplankton)' },
+    { id: 4, color: '#1B8A0A', label: 'Surface Algae (Bloom)' },
+    { id: 5, color: '#7A0000', label: 'Potential Pollution / Anomalous points' }
   ];
 
   function toggle() {
@@ -21,8 +21,8 @@
     class:is-open={isOpen}
     on:click={toggle}
     aria-expanded={isOpen}
-    aria-label={isOpen ? 'Ocultar leyenda' : 'Mostrar leyenda de calidad del agua'}
-    title={isOpen ? 'Ocultar leyenda' : 'Leyenda'}
+    aria-label={isOpen ? 'Hide legend' : 'Show water quality legend'}
+    title={isOpen ? 'Hide legend' : 'Legend'}
   >
     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <line x1="8" y1="6" x2="21" y2="6"/>
@@ -32,7 +32,7 @@
       <line x1="3" y1="12" x2="3.01" y2="12"/>
       <line x1="3" y1="18" x2="3.01" y2="18"/>
     </svg>
-    <span class="toggle-label">Leyenda</span>
+    <span class="toggle-label">Legend</span>
     <svg
       class="chevron"
       class:rotated={isOpen}
@@ -51,8 +51,8 @@
 
   <!-- Panel desplegable -->
   {#if isOpen}
-    <div class="legend-panel" role="region" aria-label="Leyenda de calidad del agua">
-      <p class="legend-title">Calidad del Agua</p>
+    <div class="legend-panel" role="region" aria-label="Water quality legend">
+      <p class="legend-title">Water Quality</p>
       <ul class="legend-list">
         {#each items as item}
           <li class="legend-item">
