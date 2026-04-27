@@ -42,7 +42,7 @@
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
   function fmtDate(d: string): string {
-    const m = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return `${parseInt(d.slice(6,8))} ${m[parseInt(d.slice(4,6))-1]} ${d.slice(0,4)}`;
   }
 
@@ -125,9 +125,9 @@
     class:open={isOpen}
     on:click={() => (isOpen = !isOpen)}
     aria-expanded={isOpen}
-    title={isOpen ? 'Minimizar' : 'Explorador de zonas'}
+    title={isOpen ? 'Minimize' : 'Zone Explorer'}
   >
-    <span>Zonas</span>
+    <span>Zones</span>
     {#if activeDate && !isOpen}
       <span class="pv-chip">{activeDate}</span>
     {/if}
@@ -149,7 +149,7 @@
     <div class="pv-panel">
 
       <!-- Place selector -->
-      <p class="pv-label">Zona</p>
+      <p class="pv-label">Zone</p>
       <div class="pv-places">
         {#each places as pk}
           <button
@@ -166,7 +166,7 @@
 
       <!-- Image list: visible solo cuando hay zona seleccionada -->
       <p class="pv-label">
-        Imágenes
+        Images
         {#if activeDate}<span class="pv-chip">{activeDate}</span>{/if}
       </p>
 

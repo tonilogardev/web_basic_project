@@ -68,22 +68,22 @@
     activeBase = key;
   }
 
-  const LABELS: Record<BaseKey, { label: string; icon: string }> = {
-    carto:     { label: 'Positron',  icon: '🗺️' },
-    landcover: { label: 'Suelo',     icon: '🌿' }
+  const LABELS: Record<BaseKey, { label: string }> = {
+    carto:     { label: 'Map' },
+    landcover: { label: 'Land' }
   };
 
   const baseKeys: BaseKey[] = ['carto', 'landcover'];
 </script>
 
-<div class="base-switcher" role="group" aria-label="Mapa base">
+<div class="base-switcher" role="group" aria-label="Base map">
   <div class="switcher-header">
     <svg class="layers-icon" xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
       <polygon points="12 2 2 7 12 12 22 7 12 2"/>
       <polyline points="2 17 12 22 22 17"/>
       <polyline points="2 12 12 17 22 12"/>
     </svg>
-    <span class="header-label">Mapa base</span>
+    <span class="header-label">Base map</span>
   </div>
   <div class="divider"></div>
 
@@ -96,7 +96,6 @@
       aria-pressed={activeBase === key}
       title={LABELS[key].label}
     >
-      <span class="icon">{LABELS[key].icon}</span>
       <span class="label">{LABELS[key].label}</span>
     </button>
   {/each}
