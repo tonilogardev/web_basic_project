@@ -32,7 +32,7 @@ export interface SearchParams {
 }
 
 const STAC_API = "https://earth-search.aws.element84.com/v1/search";
-const STAC_COLLECTION = "https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a";
+export const STAC_COLLECTION = "https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a";
 
 export async function searchSentinel2(params: SearchParams): Promise<StacFeature[]> {
   const query = {

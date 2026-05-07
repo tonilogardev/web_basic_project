@@ -3,10 +3,11 @@
 
   interface Props {
     features?: StacFeature[];
-    onSeleccion?: (feature: StacFeature) => void;
+    escenasVisibles?: Set<string>;
+    onToggle?: (feature: StacFeature) => void;
   }
 
-  let { features = [], onSeleccion }: Props = $props();
+  let { features = [], escenasVisibles = new Set(), onToggle }: Props = $props();
 
   function formatDate(datetime: string): string {
     return datetime.slice(0, 10);
@@ -25,9 +26,14 @@
             {formatDate(feature.properties.datetime)} · {feature.properties["eo:cloud_cover"]}% nubes
           </span>
         </div>
-        <button class="btn-ver" onclick={() => onSeleccion?.(feature)}>
+        <label class="check-label">
+          <input
+            type="checkbox"
+            checked={escenasVisibles.has(feature.id)}
+            onchange={() => onToggle?.(feature)}
+          />
           Ver
-        </button>
+        </label>
       </li>
     {/each}
   </ul>
@@ -70,19 +76,21 @@
     color: #9ca3af;
   }
 
-  .btn-ver {
-    padding: 6px 14px;
-    background: #0ea5e9;
-    color: white;
-    border: none;
-    border-radius: 4px;
+  .check-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     cursor: pointer;
     font-size: 0.8rem;
-    font-weight: 600;
+    color: #e5e7eb;
+    user-select: none;
   }
 
-  .btn-ver:hover {
-    background: #0284c7;
+  .check-label input[type="checkbox"] {
+    accent-color: #0ea5e9;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
   }
 
   .empty {

@@ -1,10 +1,26 @@
 <script lang="ts">
+  interface Props {
+    satelite?: string;
+    coberturaNubes?: number;
+    fechaInicio?: string;
+    fechaFin?: string;
+    boundingBox?: number[] | null;
+    presetActivo?: string;
+    bandasCustom?: [string, string, string];
+    BANDAS_DISPONIBLES?: string[];
+    onDibujarRectangulo?: () => void;
+    onBuscar?: () => void;
+  }
+
   let {
     satelite = $bindable(),
     coberturaNubes = $bindable(),
     fechaInicio = $bindable(),
     fechaFin = $bindable(),
     boundingBox,
+    presetActivo = $bindable(),
+    bandasCustom = $bindable(),
+    BANDAS_DISPONIBLES = [],
     onDibujarRectangulo,
     onBuscar
   } = $props();
@@ -65,6 +81,37 @@
         <input type="range" min="0" max="100" bind:value={coberturaNubes} />
       </div>
 
+      <div class="control-group">
+        <label>Combinación de Bandas</label>
+        <select bind:value={presetActivo}>
+          <option value="true-color">Color Real (RGB)</option>
+          <option value="false-color">Falso Color (Urbano)</option>
+          <option value="cir">Infrarrojo Color (CIR)</option>
+          <option value="agriculture">Agricultura</option>
+          <option value="geology">Geología</option>
+          <option value="bathymetric">Costero / Batimétrico</option>
+          <option disabled>──────────</option>
+          <option value="ndvi">NDVI (Vegetación)</option>
+          <option value="ndwi">NDWI (Agua)</option>
+          <option value="ndbi">NDBI (Construcción)</option>
+          <option disabled>──────────</option>
+          <option value="custom">Personalizado...</option>
+        </select>
+        {#if presetActivo === 'custom'}
+          <div class="grid-bandas">
+            <label>R <select bind:value={bandasCustom[0]}>
+              {#each BANDAS_DISPONIBLES as b}<option value={b}>{b}</option>{/each}
+            </select></label>
+            <label>G <select bind:value={bandasCustom[1]}>
+              {#each BANDAS_DISPONIBLES as b}<option value={b}>{b}</option>{/each}
+            </select></label>
+            <label>B <select bind:value={bandasCustom[2]}>
+              {#each BANDAS_DISPONIBLES as b}<option value={b}>{b}</option>{/each}
+            </select></label>
+          </div>
+        {/if}
+      </div>
+
       <button 
         class="btn-buscar" 
         disabled={!boundingBox || !fechaInicio || !fechaFin}
@@ -78,9 +125,6 @@
 
 <style>
   .panel-flotante {
-    position: absolute;
-    top: 20px;
-    left: 20px;
     width: 320px;
     max-height: calc(100vh - 40px);
     overflow-y: auto;
@@ -91,9 +135,9 @@
     box-shadow: 0 4px 15px rgba(0,0,0,0.15);
     display: flex;
     flex-direction: column;
-    z-index: 10;
     font-family: system-ui, -apple-system, sans-serif;
     transition: width 0.25s ease;
+    flex-shrink: 0;
   }
 
   .panel-flotante.colapsado {
@@ -168,12 +212,32 @@
     padding: 8px;
     border: 1px solid #ccc;
     border-radius: 4px;
+    font-size: 0.85rem;
   }
 
   .grid-dates {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
+  }
+
+  .grid-bandas {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+  }
+
+  .grid-bandas label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.7rem;
+    color: #555;
+  }
+
+  .grid-bandas select {
+    padding: 4px 6px;
+    font-size: 0.75rem;
   }
 
   .btn-tool {
@@ -196,16 +260,14 @@
 
   @media (max-width: 600px) {
     .panel-flotante {
-      top: auto;
-      bottom: 20px;
-      left: 10px;
-      right: 10px;
-      width: auto;
-      max-height: 45vh;
+      width: 100%;
     }
     .panel-flotante.colapsado {
-      width: auto;
-      max-height: auto;
+      width: 56px;
+    }
+
+    .grid-bandas {
+      grid-template-columns: 1fr;
     }
   }
 </style>

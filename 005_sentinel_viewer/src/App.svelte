@@ -3,7 +3,7 @@
   import maplibregl from 'maplibre-gl';
   import PanelControles from './components/PanelControles.svelte';
   import Resultados from './components/Resultados.svelte';
-  import { searchSentinel2, getDirectCogUrl, type StacFeature } from './lib/stacApi';
+  import { searchSentinel2, STAC_COLLECTION, type StacFeature } from './lib/stacApi';
 
   import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -11,6 +11,29 @@
     ?? (window.location.hostname.includes('localhost')
       ? 'http://titiler.localhost:8001'
       : 'https://titiler.tonilogar.com');
+
+  const BANDAS_DISPONIBLES = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B11', 'B12'];
+
+  const BAND_TO_ASSET: Record<string, string> = {
+    B01: 'coastal', B02: 'blue', B03: 'green', B04: 'red',
+    B05: 'rededge1', B06: 'rededge2', B07: 'rededge3',
+    B08: 'nir', B8A: 'nir08', B09: 'nir09',
+    B11: 'swir16', B12: 'swir22',
+  };
+
+  const PRESETS = [
+    { id: 'true-color', label: 'Color Real (RGB)', type: 'rgb' as const, assets: ['red', 'green', 'blue'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'false-color', label: 'Falso Color (Urbano)', type: 'rgb' as const, assets: ['swir22', 'swir16', 'red'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'cir', label: 'Infrarrojo Color (CIR)', type: 'rgb' as const, assets: ['nir', 'red', 'green'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'agriculture', label: 'Agricultura', type: 'rgb' as const, assets: ['swir16', 'nir', 'red'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'geology', label: 'Geología', type: 'rgb' as const, assets: ['swir22', 'swir16', 'blue'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'bathymetric', label: 'Costero / Batimétrico', type: 'rgb' as const, assets: ['red', 'green', 'coastal'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'ndvi', label: 'NDVI (Vegetación)', type: 'expression' as const, assets: ['nir', 'red'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'rdylgn' },
+    { id: 'ndwi', label: 'NDWI (Agua)', type: 'expression' as const, assets: ['green', 'nir'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'blues' },
+    { id: 'ndbi', label: 'NDBI (Construcción)', type: 'expression' as const, assets: ['swir16', 'nir'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'ylorbr' },
+  ];
+
+  type BandPreset = typeof PRESETS[number];
 
   let satelite = $state("sentinel-2");
   let coberturaNubes = $state(20);
@@ -20,12 +43,27 @@
   let modoDibujo = $state(false);
 
   let resultados = $state<StacFeature[]>([]);
-  let escenaActiva = $state<StacFeature | null>(null);
+  let escenasVisibles = $state(new Set<string>());
   let cargando = $state(false);
+  let busquedaRealizada = $state(false);
+
+  let presetActivo = $state('true-color');
+  let bandasCustom = $state<[string, string, string]>(['B04', 'B03', 'B02']);
+
+  const bandConfig = $derived<BandPreset>(
+    presetActivo === 'custom'
+      ? {
+          id: 'custom', label: 'Personalizado', type: 'rgb',
+          assets: bandasCustom.map(b => BAND_TO_ASSET[b] ?? b) as [string, string, string],
+          rescale: [0, 255]
+        }
+      : PRESETS.find(p => p.id === presetActivo)!
+  );
 
   let mapContainer: HTMLElement;
   let map: maplibregl.Map;
-  let primerClick = $state<maplibregl.LngLat | null>(null);
+  let arrastrando = $state(false);
+  let inicioArrastre: { lng: number; lat: number } | null = null;
 
   const COLECTION_MAP: Record<string, string> = {
     "sentinel-2": "sentinel-2-l2a",
@@ -40,21 +78,25 @@
     });
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    map.on('click', manejarClick);
+    map.on('mousedown', onMouseDown);
+    map.on('mousemove', onMouseMove);
+    map.on('mouseup', onMouseUp);
 
     return () => map.remove();
   });
 
-  function manejarClick(e: maplibregl.MapMouseEvent) {
+  function onMouseDown(e: maplibregl.MapMouseEvent) {
     if (!modoDibujo) return;
+    if (e.originalEvent.button !== 0) return;
+    arrastrando = true;
+    inicioArrastre = { lng: e.lngLat.lng, lat: e.lngLat.lat };
+  }
 
-    if (!primerClick) {
-      primerClick = e.lngLat;
-      return;
-    }
+  function onMouseMove(e: maplibregl.MapMouseEvent) {
+    if (!modoDibujo || !arrastrando || !inicioArrastre) return;
 
-    const lng1 = primerClick.lng;
-    const lat1 = primerClick.lat;
+    const lng1 = inicioArrastre.lng;
+    const lat1 = inicioArrastre.lat;
     const lng2 = e.lngLat.lng;
     const lat2 = e.lngLat.lat;
 
@@ -66,8 +108,30 @@
     ];
 
     dibujarRectangulo();
-    primerClick = null;
+  }
+
+  function onMouseUp(e: maplibregl.MapMouseEvent) {
+    if (!modoDibujo || !arrastrando || !inicioArrastre) return;
+    if (e.originalEvent.button !== 0) return;
+
+    const lng1 = inicioArrastre.lng;
+    const lat1 = inicioArrastre.lat;
+    const lng2 = e.lngLat.lng;
+    const lat2 = e.lngLat.lat;
+
+    boundingBox = [
+      Math.min(lng1, lng2),
+      Math.min(lat1, lat2),
+      Math.max(lng1, lng2),
+      Math.max(lat1, lat2),
+    ];
+
+    dibujarRectangulo();
+    arrastrando = false;
+    inicioArrastre = null;
     modoDibujo = false;
+    map.dragPan.enable();
+    map.getCanvas().style.cursor = '';
   }
 
   function dibujarRectangulo() {
@@ -107,8 +171,13 @@
 
   function activarDibujo() {
     modoDibujo = true;
-    primerClick = null;
-    if (map) map.getCanvas().style.cursor = 'crosshair';
+    arrastrando = false;
+    inicioArrastre = null;
+    busquedaRealizada = false;
+    if (map) {
+      map.dragPan.disable();
+      map.getCanvas().style.cursor = 'crosshair';
+    }
   }
 
   async function ejecutarBusqueda() {
@@ -116,8 +185,8 @@
 
     cargando = true;
     resultados = [];
-    escenaActiva = null;
-    limpiarCapaCOG();
+    limpiarTodasLasCapas();
+    busquedaRealizada = false;
 
     const collection = COLECTION_MAP[satelite] || "sentinel-2-l2a";
 
@@ -129,69 +198,60 @@
         endDate: fechaFin,
         maxCloudCover: coberturaNubes,
       });
-
-      if (resultados.length > 0) {
-        escenaActiva = resultados[0];
-        mostrarVisual(resultados[0]);
-      }
     } catch (error) {
       console.error("Error en la búsqueda:", error);
     } finally {
       cargando = false;
+      busquedaRealizada = true;
     }
   }
 
-  function cambiarEscena(feature: StacFeature) {
-    escenaActiva = feature;
-    mostrarVisual(feature);
+  function toggleEscena(feature: StacFeature) {
+    if (escenasVisibles.has(feature.id)) {
+      escenasVisibles.delete(feature.id);
+      quitarEscena(feature);
+    } else {
+      escenasVisibles.add(feature.id);
+      agregarEscena(feature);
+    }
   }
 
-  function limpiarCapaCOG() {
+  function quitarEscena(feature: StacFeature) {
     if (!map) return;
-    const srcId = 'cog-canvas';
+    const srcId = `cog-${feature.id}`;
     if (map.getLayer(`${srcId}-layer`)) map.removeLayer(`${srcId}-layer`);
     if (map.getSource(srcId)) map.removeSource(srcId);
   }
 
-  async function mostrarVisual(feature: StacFeature) {
-    limpiarCapaCOG();
+  async function agregarEscena(feature: StacFeature) {
+    if (!map) return;
 
-    const cogUrl = getDirectCogUrl(feature, 'visual');
-    if (!cogUrl) {
-      console.warn(`No visual asset for ${feature.id}`);
-      return;
+    const srcId = `cog-${feature.id}`;
+
+    const stacItemUrl = `${STAC_COLLECTION}/items/${feature.id}`;
+    const baseUrl = `${TITILER_BASE_URL}/stac/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(stacItemUrl)}`;
+
+    let tileUrl: string;
+    if (bandConfig.type === 'rgb') {
+      const assetsStr = bandConfig.assets.map(a => `assets=${a}`).join('&');
+      tileUrl = `${baseUrl}&${assetsStr}&rescale=${bandConfig.rescale.join(',')}`;
+    } else {
+      const assetsStr = bandConfig.assets.map(a => `assets=${a}`).join('&');
+      tileUrl = `${baseUrl}&${assetsStr}&expression=${encodeURIComponent(bandConfig.expression)}&rescale=${bandConfig.rescale.join(',')}`;
+      if (bandConfig.colormap_name) {
+        tileUrl += `&colormap_name=${bandConfig.colormap_name}`;
+      }
     }
 
     let bounds: [number, number, number, number] | null = null;
-
-    try {
-      const resp = await fetch(
-        `${TITILER_BASE_URL}/cog/info.geojson?url=${encodeURIComponent(cogUrl)}`
-      );
-      if (resp.ok) {
-        const data = await resp.json();
-        const coords = data.geometry.coordinates[0] as number[][];
-        const lngs = coords.map(c => c[0]);
-        const lats = coords.map(c => c[1]);
-        bounds = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
-      }
-    } catch (e) {
-      console.warn("bounds fetch failed", e);
-    }
-
-    if (!bounds && feature.geometry?.type === 'Polygon') {
+    if (feature.geometry?.type === 'Polygon') {
       const coords = feature.geometry.coordinates[0] as number[][];
       const lngs = coords.map(c => c[0]);
       const lats = coords.map(c => c[1]);
       bounds = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
     }
 
-    const tileUrl = `${TITILER_BASE_URL}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}`
-      + `?url=${encodeURIComponent(cogUrl)}`
-      + `&bidx=1&bidx=2&bidx=3`
-      + `&rescale=0,255`;
-
-    map.addSource('cog-canvas', {
+    map.addSource(srcId, {
       type: 'raster',
       tiles: [tileUrl],
       tileSize: 512,
@@ -199,9 +259,9 @@
     });
 
     map.addLayer({
-      id: 'cog-canvas-layer',
+      id: `${srcId}-layer`,
       type: 'raster',
-      source: 'cog-canvas',
+      source: srcId,
       paint: { 'raster-opacity': 0.9 },
     });
 
@@ -209,36 +269,73 @@
       map.fitBounds(bounds, { padding: 50, maxZoom: 14 });
     }
   }
+
+  function limpiarTodasLasCapas() {
+    if (!map) return;
+    for (const id of escenasVisibles) {
+      const srcId = `cog-${id}`;
+      if (map.getLayer(`${srcId}-layer`)) map.removeLayer(`${srcId}-layer`);
+      if (map.getSource(srcId)) map.removeSource(srcId);
+    }
+    escenasVisibles = new Set();
+  }
+
+  $effect(() => {
+    const _ = bandConfig;
+    if (!map || escenasVisibles.size === 0) return;
+    const ids = [...escenasVisibles];
+    for (const id of ids) {
+      const srcId = `cog-${id}`;
+      if (map.getLayer(`${srcId}-layer`)) map.removeLayer(`${srcId}-layer`);
+      if (map.getSource(srcId)) map.removeSource(srcId);
+    }
+    for (const id of ids) {
+      const f = resultados.find(r => r.id === id);
+      if (f) agregarEscena(f);
+    }
+  });
 </script>
 
 <main class="contenedor-principal">
   <div bind:this={mapContainer} class="mapa"></div>
 
-  <PanelControles 
-    bind:satelite
-    bind:coberturaNubes
-    bind:fechaInicio
-    bind:fechaFin
-    {boundingBox}
-    onDibujarRectangulo={activarDibujo}
-    onBuscar={ejecutarBusqueda}
-  />
+  <div class="paneles-izquierda">
+    <PanelControles 
+      bind:satelite
+      bind:coberturaNubes
+      bind:fechaInicio
+      bind:fechaFin
+      {boundingBox}
+      bind:presetActivo
+      bind:bandasCustom
+      {BANDAS_DISPONIBLES}
+      onDibujarRectangulo={activarDibujo}
+      onBuscar={ejecutarBusqueda}
+    />
+
+    {#if !cargando && resultados.length > 0}
+      <div class="panel-resultados">
+        <h3>Todas ({resultados.length})</h3>
+        <Resultados 
+          features={resultados} 
+          {escenasVisibles}
+          onToggle={toggleEscena}
+        />
+      </div>
+    {/if}
+  </div>
 
   {#if modoDibujo}
-    <div class="hint-dibujo">Haz clic en dos puntos del mapa para dibujar el rectángulo</div>
+    <div class="hint-dibujo">Arrastra en el mapa para dibujar el rectángulo</div>
   {/if}
 
   {#if cargando}
     <div class="spinner-global">Buscando escenas...</div>
   {/if}
 
-  {#if !cargando && resultados.length > 0}
-    <div class="panel-resultados">
-      <h3>Todas ({resultados.length})</h3>
-      <Resultados 
-        features={resultados} 
-        onSeleccion={cambiarEscena} 
-      />
+  {#if busquedaRealizada && !cargando && resultados.length === 0}
+    <div class="aviso-sin-resultados">
+      No se encontraron imágenes con los criterios seleccionados
     </div>
   {/if}
 </main>
@@ -298,20 +395,15 @@
   }
 
   .panel-resultados {
-    position: absolute;
-    bottom: 20px;
-    left: 380px;
-    width: 340px;
-    max-height: 50vh;
-    overflow-y: auto;
     background: rgba(10, 10, 11, 0.9);
     backdrop-filter: blur(10px);
     padding: 16px;
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: #e5e7eb;
-    z-index: 10;
     font-family: system-ui, -apple-system, sans-serif;
+    overflow-y: auto;
+    max-height: 45vh;
   }
 
   .panel-resultados h3 {
@@ -320,12 +412,44 @@
     color: #9ca3af;
   }
 
+  .aviso-sin-resultados {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 10, 11, 0.92);
+    backdrop-filter: blur(10px);
+    padding: 24px 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #9ca3af;
+    font-size: 1rem;
+    font-weight: 500;
+    z-index: 10;
+    text-align: center;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+
+  .paneles-izquierda {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
   @media (max-width: 900px) {
     .panel-resultados {
+      max-height: 30vh;
+    }
+
+    .paneles-izquierda {
+      top: auto;
+      bottom: 10px;
       left: 10px;
       right: 10px;
-      width: auto;
-      bottom: 10px;
     }
   }
 </style>
