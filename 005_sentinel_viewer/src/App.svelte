@@ -198,6 +198,11 @@
         endDate: fechaFin,
         maxCloudCover: coberturaNubes,
       });
+
+      for (const r of resultados) {
+        escenasVisibles.add(r.id);
+        agregarEscena(r);
+      }
     } catch (error) {
       console.error("Error en la búsqueda:", error);
     } finally {
