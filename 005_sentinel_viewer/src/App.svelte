@@ -23,12 +23,12 @@
   };
 
   const PRESETS = [
-    { id: 'true-color', label: 'True Color (RGB)', type: 'rgb' as const, assets: ['red', 'green', 'blue'] as [string, string, string], rescale: [0, 255] as [number, number] },
-    { id: 'false-color', label: 'False Color (Urban)', type: 'rgb' as const, assets: ['swir22', 'swir16', 'red'] as [string, string, string], rescale: [0, 255] as [number, number] },
-    { id: 'cir', label: 'Color Infrared (CIR)', type: 'rgb' as const, assets: ['nir', 'red', 'green'] as [string, string, string], rescale: [0, 255] as [number, number] },
-    { id: 'agriculture', label: 'Agriculture', type: 'rgb' as const, assets: ['swir16', 'nir', 'red'] as [string, string, string], rescale: [0, 255] as [number, number] },
-    { id: 'geology', label: 'Geology', type: 'rgb' as const, assets: ['swir22', 'swir16', 'blue'] as [string, string, string], rescale: [0, 255] as [number, number] },
-    { id: 'bathymetric', label: 'Coastal / Bathymetric', type: 'rgb' as const, assets: ['red', 'green', 'coastal'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'true-color', label: 'True Color (RGB)', type: 'rgb' as const, assets: ['red', 'green', 'blue'] as [string, string, string], rescale: [0, 3000] as [number, number] },
+    { id: 'false-color', label: 'False Color (Urban)', type: 'rgb' as const, assets: ['swir22', 'swir16', 'red'] as [string, string, string], rescale: [0, 3000] as [number, number] },
+    { id: 'cir', label: 'Color Infrared (CIR)', type: 'rgb' as const, assets: ['nir', 'red', 'green'] as [string, string, string], rescale: [0, 3000] as [number, number] },
+    { id: 'agriculture', label: 'Agriculture', type: 'rgb' as const, assets: ['swir16', 'nir', 'red'] as [string, string, string], rescale: [0, 3000] as [number, number] },
+    { id: 'geology', label: 'Geology', type: 'rgb' as const, assets: ['swir22', 'swir16', 'blue'] as [string, string, string], rescale: [0, 3000] as [number, number] },
+    { id: 'bathymetric', label: 'Coastal / Bathymetric', type: 'rgb' as const, assets: ['red', 'green', 'coastal'] as [string, string, string], rescale: [0, 3000] as [number, number] },
     { id: 'ndvi', label: 'NDVI (Vegetation)', type: 'expression' as const, assets: ['nir', 'red'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'rdylgn' },
     { id: 'ndwi', label: 'NDWI (Water)', type: 'expression' as const, assets: ['green', 'nir'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'blues' },
     { id: 'ndbi', label: 'NDBI (Built-up)', type: 'expression' as const, assets: ['swir16', 'nir'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'ylorbr' },
@@ -69,7 +69,7 @@
       ? {
           id: 'custom', label: 'Custom', type: 'rgb',
           assets: bandasCustom.map(b => BAND_TO_ASSET[b] ?? b) as [string, string, string],
-          rescale: [0, 255]
+          rescale: [0, 3000] as [number, number]
         }
       : PRESETS.find(p => p.id === presetActivo)!
   );
