@@ -38,8 +38,8 @@
 
 <aside class="panel-flotante" class:colapsado>
   <div class="panel-header">
-    <h2>Visor Copernicus</h2>
-    <button class="btn-toggle" onclick={() => colapsado = !colapsado} aria-label={colapsado ? 'Expandir panel' : 'Colapsar panel'}>
+    <h2>Copernicus Viewer</h2>
+    <button class="btn-toggle" onclick={() => colapsado = !colapsado} aria-label={colapsado ? 'Expand panel' : 'Collapse panel'}>
       {colapsado ? '+' : '−'}
     </button>
   </div>
@@ -47,31 +47,31 @@
   {#if !colapsado}
     <div class="panel-body">
       <div class="control-group">
-        <label for="satelite">Satélite</label>
+        <label for="satelite">Satellite</label>
         <select id="satelite" bind:value={satelite}>
           {#each satelites as sat}
             <option value={sat.id} disabled={!sat.enabled}>
-              {sat.name} {!sat.enabled ? '(Próximamente)' : ''}
+              {sat.name} {!sat.enabled ? '(Coming soon)' : ''}
             </option>
           {/each}
         </select>
       </div>
 
       <div class="control-group">
-        <label>Zona de Interés (AOI)</label>
+        <label>Area of Interest (AOI)</label>
         <button class="btn-tool active" onclick={onDibujarRectangulo}>
-          Dibujar Rectángulo
+          Draw Rectangle
         </button>
-        <button class="btn-tool disabled" disabled>Municipios (PMTiles)</button>
-        <button class="btn-tool disabled" disabled>Subir SHP</button>
+        <button class="btn-tool disabled" disabled>Municipalities (PMTiles)</button>
+        <button class="btn-tool disabled" disabled>Upload SHP</button>
 
         {#if boundingBox}
-          <div class="bbox-tag">Área seleccionada ✓</div>
+          <div class="bbox-tag">Area selected ✓</div>
         {/if}
       </div>
 
       <div class="control-group">
-        <label>Rango de Fechas</label>
+        <label>Date Range</label>
         <div class="grid-dates">
           <input type="date" bind:value={fechaInicio} />
           <input type="date" bind:value={fechaFin} min={fechaInicio} />
@@ -79,35 +79,35 @@
       </div>
 
       <div class="control-group">
-        <label>Nubes máxima: {coberturaNubes}%</label>
+        <label>Max Cloud Cover: {coberturaNubes}%</label>
         <input type="range" min="0" max="100" bind:value={coberturaNubes} />
       </div>
 
       <div class="control-group">
-        <label>Límite de Imágenes</label>
+        <label>Image Limit</label>
         <select bind:value={maxResults}>
-          <option value="all">Todas</option>
-          <option value={20}>Máximo 20</option>
-          <option value={50}>Máximo 50</option>
-          <option value={100}>Máximo 100</option>
+          <option value="all">All</option>
+          <option value={20}>Max 20</option>
+          <option value={50}>Max 50</option>
+          <option value={100}>Max 100</option>
         </select>
       </div>
 
       <div class="control-group">
-        <label>Combinación de Bandas</label>
+        <label>Band Combination</label>
         <select bind:value={presetActivo}>
-          <option value="true-color">Color Real (RGB)</option>
-          <option value="false-color">Falso Color (Urbano)</option>
-          <option value="cir">Infrarrojo Color (CIR)</option>
-          <option value="agriculture">Agricultura</option>
-          <option value="geology">Geología</option>
-          <option value="bathymetric">Costero / Batimétrico</option>
+          <option value="true-color">True Color (RGB)</option>
+          <option value="false-color">False Color (Urban)</option>
+          <option value="cir">Color Infrared (CIR)</option>
+          <option value="agriculture">Agriculture</option>
+          <option value="geology">Geology</option>
+          <option value="bathymetric">Coastal / Bathymetric</option>
           <option disabled>──────────</option>
-          <option value="ndvi">NDVI (Vegetación)</option>
-          <option value="ndwi">NDWI (Agua)</option>
-          <option value="ndbi">NDBI (Construcción)</option>
+          <option value="ndvi">NDVI (Vegetation)</option>
+          <option value="ndwi">NDWI (Water)</option>
+          <option value="ndbi">NDBI (Built-up)</option>
           <option disabled>──────────</option>
-          <option value="custom">Personalizado...</option>
+          <option value="custom">Custom...</option>
         </select>
         {#if presetActivo === 'custom'}
           <div class="grid-bandas">

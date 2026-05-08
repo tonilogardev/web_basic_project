@@ -15,7 +15,7 @@
 </script>
 
 {#if features.length === 0}
-  <p class="empty">No hay escenas disponibles.</p>
+  <p class="empty">No images available.</p>
 {:else}
   <ul class="lista">
     {#each features as feature (feature.id)}
@@ -23,7 +23,7 @@
         <div class="info">
           <span class="id">{feature.id}</span>
           <span class="meta">
-            {formatDate(feature.properties.datetime)} · {feature.properties["eo:cloud_cover"]}% nubes
+            {formatDate(feature.properties.datetime)} · {feature.properties["eo:cloud_cover"]}% cloud cover
           </span>
         </div>
         <label class="check-label">
@@ -32,7 +32,7 @@
             checked={escenasVisibles.has(feature.id)}
             onchange={() => onToggle?.(feature)}
           />
-          Ver
+          View
         </label>
       </li>
     {/each}

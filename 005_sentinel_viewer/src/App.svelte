@@ -23,15 +23,15 @@
   };
 
   const PRESETS = [
-    { id: 'true-color', label: 'Color Real (RGB)', type: 'rgb' as const, assets: ['red', 'green', 'blue'] as [string, string, string], rescale: [0, 255] as [number, number] },
-    { id: 'false-color', label: 'Falso Color (Urbano)', type: 'rgb' as const, assets: ['swir22', 'swir16', 'red'] as [string, string, string], rescale: [0, 255] as [number, number] },
-    { id: 'cir', label: 'Infrarrojo Color (CIR)', type: 'rgb' as const, assets: ['nir', 'red', 'green'] as [string, string, string], rescale: [0, 255] as [number, number] },
-    { id: 'agriculture', label: 'Agricultura', type: 'rgb' as const, assets: ['swir16', 'nir', 'red'] as [string, string, string], rescale: [0, 255] as [number, number] },
-    { id: 'geology', label: 'Geología', type: 'rgb' as const, assets: ['swir22', 'swir16', 'blue'] as [string, string, string], rescale: [0, 255] as [number, number] },
-    { id: 'bathymetric', label: 'Costero / Batimétrico', type: 'rgb' as const, assets: ['red', 'green', 'coastal'] as [string, string, string], rescale: [0, 255] as [number, number] },
-    { id: 'ndvi', label: 'NDVI (Vegetación)', type: 'expression' as const, assets: ['nir', 'red'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'rdylgn' },
-    { id: 'ndwi', label: 'NDWI (Agua)', type: 'expression' as const, assets: ['green', 'nir'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'blues' },
-    { id: 'ndbi', label: 'NDBI (Construcción)', type: 'expression' as const, assets: ['swir16', 'nir'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'ylorbr' },
+    { id: 'true-color', label: 'True Color (RGB)', type: 'rgb' as const, assets: ['red', 'green', 'blue'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'false-color', label: 'False Color (Urban)', type: 'rgb' as const, assets: ['swir22', 'swir16', 'red'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'cir', label: 'Color Infrared (CIR)', type: 'rgb' as const, assets: ['nir', 'red', 'green'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'agriculture', label: 'Agriculture', type: 'rgb' as const, assets: ['swir16', 'nir', 'red'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'geology', label: 'Geology', type: 'rgb' as const, assets: ['swir22', 'swir16', 'blue'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'bathymetric', label: 'Coastal / Bathymetric', type: 'rgb' as const, assets: ['red', 'green', 'coastal'] as [string, string, string], rescale: [0, 255] as [number, number] },
+    { id: 'ndvi', label: 'NDVI (Vegetation)', type: 'expression' as const, assets: ['nir', 'red'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'rdylgn' },
+    { id: 'ndwi', label: 'NDWI (Water)', type: 'expression' as const, assets: ['green', 'nir'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'blues' },
+    { id: 'ndbi', label: 'NDBI (Built-up)', type: 'expression' as const, assets: ['swir16', 'nir'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'ylorbr' },
   ];
 
   type BandPreset = typeof PRESETS[number];
@@ -67,7 +67,7 @@
   const bandConfig = $derived<BandPreset>(
     presetActivo === 'custom'
       ? {
-          id: 'custom', label: 'Personalizado', type: 'rgb',
+          id: 'custom', label: 'Custom', type: 'rgb',
           assets: bandasCustom.map(b => BAND_TO_ASSET[b] ?? b) as [string, string, string],
           rescale: [0, 255]
         }
@@ -408,13 +408,13 @@
       <div class="panel-resultados" class:colapsado={resultadosColapsado}>
         <div class="panel-header">
           <div class="header-left">
-            <h3>Resultados ({resultados.length})</h3>
+            <h3>Results ({resultados.length})</h3>
             <label class="check-all">
               <input type="checkbox" checked={escenasVisibles.size === resultados.length} onchange={toggleTodas} />
-              Ver todas
+              View all
             </label>
           </div>
-          <button class="btn-toggle" onclick={() => resultadosColapsado = !resultadosColapsado} aria-label={resultadosColapsado ? 'Expandir panel' : 'Colapsar panel'}>
+          <button class="btn-toggle" onclick={() => resultadosColapsado = !resultadosColapsado} aria-label={resultadosColapsado ? 'Expand panel' : 'Collapse panel'}>
             {resultadosColapsado ? '+' : '−'}
           </button>
         </div>
@@ -432,7 +432,7 @@
   </div>
 
   {#if modoDibujo}
-    <div class="hint-dibujo">Arrastra en el mapa para dibujar el rectángulo</div>
+    <div class="hint-dibujo">Drag on the map to draw the bounding box</div>
   {/if}
 
   {#if cargando || cargaInicialPendiente}
@@ -453,7 +453,7 @@
 
   {#if busquedaRealizada && !cargando && resultados.length === 0}
     <div class="aviso-sin-resultados">
-      No se encontraron imágenes con los criterios seleccionados
+      No images found matching the selected criteria
     </div>
   {/if}
 </main>

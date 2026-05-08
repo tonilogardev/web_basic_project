@@ -53,7 +53,7 @@
       type="text" 
       bind:value={query} 
       oninput={onInput}
-      placeholder="Buscar ciudad o lugar..."
+      placeholder="Search city or place..."
     />
     {#if buscando}
       <div class="spinner"></div>
