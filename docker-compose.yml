@@ -95,6 +95,22 @@ services:
     networks:
       - traefik-net
 
+  water-quality-api:
+    container_name: water_quality_api
+    build:
+      context: ./008_water_quality_api
+      dockerfile: Dockerfile
+    restart: always
+    expose:
+      - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.waterapi.rule=Host(`water-api.${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.waterapi.entrypoints=web,websecure"
+      - "traefik.http.services.waterapi.loadbalancer.server.port=8000"
+    networks:
+      - traefik-net
+
 networks:
   traefik-net:
     driver: bridge

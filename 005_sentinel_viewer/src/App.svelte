@@ -5,6 +5,7 @@
   import Resultados from './components/Resultados.svelte';
   import Buscador from './components/Buscador.svelte';
   import Toasts from './components/Toasts.svelte';
+  import Legend from './components/Legend.svelte';
   import { searchSentinel2 } from './lib/stacApi';
   import { store } from './lib/store.svelte';
 
@@ -130,6 +131,10 @@
 
   {#if store.modoDibujo}
     <div class="hint-dibujo">Drag on the map to draw the bounding box</div>
+  {/if}
+
+  {#if store.bandConfig.id === 'water-quality'}
+    <Legend />
   {/if}
 
   <Toasts />

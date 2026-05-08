@@ -1,6 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import type { StacFeature } from './stacApi';
-import { getTitilerBboxUrl } from './titilerApi';
+import { getTitilerUrlAsync } from './titilerApi';
 import { store } from './store.svelte';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -131,25 +131,42 @@ export class MapManager {
     }
   }
 
-  public agregarEscena(feature: StacFeature) {
+  public async agregarEscena(feature: StacFeature) {
     const srcId = `cog-${feature.id}`;
     if (this.map.getSource(srcId)) return;
 
-    const { url, coordinates } = getTitilerBboxUrl(feature, store.bandConfig, store.boundingBox);
+    try {
+      if (store.bandConfig.type === 'external_api') {
+        store.cargando = true;
+        store.progresoCarga = 50;
+      }
 
-    this.map.addSource(srcId, {
-      type: 'image',
-      url,
-      coordinates: coordinates as any
-    });
+      const { url, coordinates } = await getTitilerUrlAsync(feature, store.bandConfig, store.boundingBox);
 
-    const beforeId = this.map.getLayer('bbox-layer') ? 'bbox-layer' : undefined;
-    this.map.addLayer({
-      id: `${srcId}-layer`,
-      type: 'raster',
-      source: srcId,
-      paint: { 'raster-opacity': 0.9 },
-    }, beforeId);
+      if (store.bandConfig.type === 'external_api') {
+        store.progresoCarga = 100;
+        setTimeout(() => { store.cargando = false; store.progresoCarga = 0; }, 500);
+      }
+
+      this.map.addSource(srcId, {
+        type: 'image',
+        url,
+        coordinates: coordinates as any
+      });
+
+      const beforeId = this.map.getLayer('bbox-layer') ? 'bbox-layer' : undefined;
+      this.map.addLayer({
+        id: `${srcId}-layer`,
+        type: 'raster',
+        source: srcId,
+        paint: { 'raster-opacity': 0.9 },
+      }, beforeId);
+    } catch (error) {
+      console.error("Error adding scene:", error);
+      store.cargando = false;
+      store.progresoCarga = 0;
+      alert("Error analyzing water quality. Ensure Python backend is running.");
+    }
   }
 
   public quitarEscena(featureId: string) {
