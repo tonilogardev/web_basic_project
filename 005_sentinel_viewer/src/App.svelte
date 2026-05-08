@@ -3,6 +3,7 @@
   import maplibregl from 'maplibre-gl';
   import PanelControles from './components/PanelControles.svelte';
   import Resultados from './components/Resultados.svelte';
+  import Buscador from './components/Buscador.svelte';
   import { searchSentinel2, STAC_COLLECTION, type StacFeature } from './lib/stacApi';
 
   import 'maplibre-gl/dist/maplibre-gl.css';
@@ -37,6 +38,7 @@
 
   let satelite = $state("sentinel-2");
   let coberturaNubes = $state(20);
+  let maxResults = $state<number | 'all'>('all');
   let fechaInicio = $state("");
   let fechaFin = $state("");
   let boundingBox = $state<number[] | null>(null);
@@ -46,6 +48,18 @@
   let escenasVisibles = $state(new Set<string>());
   let cargando = $state(false);
   let busquedaRealizada = $state(false);
+  let resultadosColapsado = $state(false);
+
+  let cargaInicialPendiente = $state(false);
+  let progresoCarga = $state(0);
+  let mensajeExito = $state("");
+
+  function mostrarMensajeExito(msg: string) {
+    mensajeExito = msg;
+    setTimeout(() => {
+      mensajeExito = "";
+    }, 3500);
+  }
 
   let presetActivo = $state('true-color');
   let bandasCustom = $state<[string, string, string]>(['B04', 'B03', 'B02']);
@@ -81,6 +95,15 @@
     map.on('mousedown', onMouseDown);
     map.on('mousemove', onMouseMove);
     map.on('mouseup', onMouseUp);
+
+    map.on('idle', () => {
+      if (cargaInicialPendiente) {
+        cargaInicialPendiente = false;
+        progresoCarga = 100;
+        mostrarMensajeExito("All uploaded images");
+        setTimeout(() => { progresoCarga = 0; }, 500);
+      }
+    });
 
     return () => map.remove();
   });
@@ -162,11 +185,24 @@
       type: 'line',
       source: 'bbox-source',
       paint: {
-        'line-color': '#4ade80',
+        'line-color': '#ff0000',
         'line-width': 2,
-        'line-dasharray': [2, 2],
       },
     });
+  }
+
+  function irALugar(lugar: any) {
+    if (!map) return;
+    const { boundingbox, lat, lon } = lugar;
+    if (boundingbox) {
+      const [latMin, latMax, lonMin, lonMax] = boundingbox.map(Number);
+      map.fitBounds([
+        [lonMin, latMin],
+        [lonMax, latMax]
+      ], { padding: 50, duration: 1500 });
+    } else {
+      map.flyTo({ center: [Number(lon), Number(lat)], zoom: 12, duration: 1500 });
+    }
   }
 
   function activarDibujo() {
@@ -184,6 +220,7 @@
     if (!boundingBox || !fechaInicio || !fechaFin) return;
 
     cargando = true;
+    progresoCarga = 10;
     resultados = [];
     limpiarTodasLasCapas();
     busquedaRealizada = false;
@@ -191,34 +228,48 @@
     const collection = COLECTION_MAP[satelite] || "sentinel-2-l2a";
 
     try {
+      progresoCarga = 40;
       resultados = await searchSentinel2({
         collection,
         bbox: boundingBox,
         startDate: fechaInicio,
         endDate: fechaFin,
         maxCloudCover: coberturaNubes,
+        maxResults: maxResults === 'all' ? 10000 : maxResults,
       });
 
+      progresoCarga = 70;
+
+      const nuevasVisibles = new Set<string>();
       for (const r of resultados) {
-        escenasVisibles.add(r.id);
+        nuevasVisibles.add(r.id);
         agregarEscena(r);
       }
+      escenasVisibles = nuevasVisibles;
     } catch (error) {
       console.error("Error en la búsqueda:", error);
     } finally {
       cargando = false;
       busquedaRealizada = true;
+      if (resultados.length > 0) {
+        cargaInicialPendiente = true;
+        progresoCarga = 85;
+      } else {
+        progresoCarga = 0;
+      }
     }
   }
 
   function toggleEscena(feature: StacFeature) {
-    if (escenasVisibles.has(feature.id)) {
-      escenasVisibles.delete(feature.id);
+    const nuevaSet = new Set(escenasVisibles);
+    if (nuevaSet.has(feature.id)) {
+      nuevaSet.delete(feature.id);
       quitarEscena(feature);
     } else {
-      escenasVisibles.add(feature.id);
+      nuevaSet.add(feature.id);
       agregarEscena(feature);
     }
+    escenasVisibles = nuevaSet;
   }
 
   function quitarEscena(feature: StacFeature) {
@@ -263,12 +314,13 @@
       ...(bounds ? { bounds } : {}),
     });
 
+    const beforeId = map.getLayer('bbox-layer') ? 'bbox-layer' : undefined;
     map.addLayer({
       id: `${srcId}-layer`,
       type: 'raster',
       source: srcId,
       paint: { 'raster-opacity': 0.9 },
-    });
+    }, beforeId);
 
     if (bounds) {
       map.fitBounds(bounds, { padding: 50, maxZoom: 14 });
@@ -283,6 +335,22 @@
       if (map.getSource(srcId)) map.removeSource(srcId);
     }
     escenasVisibles = new Set();
+  }
+
+  function toggleTodas(e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    if (checked) {
+      const nuevaSet = new Set(escenasVisibles);
+      for (const r of resultados) {
+        if (!nuevaSet.has(r.id)) {
+          nuevaSet.add(r.id);
+          agregarEscena(r);
+        }
+      }
+      escenasVisibles = nuevaSet;
+    } else {
+      limpiarTodasLasCapas();
+    }
   }
 
   $effect(() => {
@@ -304,10 +372,13 @@
 <main class="contenedor-principal">
   <div bind:this={mapContainer} class="mapa"></div>
 
+  <Buscador onLugarSeleccionado={irALugar} />
+
   <div class="paneles-izquierda">
     <PanelControles 
       bind:satelite
       bind:coberturaNubes
+      bind:maxResults
       bind:fechaInicio
       bind:fechaFin
       {boundingBox}
@@ -319,13 +390,28 @@
     />
 
     {#if !cargando && resultados.length > 0}
-      <div class="panel-resultados">
-        <h3>Todas ({resultados.length})</h3>
-        <Resultados 
-          features={resultados} 
-          {escenasVisibles}
-          onToggle={toggleEscena}
-        />
+      <div class="panel-resultados" class:colapsado={resultadosColapsado}>
+        <div class="panel-header">
+          <div class="header-left">
+            <h3>Resultados ({resultados.length})</h3>
+            <label class="check-all">
+              <input type="checkbox" checked={escenasVisibles.size === resultados.length} onchange={toggleTodas} />
+              Ver todas
+            </label>
+          </div>
+          <button class="btn-toggle" onclick={() => resultadosColapsado = !resultadosColapsado} aria-label={resultadosColapsado ? 'Expandir panel' : 'Colapsar panel'}>
+            {resultadosColapsado ? '+' : '−'}
+          </button>
+        </div>
+        {#if !resultadosColapsado}
+          <div class="panel-body">
+            <Resultados 
+              features={resultados} 
+              {escenasVisibles}
+              onToggle={toggleEscena}
+            />
+          </div>
+        {/if}
       </div>
     {/if}
   </div>
@@ -334,8 +420,20 @@
     <div class="hint-dibujo">Arrastra en el mapa para dibujar el rectángulo</div>
   {/if}
 
-  {#if cargando}
-    <div class="spinner-global">Buscando escenas...</div>
+  {#if cargando || cargaInicialPendiente}
+    <div class="toast-loading">
+      <div class="loader-spinner"></div>
+      <div class="toast-content">
+        <span>Loading ...</span>
+        <div class="progress-bg"><div class="progress-fill" style="width: {progresoCarga}%"></div></div>
+      </div>
+    </div>
+  {/if}
+
+  {#if mensajeExito}
+    <div class="toast-success">
+      ✓ {mensajeExito}
+    </div>
   {/if}
 
   {#if busquedaRealizada && !cargando && resultados.length === 0}
@@ -384,37 +482,158 @@
     font-family: system-ui, -apple-system, sans-serif;
   }
 
-  .spinner-global {
+  .toast-loading, .toast-success {
     position: absolute;
-    top: 20px;
+    bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
     background: rgba(10, 10, 11, 0.9);
-    color: #9ca3af;
+    backdrop-filter: blur(10px);
     padding: 12px 24px;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    z-index: 100;
-    font-family: system-ui, -apple-system, sans-serif;
+    border-radius: 8px;
+    color: white;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    font-family: system-ui, sans-serif;
+    animation: slideUp 0.3s ease;
   }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translate(-50%, 20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+
+  .toast-success {
+    border-color: #4ade80;
+    color: #4ade80;
+    font-weight: 600;
+  }
+
+  .toast-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .toast-content span {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #e5e7eb;
+  }
+
+  .progress-bg {
+    width: 120px;
+    height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: #2196f3;
+    transition: width 0.3s ease;
+  }
+
+  .loader-spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .panel-resultados {
     background: rgba(10, 10, 11, 0.9);
     backdrop-filter: blur(10px);
-    padding: 16px;
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: #e5e7eb;
     font-family: system-ui, -apple-system, sans-serif;
-    overflow-y: auto;
-    max-height: 45vh;
+    display: flex;
+    flex-direction: column;
+    width: 320px;
+    transition: width 0.25s ease;
+    min-height: 0;
+  }
+
+  .panel-resultados.colapsado {
+    width: 56px;
+  }
+
+  .panel-resultados .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .panel-resultados .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
 
   .panel-resultados h3 {
-    margin: 0 0 12px 0;
+    margin: 0;
     font-size: 0.95rem;
     color: #9ca3af;
+    white-space: nowrap;
+  }
+
+  .panel-resultados .check-all {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: #e5e7eb;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .panel-resultados .check-all input {
+    accent-color: #0ea5e9;
+    cursor: pointer;
+    margin: 0;
+  }
+
+  .panel-resultados.colapsado .header-left {
+    display: none;
+  }
+
+  .panel-resultados .btn-toggle {
+    width: 28px;
+    height: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-weight: 700;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #e5e7eb;
+    flex-shrink: 0;
+  }
+
+  .panel-resultados .btn-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+  }
+
+  .panel-resultados .panel-body {
+    padding: 0 16px 16px;
+    overflow-y: auto;
   }
 
   .aviso-sin-resultados {
@@ -442,12 +661,17 @@
     z-index: 10;
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: 12px;
+    max-height: calc(100vh - 40px);
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 600px) {
     .panel-resultados {
-      max-height: 30vh;
+      width: 100%;
+    }
+    .panel-resultados.colapsado {
+      width: 56px;
     }
 
     .paneles-izquierda {
@@ -455,6 +679,11 @@
       bottom: 10px;
       left: 10px;
       right: 10px;
+      max-height: calc(100vh - 80px);
+    }
+
+    .panel-resultados .panel-body {
+      max-height: 35vh;
     }
   }
 </style>

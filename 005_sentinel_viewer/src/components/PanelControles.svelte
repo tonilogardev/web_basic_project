@@ -2,6 +2,7 @@
   interface Props {
     satelite?: string;
     coberturaNubes?: number;
+    maxResults?: number | 'all';
     fechaInicio?: string;
     fechaFin?: string;
     boundingBox?: number[] | null;
@@ -15,6 +16,7 @@
   let {
     satelite = $bindable(),
     coberturaNubes = $bindable(),
+    maxResults = $bindable(),
     fechaInicio = $bindable(),
     fechaFin = $bindable(),
     boundingBox,
@@ -79,6 +81,16 @@
       <div class="control-group">
         <label>Nubes máxima: {coberturaNubes}%</label>
         <input type="range" min="0" max="100" bind:value={coberturaNubes} />
+      </div>
+
+      <div class="control-group">
+        <label>Límite de Imágenes</label>
+        <select bind:value={maxResults}>
+          <option value="all">Todas</option>
+          <option value={20}>Máximo 20</option>
+          <option value={50}>Máximo 50</option>
+          <option value={100}>Máximo 100</option>
+        </select>
       </div>
 
       <div class="control-group">
