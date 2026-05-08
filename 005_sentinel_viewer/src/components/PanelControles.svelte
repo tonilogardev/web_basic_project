@@ -1,31 +1,12 @@
 <script lang="ts">
+  import { store, BANDAS_DISPONIBLES, PRESETS } from '../lib/store.svelte';
+
   interface Props {
-    satelite?: string;
-    coberturaNubes?: number;
-    maxResults?: number | 'all';
-    fechaInicio?: string;
-    fechaFin?: string;
-    boundingBox?: number[] | null;
-    presetActivo?: string;
-    bandasCustom?: [string, string, string];
-    BANDAS_DISPONIBLES?: string[];
     onDibujarRectangulo?: () => void;
     onBuscar?: () => void;
   }
 
-  let {
-    satelite = $bindable(),
-    coberturaNubes = $bindable(),
-    maxResults = $bindable(),
-    fechaInicio = $bindable(),
-    fechaFin = $bindable(),
-    boundingBox,
-    presetActivo = $bindable(),
-    bandasCustom = $bindable(),
-    BANDAS_DISPONIBLES = [],
-    onDibujarRectangulo,
-    onBuscar
-  } = $props();
+  let { onDibujarRectangulo, onBuscar }: Props = $props();
 
   let colapsado = $state(false);
 
@@ -34,6 +15,12 @@
     { id: "sentinel-2", name: "Sentinel-2", enabled: true },
     { id: "sentinel-3", name: "Sentinel-3", enabled: false }
   ];
+
+  function updateCustomBand(index: number, val: string) {
+    const arr = [...store.bandasCustom];
+    arr[index] = val;
+    store.bandasCustom = arr as [string, string, string];
+  }
 </script>
 
 <aside class="panel-flotante" class:colapsado>
@@ -48,7 +35,7 @@
     <div class="panel-body">
       <div class="control-group">
         <label for="satelite">Satellite</label>
-        <select id="satelite" bind:value={satelite}>
+        <select id="satelite" bind:value={store.satelite}>
           {#each satelites as sat}
             <option value={sat.id} disabled={!sat.enabled}>
               {sat.name} {!sat.enabled ? '(Coming soon)' : ''}
@@ -59,13 +46,13 @@
 
       <div class="control-group">
         <label>Area of Interest (AOI)</label>
-        <button class="btn-tool active" onclick={onDibujarRectangulo}>
+        <button class="btn-tool" class:active={store.modoDibujo} onclick={onDibujarRectangulo}>
           Draw Rectangle
         </button>
         <button class="btn-tool disabled" disabled>Municipalities (PMTiles)</button>
         <button class="btn-tool disabled" disabled>Upload SHP</button>
 
-        {#if boundingBox}
+        {#if store.boundingBox}
           <div class="bbox-tag">Area selected ✓</div>
         {/if}
       </div>
@@ -73,19 +60,19 @@
       <div class="control-group">
         <label>Date Range</label>
         <div class="grid-dates">
-          <input type="date" bind:value={fechaInicio} />
-          <input type="date" bind:value={fechaFin} min={fechaInicio} />
+          <input type="date" bind:value={store.fechaInicio} />
+          <input type="date" bind:value={store.fechaFin} min={store.fechaInicio} />
         </div>
       </div>
 
       <div class="control-group">
-        <label>Max Cloud Cover: {coberturaNubes}%</label>
-        <input type="range" min="0" max="100" bind:value={coberturaNubes} />
+        <label>Max Cloud Cover: {store.coberturaNubes}%</label>
+        <input type="range" min="0" max="100" bind:value={store.coberturaNubes} />
       </div>
 
       <div class="control-group">
         <label>Image Limit</label>
-        <select bind:value={maxResults}>
+        <select bind:value={store.maxResults}>
           <option value="all">All</option>
           <option value={20}>Max 20</option>
           <option value={50}>Max 50</option>
@@ -95,29 +82,22 @@
 
       <div class="control-group">
         <label>Band Combination</label>
-        <select bind:value={presetActivo}>
-          <option value="true-color">True Color (RGB)</option>
-          <option value="false-color">False Color (Urban)</option>
-          <option value="cir">Color Infrared (CIR)</option>
-          <option value="agriculture">Agriculture</option>
-          <option value="geology">Geology</option>
-          <option value="bathymetric">Coastal / Bathymetric</option>
-          <option disabled>──────────</option>
-          <option value="ndvi">NDVI (Vegetation)</option>
-          <option value="ndwi">NDWI (Water)</option>
-          <option value="ndbi">NDBI (Built-up)</option>
+        <select bind:value={store.presetActivo}>
+          {#each PRESETS as p}
+            <option value={p.id}>{p.label}</option>
+          {/each}
           <option disabled>──────────</option>
           <option value="custom">Custom...</option>
         </select>
-        {#if presetActivo === 'custom'}
+        {#if store.presetActivo === 'custom'}
           <div class="grid-bandas">
-            <label>R <select bind:value={bandasCustom[0]}>
+            <label>R <select value={store.bandasCustom[0]} onchange={(e) => updateCustomBand(0, e.currentTarget.value)}>
               {#each BANDAS_DISPONIBLES as b}<option value={b}>{b}</option>{/each}
             </select></label>
-            <label>G <select bind:value={bandasCustom[1]}>
+            <label>G <select value={store.bandasCustom[1]} onchange={(e) => updateCustomBand(1, e.currentTarget.value)}>
               {#each BANDAS_DISPONIBLES as b}<option value={b}>{b}</option>{/each}
             </select></label>
-            <label>B <select bind:value={bandasCustom[2]}>
+            <label>B <select value={store.bandasCustom[2]} onchange={(e) => updateCustomBand(2, e.currentTarget.value)}>
               {#each BANDAS_DISPONIBLES as b}<option value={b}>{b}</option>{/each}
             </select></label>
           </div>
@@ -126,7 +106,7 @@
 
       <button 
         class="btn-buscar" 
-        disabled={!boundingBox || !fechaInicio || !fechaFin}
+        disabled={!store.boundingBox || !store.fechaInicio || !store.fechaFin || store.cargando}
         onclick={onBuscar}
       >
         Show the images
@@ -253,11 +233,14 @@
   }
 
   .btn-tool {
-    padding: 10px; border: 1px solid #ddd; border-radius: 4px;
-    cursor: pointer; text-align: left; background: #fff; font-size: 0.85rem;
+    padding: 10px; border: none; border-radius: 6px;
+    cursor: pointer; text-align: center; background: #2196f3; font-size: 0.85rem;
+    font-weight: 700; color: white; transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(33, 150, 243, 0.4);
   }
-  .btn-tool.active { border-color: #2196f3; color: #2196f3; font-weight: 600; }
-  .btn-tool.disabled { background: #f9f9f9; color: #aaa; border-style: dashed; cursor: not-allowed; }
+  .btn-tool:hover { background: #1976d2; box-shadow: 0 4px 10px rgba(33, 150, 243, 0.5); }
+  .btn-tool.active { background: #0d47a1; box-shadow: inset 0 3px 6px rgba(0,0,0,0.3); }
+  .btn-tool.disabled { background: #f9f9f9; color: #aaa; border: 1px dashed #ccc; cursor: not-allowed; box-shadow: none; font-weight: 400; }
 
   .btn-buscar {
     margin-top: 4px; padding: 12px; background: #2196f3; color: white;
