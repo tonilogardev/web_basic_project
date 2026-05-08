@@ -282,36 +282,51 @@
   async function agregarEscena(feature: StacFeature) {
     if (!map) return;
 
-    const srcId = `cog-${feature.id}`;
+    const { id, bbox } = feature;
+    const srcId = `cog-${id}`;
 
-    const stacItemUrl = `${STAC_COLLECTION}/items/${feature.id}`;
-    const baseUrl = `${TITILER_BASE_URL}/stac/tiles/WebMercatorQuad/{z}/{x}/{y}?url=${encodeURIComponent(stacItemUrl)}`;
+    if (map.getSource(srcId)) return;
 
-    let tileUrl: string;
-    if (bandConfig.type === 'rgb') {
-      const assetsStr = bandConfig.assets.map(a => `assets=${a}`).join('&');
-      tileUrl = `${baseUrl}&${assetsStr}&rescale=${bandConfig.rescale.join(',')}`;
-    } else {
-      const assetsStr = bandConfig.assets.map(a => `assets=${a}`).join('&');
-      tileUrl = `${baseUrl}&${assetsStr}&expression=${encodeURIComponent(bandConfig.expression)}&rescale=${bandConfig.rescale.join(',')}`;
-      if (bandConfig.colormap_name) {
-        tileUrl += `&colormap_name=${bandConfig.colormap_name}`;
+    // Recortar las teselas visualmente al recuadro del usuario
+    let layerBounds = bbox;
+    if (boundingBox) {
+      layerBounds = [
+        Math.max(bbox[0], boundingBox[0]),
+        Math.max(bbox[1], boundingBox[1]),
+        Math.min(bbox[2], boundingBox[2]),
+        Math.min(bbox[3], boundingBox[3])
+      ];
+      // Salvaguarda: si por algún motivo no hay intersección, usamos el bbox de la imagen
+      if (layerBounds[0] > layerBounds[2] || layerBounds[1] > layerBounds[3]) {
+        layerBounds = bbox;
       }
     }
 
-    let bounds: [number, number, number, number] | null = null;
-    if (feature.geometry?.type === 'Polygon') {
-      const coords = feature.geometry.coordinates[0] as number[][];
-      const lngs = coords.map(c => c[0]);
-      const lats = coords.map(c => c[1]);
-      bounds = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+    const stacItemUrl = `${STAC_COLLECTION}/items/${feature.id}`;
+    const bboxStr = layerBounds.join(',');
+    const baseUrl = `${TITILER_BASE_URL}/stac/bbox/${bboxStr}.png?url=${encodeURIComponent(stacItemUrl)}`;
+
+    let imageUrl: string;
+    if (bandConfig.type === 'rgb') {
+      const assetsStr = bandConfig.assets.map(a => `assets=${a}`).join('&');
+      imageUrl = `${baseUrl}&${assetsStr}&rescale=${bandConfig.rescale.join(',')}&max_size=2048`;
+    } else {
+      const assetsStr = bandConfig.assets.map(a => `assets=${a}`).join('&');
+      imageUrl = `${baseUrl}&${assetsStr}&expression=${encodeURIComponent(bandConfig.expression)}&rescale=${bandConfig.rescale.join(',')}&max_size=2048`;
+      if (bandConfig.colormap_name) {
+        imageUrl += `&colormap_name=${bandConfig.colormap_name}`;
+      }
     }
 
     map.addSource(srcId, {
-      type: 'raster',
-      tiles: [tileUrl],
-      tileSize: 512,
-      ...(bounds ? { bounds } : {}),
+      type: 'image',
+      url: imageUrl,
+      coordinates: [
+        [layerBounds[0], layerBounds[3]], // Top-Left
+        [layerBounds[2], layerBounds[3]], // Top-Right
+        [layerBounds[2], layerBounds[1]], // Bottom-Right
+        [layerBounds[0], layerBounds[1]]  // Bottom-Left
+      ]
     });
 
     const beforeId = map.getLayer('bbox-layer') ? 'bbox-layer' : undefined;
