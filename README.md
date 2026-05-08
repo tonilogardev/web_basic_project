@@ -1,6 +1,6 @@
 # basic_server
 basic_server
-## Index
+## Index 
 
 1.  [Requirements](#1-requirements)
 2.  [Goals](#2-goals)
