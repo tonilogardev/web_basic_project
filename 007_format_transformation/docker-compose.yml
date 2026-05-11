@@ -24,3 +24,13 @@ services:
     volumes:
       - ./output:/workspace/output
     working_dir: /workspace
+
+  copernicus_api:
+    image: python:3.10-slim
+    container_name: copernicus_api
+    volumes:
+      - ./scripts:/workspace/scripts
+      - ./output:/workspace/output
+    working_dir: /workspace/scripts
+    command: >
+      bash -c "pip install -r requirements.txt && python3 work_API_copernicus.py"

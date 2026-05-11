@@ -17,19 +17,23 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(script_dir, ".env"))
 
 # --- Read variables ---
-coords_str = os.getenv("COORDINATES", "").strip()
-start_date = os.getenv("START_DATE", "").strip()
-end_date = os.getenv("END_DATE", "").strip()
-collection = os.getenv("L1C_L2A", "sentinel-2-l2a").strip()
-max_cloud = float(os.getenv("MAX_CLOUD_COVER", "50"))
-max_results = int(os.getenv("MAX_RESULTS", "100"))
+coords_str = os.getenv("SEARCH_BBOX", "").strip()
+start_date = os.getenv("SEARCH_START_DATE", "").strip()
+end_date = os.getenv("SEARCH_END_DATE", "").strip()
+
+# Map CDSE product type to AWS Earth Search collection name
+product_type = os.getenv("SEARCH_PRODUCT_TYPE", "S2MSI2A").strip()
+collection = "sentinel-2-l2a" if product_type == "S2MSI2A" else "sentinel-2-l1c"
+
+max_cloud = float(os.getenv("SEARCH_MAX_CLOUD_COVER", "50"))
+max_results = int(os.getenv("SEARCH_TOP_RESULTS", "100"))
 
 # Validate
 if not coords_str:
-    print("ERROR: COORDINATES not set. Format: 'sw_lat,sw_lon,ne_lat,ne_lon'")
+    print("ERROR: SEARCH_BBOX not set. Format: 'sw_lat,sw_lon,ne_lat,ne_lon'")
     sys.exit(1)
 if not start_date or not end_date:
-    print("ERROR: START_DATE and END_DATE must be set. Format: 'YYYY-MM-DD'")
+    print("ERROR: SEARCH_START_DATE and SEARCH_END_DATE must be set. Format: 'YYYY-MM-DD'")
     sys.exit(1)
 
 # Parse coordinates
@@ -76,6 +80,25 @@ if not features:
 
 print(f"Found {len(features)} scenes:\n")
 
+# Create output directory
+output_dir = os.path.join(script_dir, "..", "output")
+os.makedirs(output_dir, exist_ok=True)
+
+def download_file(url, output_path):
+    if os.path.exists(output_path):
+        print(f"  -> Already exists: {os.path.basename(output_path)}")
+        return
+    print(f"  -> Downloading {os.path.basename(output_path)}...", end="", flush=True)
+    try:
+        with requests.get(url, stream=True, timeout=60) as r:
+            r.raise_for_status()
+            with open(output_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        print(" Done!")
+    except Exception as e:
+        print(f" Failed! Error: {e}")
+
 for i, feat in enumerate(features, 1):
     props = feat.get("properties", {})
     scene_id = feat.get("id", "unknown")
@@ -85,21 +108,32 @@ for i, feat in enumerate(features, 1):
     # Get band URLs
     assets = feat.get("assets", {})
     bands = sorted(assets.keys())
-    band_list = ", ".join(b for b in bands if not b.startswith("thumbnail"))
 
-    print(f"--- Scene {i} ---")
-    print(f"  ID:          {scene_id}")
+    print(f"\n--- Scene {i}: {scene_id} ---")
     print(f"  Date:        {date}")
     print(f"  Cloud cover: {cloud}%")
-    print(f"  Bands:       {band_list}")
 
-    # Print first band URL as example
-    if "B04" in assets:
-        print(f"  Example URL: {assets['B04']['href'][:80]}...")
-    print()
+    # Download ONLY the visual (True Color RGB) band
+    for band_name in bands:
+        if band_name != "visual":
+            continue
+            
+        href = assets[band_name].get("href")
+        if not href:
+            continue
+            
+        # Determine file extension
+        ext = ".tif" if "tif" in href.lower() else ".jp2" if "jp2" in href.lower() else ""
+        if not ext:
+            ext = os.path.splitext(href)[1].split('?')[0] # remove query params if any
+
+        filename = f"{scene_id}_{band_name}{ext}"
+        filepath = os.path.join(output_dir, filename)
+        
+        download_file(href, filepath)
 
 # Check for more results
 links = data.get("links", [])
 next_link = [l["href"] for l in links if l.get("rel") == "next"]
 if next_link:
-    print(f"[More results available. Use 'next' link for pagination]")
+    print(f"\n[More results available. Use 'next' link for pagination]")
