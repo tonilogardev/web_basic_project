@@ -110,7 +110,7 @@ services:
       # Internal routing since they are in the same docker network
       BACKEND_API_URL: "http://dev-web-backend:3000"
       ETL_API_KEY: "${ETL_API_KEY:-default-secret-key}"
-      CRON_SCHEDULE: "*/15 18 * * *"
+      CRON_SCHEDULE: "*/15 17 * * *"
     networks:
       - traefik-net
     depends_on:
