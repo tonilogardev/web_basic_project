@@ -1,0 +1,5 @@
+1,1,Tornado,3,2
+2,1,Earthquake,4,1
+3,2,Rainstorm,2,4
+4,3,Hurricane,5,3
+5,4,Volcano,1,1

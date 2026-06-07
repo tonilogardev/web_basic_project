@@ -89,6 +89,7 @@ services:
     environment:
       DATABASE_URL: "${DEV_WEB_DB_URL}"
       JWT_SECRET: "${DEV_WEB_JWT_SECRET}"
+      ETL_API_KEY: "${ETL_API_KEY:-default-secret-key}"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.devwebbackend.rule=Host(`api.dev-web.${DOMAIN_NAME:-localhost}`)"
@@ -98,6 +99,22 @@ services:
       - traefik-net
     depends_on:
       - dev-web-db
+
+  dev-web-etl-worker:
+    container_name: dev_web_etl_worker
+    build:
+      context: ./009_dev_web/010_etl_worker
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      # Internal routing since they are in the same docker network
+      BACKEND_API_URL: "http://dev-web-backend:3000"
+      ETL_API_KEY: "${ETL_API_KEY:-default-secret-key}"
+      CRON_SCHEDULE: "*/15 18 * * *"
+    networks:
+      - traefik-net
+    depends_on:
+      - dev-web-backend
 
   dev-web-db:
     image: postgres:16-alpine
