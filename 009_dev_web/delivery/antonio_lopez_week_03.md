@@ -40,7 +40,7 @@ Una vez leídos los archivos en memoria, el Worker aplica el ETL:
 2. Calcula el **RiskScore** multiplicando `SeverityLevel * ProbabilityScore`.
 3. Se añade dinámicamente la fecha y hora de ejecución al nombre del activo (ej: `"Sede Central - 2026-06-07 19:15"`).
 
-Todo este proceso está orquestado mediante un trabajo programado (Cron Job) que se ejecuta **cada 15 minutos entre las 19:00 y las 19:59** de forma autónoma.
+Un Cron Job se ejecuta **cada 15 minutos entre las 19:00 y las 19:59** de forma autónoma.
 
 ![ETL](./etl_001.png)
 
@@ -48,7 +48,7 @@ Todo este proceso está orquestado mediante un trabajo programado (Cron Job) que
 
 ## Tarea 2: Comando de Ingestión de Datos (Command - CQRS)
 
-Para manejar la escritura (Load), hemos aplicado la "C" de CQRS. El script del ETL realiza el cálculo del `RiskScore` (Severity $\times$ Probability) y envía los datos transformados a un nuevo endpoint en el backend protegido.
+El script del ETL realiza el cálculo del `RiskScore` y envía los datos transformados a un nuevo endpoint en el backend protegido.
 
 En el backend, el archivo `IngestRiskDataCommand.ts` recibe esta información y, **mediante una transacción controlada de Prisma**, asegura la integridad de los datos en la base de datos PostgreSQL, insertando en las tablas `Asset`, `Hazard` y `AssetHazardExposure`.
 
@@ -72,11 +72,9 @@ export class IngestRiskDataCommand {
     this.prisma = prisma;
   }
 
-  // CQRS COMMAND: Cambia el estado del sistema, no devuelve datos (solo un boolean o void)
   async execute(payload: IngestPayload): Promise<boolean> {
     console.log(`[Command] Procesando ingesta para activo: ${payload.assetName}`);
 
-    // Como es un entorno ETL, podríamos usar una transacción para asegurar consistencia
     try {
       await this.prisma.$transaction(async (tx) => {
         // Categoría por defecto
@@ -126,8 +124,23 @@ export class IngestRiskDataCommand {
 ### Pruebas de Ejecución del ETL (Logs)
 El worker se ejecuta automáticamente a las 6:00 AM mediante la librería `node-cron`. Forzando su ejecución manual observamos cómo realiza el pipeline completo.
 
-*(INSERTA AQUÍ LA CAPTURA DE LOS LOGS DEL TERMINAL. Para sacarla, ejecuta `docker exec -it dev_web_etl_worker npx ts-node src/index.ts run-now` y haz captura de los "Éxitos" impresos)*
+```bash
+cker exec dev_web_etl_worker npx ts-node src/index.ts run-now"
 
+
+[ETL Worker] Inicializado. API_URL: http://dev-web-backend:3000
+[ETL Worker] Inicializado. API_URL: http://dev-web-backend:3000
+[ETL Worker] Cron schedule configurado: */15 17 * * *
+
+--- COMENZANDO FLUJO ETL ---
+[ETL] Iniciando extracción (Extract)...
+[ETL] Extraídos 4 activos y 5 condiciones.
+[ETL] Iniciando transformación (Transform)...
+[ETL] Transformación completa. 3 registros listos para inserción.
+[ETL] Iniciando carga (Load) hacia el Backend...
+[ETL] Carga finalizada. Éxitos: 3, Errores: 0
+--- FLUJO ETL COMPLETADO CON ÉXITO ---
+```bash
 ---
 
 ## Tarea 3: Desarrollo de Consultas (Query - CQRS)
@@ -191,8 +204,58 @@ export class GetHighRiskAssetsQuery {
 }
 ```
 
-### Prueba del Endpoint de Lectura
-*(INSERTA AQUÍ UNA CAPTURA DE POSTMAN. Realiza un `GET` a `http://api.dev-web.localhost:8001/api/analysis/high-risk` y haz captura del JSON que te devuelve la respuesta con código 200 OK)*
+### Prueba de los Endpoints de Lectura
+Para probar que ambas Queries CQRS funcionan correctamente en nuestro servidor de producción:
+
+1. **Test Query A (Alto Riesgo)**: 
+*(INSERTA AQUÍ UNA CAPTURA DE POSTMAN. Realiza un `GET` a `https://api.dev-web.tonilogar.com/api/analysis/high-risk` y haz captura del JSON que te devuelve la respuesta con código 200 OK)*
+
+### Segunda Query: Valor Total Expuesto por Peligro (`GetTotalValueExposedByHazardQuery.ts`)
+Esta Query permite responder una pregunta de exposición al riesgo dentro del sistema DataSphere, agrupando y sumando el valor expuesto por cada tipo de desastre, resolviendo así uno de los análisis solicitados por el equipo de datos.
+
+```typescript
+import { PrismaClient } from '@prisma/client';
+
+export class GetTotalValueExposedByHazardQuery {
+  private prisma: PrismaClient;
+
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
+  }
+
+  // CQRS QUERY: Solo lee datos de forma optimizada, no modifica estado
+  async execute() {
+    console.log("[Query] Calculando valor total expuesto agrupado por peligro");
+
+    // Realiza una agrupación directamente en la base de datos (Query SQL nativa de agrupación)
+    const exposures = await this.prisma.assetHazardExposure.groupBy({
+      by: ['hazard_id'],
+      _sum: {
+        exposure_value: true,
+      },
+      orderBy: {
+        _sum: {
+          exposure_value: 'desc'
+        }
+      }
+    });
+
+    const hazards = await this.prisma.hazard.findMany();
+
+    // Proyectar DTO limpio
+    return exposures.map(exp => {
+      const hazardName = hazards.find(h => h.id === exp.hazard_id)?.name || 'Unknown';
+      return {
+        hazard: hazardName,
+        totalExposedValue: exp._sum.exposure_value ? Number(exp._sum.exposure_value) : 0
+      };
+    });
+  }
+}
+```
+
+2. **Test Query B (Valor Total Expuesto)**:
+*(INSERTA AQUÍ UNA CAPTURA DE POSTMAN. Realiza un `GET` a `https://api.dev-web.tonilogar.com/api/analysis/total-exposed` y haz captura del JSON)*
 
 ---
 
