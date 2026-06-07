@@ -95,8 +95,8 @@ function transformData(assets: RawAsset[], conditions: RawCondition[]): IngestPa
         
         // Añadir la fecha y hora al nombre para distinguir cada ejecución de 15 minutos
         const now = new Date();
-        const dateString = now.toISOString().split('T')[0];
-        const timeString = now.toTimeString().split(' ')[0].substring(0, 5); // Ej: 18:15
+        const dateString = now.toLocaleDateString('en-CA', { timeZone: 'Europe/Madrid' });
+        const timeString = now.toLocaleTimeString('en-GB', { timeZone: 'Europe/Madrid' }).substring(0, 5);
         
         payload.push({
           assetName: `${asset.name} - ${dateString} ${timeString}`,
