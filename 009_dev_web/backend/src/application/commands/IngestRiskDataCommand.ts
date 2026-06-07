@@ -16,28 +16,25 @@ export class IngestRiskDataCommand {
     this.prisma = prisma;
   }
 
-  // CQRS COMMAND: Cambia el estado del sistema, no devuelve datos (solo un boolean o void)
   async execute(payload: IngestPayload): Promise<boolean> {
     console.log(`[Command] Procesando ingesta para activo: ${payload.assetName}`);
-
-    // Como es un entorno ETL, podríamos usar una transacción para asegurar consistencia
     try {
       await this.prisma.$transaction(async (tx) => {
-        // 1. Buscar o crear la categoría por defecto (para evitar fallos de Foreign Key)
+        // Categoría por defecto
         const category = await tx.category.upsert({
           where: { name: 'Desconocida' },
           update: {},
           create: { name: 'Desconocida' }
         });
 
-        // 2. Buscar o crear el peligro (Hazard)
+        // Peligro (Hazard)
         const hazard = await tx.hazard.upsert({
           where: { name: payload.hazardName },
           update: {},
           create: { name: payload.hazardName }
         });
 
-        // 3. Crear el nuevo Activo importado
+        // Nuevo Activo 
         const asset = await tx.asset.create({
           data: {
             name: payload.assetName,
@@ -48,7 +45,7 @@ export class IngestRiskDataCommand {
           }
         });
 
-        // 4. Crear la exposición al riesgo (RiskScore como exposure_value)
+        // RiskScore como exposure_value
         await tx.assetHazardExposure.create({
           data: {
             asset_id: asset.id,

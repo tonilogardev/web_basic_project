@@ -208,10 +208,8 @@ export class GetHighRiskAssetsQuery {
 Para probar que ambas Queries CQRS funcionan correctamente en nuestro servidor de producción:
 
 1. **Test Query A (Alto Riesgo)**: 
-*(INSERTA AQUÍ UNA CAPTURA DE POSTMAN. Realiza un `GET` a `https://api.dev-web.tonilogar.com/api/analysis/high-risk` y haz captura del JSON que te devuelve la respuesta con código 200 OK)*
 
-### Segunda Query: Valor Total Expuesto por Peligro (`GetTotalValueExposedByHazardQuery.ts`)
-Esta Query permite responder una pregunta de exposición al riesgo dentro del sistema DataSphere, agrupando y sumando el valor expuesto por cada tipo de desastre, resolviendo así uno de los análisis solicitados por el equipo de datos.
+![postman](./postman_004.png)
 
 ```typescript
 import { PrismaClient } from '@prisma/client';
@@ -227,7 +225,7 @@ export class GetTotalValueExposedByHazardQuery {
   async execute() {
     console.log("[Query] Calculando valor total expuesto agrupado por peligro");
 
-    // Realiza una agrupación directamente en la base de datos (Query SQL nativa de agrupación)
+    // (Query SQL nativa de agrupación)
     const exposures = await this.prisma.assetHazardExposure.groupBy({
       by: ['hazard_id'],
       _sum: {
@@ -242,7 +240,7 @@ export class GetTotalValueExposedByHazardQuery {
 
     const hazards = await this.prisma.hazard.findMany();
 
-    // Proyectar DTO limpio
+    // Proyectar limpio
     return exposures.map(exp => {
       const hazardName = hazards.find(h => h.id === exp.hazard_id)?.name || 'Unknown';
       return {
@@ -255,7 +253,8 @@ export class GetTotalValueExposedByHazardQuery {
 ```
 
 2. **Test Query B (Valor Total Expuesto)**:
-*(INSERTA AQUÍ UNA CAPTURA DE POSTMAN. Realiza un `GET` a `https://api.dev-web.tonilogar.com/api/analysis/total-exposed` y haz captura del JSON)*
+
+![postman](./postman_001.png)
 
 ---
 
@@ -291,10 +290,12 @@ export const apiKeyAuth = (req: Request, res: Response, next: NextFunction) => {
 ### Pruebas de Seguridad en Postman
 
 1. **Intento sin API Key (Acceso Denegado)**
-   *(INSERTA AQUÍ CAPTURA DE POSTMAN: Haz un `POST` a `http://api.dev-web.localhost:8001/api/etl/ingest` SIN la cabecera x-api-key. Captura el Error 401 Unauthorized o 403)*
+   
+![postman](./postman_002.png)
 
 2. **Ingesta Correcta con API Key**
-   *(INSERTA AQUÍ CAPTURA DE POSTMAN: Repite el mismo `POST` pero añadiendo en los Headers la key `x-api-key` con el valor que pusimos en el .env, por defecto `super_secret_etl_key_2026`. Captura el estado 201 Created)*
+   
+![postman](./postman_003.png)
 
 ---
 
