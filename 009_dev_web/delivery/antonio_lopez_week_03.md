@@ -53,7 +53,75 @@ Para manejar la escritura (Load), hemos aplicado la "C" de CQRS. El script del E
 En el backend, el archivo `IngestRiskDataCommand.ts` recibe esta información y, **mediante una transacción controlada de Prisma**, asegura la integridad de los datos en la base de datos PostgreSQL, insertando en las tablas `Asset`, `Hazard` y `AssetHazardExposure`.
 
 ### Código Relevante: `IngestRiskDataCommand.ts`
-*(INSERTA AQUÍ UNA CAPTURA O PEGA EL CÓDIGO de `009_dev_web/backend/src/application/commands/IngestRiskDataCommand.ts`)*
+```typescript
+import { PrismaClient } from '@prisma/client';
+
+export interface IngestPayload {
+  assetName: string;
+  latitude: number;
+  longitude: number;
+  assetValue: number;
+  hazardName: string;
+  riskScore: number;
+}
+
+export class IngestRiskDataCommand {
+  private prisma: PrismaClient;
+
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
+  }
+
+  // CQRS COMMAND: Cambia el estado del sistema, no devuelve datos (solo un boolean o void)
+  async execute(payload: IngestPayload): Promise<boolean> {
+    console.log(`[Command] Procesando ingesta para activo: ${payload.assetName}`);
+
+    // Como es un entorno ETL, podríamos usar una transacción para asegurar consistencia
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Categoría por defecto
+        const category = await tx.category.upsert({
+          where: { name: 'Desconocida' },
+          update: {},
+          create: { name: 'Desconocida' }
+        });
+
+        // Peligro (Hazard)
+        const hazard = await tx.hazard.upsert({
+          where: { name: payload.hazardName },
+          update: {},
+          create: { name: payload.hazardName }
+        });
+
+        // Nuevo Activo 
+        const asset = await tx.asset.create({
+          data: {
+            name: payload.assetName,
+            latitude: payload.latitude,
+            longitude: payload.longitude,
+            base_value: payload.assetValue,
+            category_id: category.id
+          }
+        });
+
+        // RiskScore como exposure_value
+        await tx.assetHazardExposure.create({
+          data: {
+            asset_id: asset.id,
+            hazard_id: hazard.id,
+            exposure_value: payload.riskScore
+          }
+        });
+      });
+
+      return true;
+    } catch (error) {
+      console.error("[Command Error] Falla al insertar en base de datos:", error);
+      throw error;
+    }
+  }
+}
+```
 
 ### Pruebas de Ejecución del ETL (Logs)
 El worker se ejecuta automáticamente a las 6:00 AM mediante la librería `node-cron`. Forzando su ejecución manual observamos cómo realiza el pipeline completo.
@@ -69,7 +137,59 @@ La lógica de lectura ha sido separada totalmente. Para responder a preguntas de
 Esta query no utiliza lógica de dominio compleja, sino que **ataca directamente a la base de datos** pidiendo únicamente los campos necesarios y filtrando eficientemente mediante el motor de PostgreSQL aquellos activos con un valor de exposición superior a un límite crítico (ej: > 10.000.000).
 
 ### Código Relevante: `GetHighRiskAssetsQuery.ts`
-*(INSERTA AQUÍ UNA CAPTURA O PEGA EL CÓDIGO de `009_dev_web/backend/src/application/queries/GetHighRiskAssetsQuery.ts`)*
+```typescript
+import { PrismaClient } from '@prisma/client';
+
+export class GetHighRiskAssetsQuery {
+  private prisma: PrismaClient;
+
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
+  }
+
+  // CQRS QUERY: Solo lee datos de forma optimizada, no modifica estado
+  async execute() {
+    console.log("[Query] Obteniendo activos con alto riesgo de exposición");
+
+    // Una consulta compleja para analistas, ejecutada directamente sobre la base de datos
+    const highRiskAssets = await this.prisma.asset.findMany({
+      where: {
+        AssetHazardExposure: {
+          some: {
+            // Filtrar activos que tengan alguna exposición mayor a 10 millones
+            exposure_value: { gt: 10000000 }
+          }
+        }
+      },
+      include: {
+        AssetHazardExposure: {
+          include: {
+            Hazard: true
+          }
+        }
+      },
+      orderBy: {
+        base_value: 'desc'
+      },
+      // Optimización de lectura: solo cogemos los primeros 50
+      take: 50
+    });
+
+    // Proyectar a un DTO limpio para la vista
+    return highRiskAssets.map(asset => ({
+      assetId: asset.id,
+      name: asset.name,
+      value: Number(asset.base_value),
+      criticalExposures: asset.AssetHazardExposure
+        .filter(exp => Number(exp.exposure_value) > 10000000)
+        .map(exp => ({
+          hazard: exp.Hazard.name,
+          riskCost: Number(exp.exposure_value)
+        }))
+    }));
+  }
+}
+```
 
 ### Prueba del Endpoint de Lectura
 *(INSERTA AQUÍ UNA CAPTURA DE POSTMAN. Realiza un `GET` a `http://api.dev-web.localhost:8001/api/analysis/high-risk` y haz captura del JSON que te devuelve la respuesta con código 200 OK)*
@@ -83,7 +203,27 @@ Al separar la plataforma en dos contenedores (Backend y ETL Worker), se hacía n
 Hemos implementado un middleware específico en Express (`apiKeyAuth.ts`) que comprueba que la cabecera `x-api-key` contenga un token pre-compartido de forma segura a través de las variables de entorno de Docker Compose.
 
 ### Código Relevante: Middleware `apiKeyAuth.ts`
-*(INSERTA AQUÍ UNA CAPTURA O PEGA EL CÓDIGO de `009_dev_web/backend/src/presentation/middlewares/apiKeyAuth.ts`)*
+```typescript
+import { Request, Response, NextFunction } from 'express';
+
+const API_KEY_HEADER = 'x-api-key';
+const EXPECTED_API_KEY = process.env.ETL_API_KEY || 'default-secret-key';
+
+export const apiKeyAuth = (req: Request, res: Response, next: NextFunction) => {
+  const apiKey = req.header(API_KEY_HEADER);
+
+  if (!apiKey) {
+    return res.status(401).json({ error: 'Falta la API Key en las cabeceras (x-api-key).' });
+  }
+
+  if (apiKey !== EXPECTED_API_KEY) {
+    return res.status(403).json({ error: 'API Key inválida. Acceso denegado.' });
+  }
+
+  // Si la clave es correcta, pasa al siguiente middleware/controlador
+  next();
+};
+```
 
 ### Pruebas de Seguridad en Postman
 
