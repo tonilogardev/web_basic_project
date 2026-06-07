@@ -2,20 +2,47 @@
 
 **Alumno:** Antonio López
 **Asignatura:** Desarrollo Web
-**Fecha:** Junio 2026
 
 ## Introducción
-En esta actividad, hemos ampliado la plataforma DataSphere para dar soporte a la ingesta automatizada de datos (ETL) y hemos aplicado el patrón de diseño **CQRS** (Command Query Responsibility Segregation) en el backend. 
+En esta actividad, se ha simulado la ingesta automatizada de datos (ETL) y se ha aplicado el patrón de diseño **CQRS** en el backend. 
 
-Se ha diseñado e implementado un contenedor independiente (`010_etl_worker`) encargado de simular el proceso de extracción, transformación y carga mediante llamadas Service-to-Service protegidas por **API Keys**. En el backend, hemos separado estrictamente la lógica de escritura (comandos) de la de lectura (consultas) usando Prisma ORM, permitiendo así una arquitectura mucho más escalable y robusta preparada para alta concurrencia.
+Se ha diseñado e implementado un contenedor independiente (`010_etl_worker`) encargado de simular el proceso de extracción, transformación y carga mediante llamadas Service-to-Service protegidas por **API Keys**. En el backend, se ha separado estrictamente la lógica de escritura (comandos) de la de lectura (consultas).
 
 ---
 
 ## Tarea 1: Diseño del Flujo ETL (Extract, Transform, Load)
 
-Para la automatización de la recolección de datos, hemos desplegado un **Worker en un contenedor Docker independiente** que actúa como nuestro flujo de datos. En un entorno de producción real, este worker se conectaría a APIs meteorológicas o sísmicas. Para esta entrega, se ha cumplido el requisito de extraer la información base de unos ficheros crudos `.txt`.
+Para la automatización de la recolección de datos, se ha desplegado un **Worker programado con Cron en un contenedor Docker independiente** (`010_etl_worker`). En un entorno de producción real, este worker se conectaría a APIs meteorológicas o sísmicas (ej. OpenWeather). En este caso simulamos el proceso ETL leyendo dos ficheros `.txt`.
 
-*(INSERTA AQUÍ EL DIAGRAMA DE DRAW.IO. Recuerda incluir un bloque que indique que en la vida real es una API Meteorológica, pero que para el MVP usa ficheros locales de texto)*
+### Fase 1: Extract (Datos Ficticios)
+Se han generado los siguientes archivos en la ruta `010_etl_worker/data/`:
+
+**`assets.txt`** (Activos Físicos)
+```text
+1,Sede Central,40.4168,-3.7038,ES-MD,50000000
+2,Almacen Norte,41.3851,2.1734,ES-CT,20000000
+3,Data Center Sur,37.3891,-5.9845,ES-AN,80000000
+4,Oficina Valencia,39.4699,-0.3763,ES-VC,15000000
+```
+
+**`conditions.txt`** (Condiciones por peligro)
+```text
+1,1,Tornado,3,2
+2,1,Earthquake,4,1
+3,2,Rainstorm,2,4
+4,3,Hurricane,5,3
+5,4,Volcano,1,1
+```
+
+### Fase 2: Transform
+Una vez leídos los archivos en memoria, el Worker aplica el ETL:
+1. Filtra y **descarta** cualquier peligro con una severidad inferior a 3.
+2. Calcula el **RiskScore** multiplicando `SeverityLevel * ProbabilityScore`.
+3. Se añade dinámicamente la fecha y hora de ejecución al nombre del activo (ej: `"Sede Central - 2026-06-07 19:15"`).
+
+Todo este proceso está orquestado mediante un trabajo programado (Cron Job) que se ejecuta **cada 15 minutos entre las 19:00 y las 19:59** de forma autónoma.
+
+![ETL](./etl_001.png)
 
 ---
 
