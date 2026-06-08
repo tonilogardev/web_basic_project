@@ -8,6 +8,9 @@ En esta actividad, se ha simulado la ingesta automatizada de datos (ETL) y se ha
 
 Se ha diseñado e implementado un contenedor independiente (`010_etl_worker`) encargado de simular el proceso de extracción, transformación y carga mediante llamadas Service-to-Service protegidas por **API Keys**. En el backend, se ha separado estrictamente la lógica de escritura (comandos) de la de lectura (consultas).
 
+https://tonilogar.com/
+https://dev-web.tonilogar.com/
+
 ---
 
 ## Tarea 1: Diseño del Flujo ETL (Extract, Transform, Load)
@@ -52,7 +55,7 @@ El script del ETL realiza el cálculo del `RiskScore` y envía los datos transfo
 
 En el backend, el archivo `IngestRiskDataCommand.ts` recibe esta información y, **mediante una transacción controlada de Prisma**, asegura la integridad de los datos en la base de datos PostgreSQL, insertando en las tablas `Asset`, `Hazard` y `AssetHazardExposure`.
 
-### Código Relevante: `IngestRiskDataCommand.ts`
+### IngestRiskDataCommand.ts
 ```typescript
 import { PrismaClient } from '@prisma/client';
 
@@ -122,7 +125,8 @@ export class IngestRiskDataCommand {
 ```
 
 ### Pruebas de Ejecución del ETL (Logs)
-El worker se ejecuta automáticamente a las 6:00 AM mediante la librería `node-cron`. Forzando su ejecución manual observamos cómo realiza el pipeline completo.
+El worker se ejecuta automáticamente a las 6:00 AM mediante la librería `node-cron`. 
+La siguiente captura corresponde a una prueba manual:
 
 ```bash
 cker exec dev_web_etl_worker npx ts-node src/index.ts run-now"
@@ -140,14 +144,14 @@ cker exec dev_web_etl_worker npx ts-node src/index.ts run-now"
 [ETL] Iniciando carga (Load) hacia el Backend...
 [ETL] Carga finalizada. Éxitos: 3, Errores: 0
 --- FLUJO ETL COMPLETADO CON ÉXITO ---
-```bash
+```
 ---
 
 ## Tarea 3: Desarrollo de Consultas (Query - CQRS)
 
 La lógica de lectura ha sido separada totalmente. Para responder a preguntas de negocio como *"¿Cuáles son los activos con mayor riesgo de exposición?"* hemos creado `GetHighRiskAssetsQuery.ts`. 
 
-Esta query no utiliza lógica de dominio compleja, sino que **ataca directamente a la base de datos** pidiendo únicamente los campos necesarios y filtrando eficientemente mediante el motor de PostgreSQL aquellos activos con un valor de exposición superior a un límite crítico (ej: > 10.000.000).
+Esta query utiliza directamente a la base de datos pidiendo únicamente los campos necesarios y filtrando activos con un valor de exposición superior a un límite crítico (ej: > 10.000.000).
 
 ### Código Relevante: `GetHighRiskAssetsQuery.ts`
 ```typescript
@@ -262,7 +266,7 @@ export class GetTotalValueExposedByHazardQuery {
 
 Al separar la plataforma en dos contenedores (Backend y ETL Worker), se hacía necesario proteger el endpoint de ingesta contra peticiones externas maliciosas, ya que este endpoint no usa tokens JWT de un usuario, sino comunicación "Machine to Machine" (M2M).
 
-Hemos implementado un middleware específico en Express (`apiKeyAuth.ts`) que comprueba que la cabecera `x-api-key` contenga un token pre-compartido de forma segura a través de las variables de entorno de Docker Compose.
+Implementando un middleware específico en Express (`apiKeyAuth.ts`) que comprueba que la cabecera `x-api-key` contenga un token pre-compartido de forma segura a través de las variables de entorno de Docker Compose.
 
 ### Código Relevante: Middleware `apiKeyAuth.ts`
 ```typescript
