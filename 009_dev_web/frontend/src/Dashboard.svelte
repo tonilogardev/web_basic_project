@@ -10,6 +10,13 @@
   let loading = true;
   let error = '';
 
+  // Filtro de Hazard
+  let selectedHazardId: number = 0;
+  $: filteredAssets = selectedHazardId === 0 
+    ? assets 
+    : assets.filter(a => a.AssetHazardExposure?.some((exp: any) => exp.hazard_id === selectedHazardId || exp.Hazard?.id === selectedHazardId));
+
+
   // Estados del Formulario Modal
   let showAddForm = false;
   let isSelectingLocation = false;
@@ -149,15 +156,27 @@
         {/if}
       </div>
 
+      <div class="filter-section" style="padding: 0 1.5rem; margin-top: 1rem;">
+        <label style="font-size: 0.85rem; font-weight: bold; color: #4a5568;">Filtrar por Peligro (Hazard):</label>
+        <select bind:value={selectedHazardId} style="width: 100%; padding: 0.5rem; margin-top: 0.25rem; border-radius: 4px; border: 1px solid var(--border);">
+          <option value={0}>Todos los activos</option>
+          <option value={1}>Tornado</option>
+          <option value={2}>Earthquake</option>
+          <option value={3}>Rainstorm</option>
+          <option value={4}>Hurricane</option>
+          <option value={5}>Volcano</option>
+        </select>
+      </div>
+
       <div class="assets-list">
         {#if loading}
           <div class="loading-state">Cargando datos seguros...</div>
         {:else if error}
           <div class="error-state">{error}</div>
-        {:else if assets.length === 0}
-          <div class="empty-state">No hay activos registrados.</div>
+        {:else if filteredAssets.length === 0}
+          <div class="empty-state">No hay activos que cumplan el filtro.</div>
         {:else}
-          {#each assets as asset}
+          {#each filteredAssets as asset}
             <!-- svelte-ignore a11y-click-events-have-key-events -->
             <!-- svelte-ignore a11y-no-static-element-interactions -->
             <div class="asset-card" style="cursor: pointer;" on:click={() => handleAssetClick(asset)}>
@@ -199,7 +218,7 @@
         </div>
       {/if}
       {#if !loading && !error}
-        <MapComponent {assets} {isSelectingLocation} {focusLocation} on:locationSelected={handleLocationSelected} />
+        <MapComponent assets={filteredAssets} {isSelectingLocation} {focusLocation} on:locationSelected={handleLocationSelected} />
       {/if}
     </section>
 
