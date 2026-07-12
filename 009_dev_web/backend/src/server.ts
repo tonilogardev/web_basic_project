@@ -5,6 +5,8 @@ import assetRoutes from './presentation/routes/asset.routes';
 import etlRoutes from './presentation/routes/etl.routes';
 import analysisRoutes from './presentation/routes/analysis.routes';
 
+console.log("Antonio Lopez desarrollo web");
+
 const app = express();
 app.use(express.json());
 

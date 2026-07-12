@@ -49,3 +49,5 @@ override.tf.json
 terraform.rc
 *.zip
 
+# TFB data
+011_tfb/data/

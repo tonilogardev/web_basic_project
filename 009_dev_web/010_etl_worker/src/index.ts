@@ -3,6 +3,8 @@ import path from 'path';
 import axios from 'axios';
 import cron from 'node-cron';
 
+console.log("Antonio Lopez desarrollo web");
+
 // Configuración
 const API_URL = process.env.BACKEND_API_URL || 'http://002_backend:3000';
 const API_KEY = process.env.ETL_API_KEY || 'default-secret-key';
