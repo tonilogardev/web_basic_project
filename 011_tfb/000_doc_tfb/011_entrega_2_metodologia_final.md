@@ -31,13 +31,13 @@ Para superar las heurísticas estáticas, se recurre al Aprendizaje Profundo (*D
 
 ```mermaid
 graph TD
-    A[(Copernicus CDSE)] -->|Descarga OData| B[Gránulos Sentinel-2 L2A]
-    B -->|Filtro de Bandas| C[RGB + NIR + SWIR]
-    C -->|NDSI| D[Inyección Índice de Nieve]
-    D -->|create_dataset.py| E(Tiling Dinámico 512x512)
-    E -->|Filtro de Ruido| F{¿>10% Terreno Válido?}
-    F -->|Sí| G[Dataset PyTorch]
-    F -->|No| H[Descartar (Océano/Basura)]
+    A[("Copernicus CDSE")] -->|Descarga OData| B["Bandas L1C + Máscara SCL (L2A)"]
+    B -->|Filtro de Bandas| C["RGB + NIR + SWIR"]
+    C -->|NDSI| D["Inyección Índice de Nieve"]
+    D -->|create_dataset.py| E("Tiling Dinámico 512x512")
+    E -->|Filtro de Ruido| F{"¿>10% Terreno Válido?"}
+    F -->|Sí| G["Dataset PyTorch"]
+    F -->|No| H["Descartar (Océano/Basura)"]
 ```
 
 Las máscaras SCL originales de Sen2Cor contienen 12 clases. Entrenar un modelo predictivo sobre 12 clases dispersaría el espacio latente matemático. Por ello, se ha diseñado un proceso de reducción de dimensionalidad, colapsando físicamente las clases originales en 5 Clases Maestras:
@@ -49,15 +49,15 @@ Las máscaras SCL originales de Sen2Cor contienen 12 clases. Entrenar un modelo 
 
 Adicionalmente, el tensor de entrada incorpora calculos dinámicos del índice **NDSI** (*Normalized Difference Snow Index*), proporcionando a la red un gradiente diferencial matemático explícito entre la nieve y las nubes.
 
-### <span style="color: #FFC000;">2.2 La Paradoja de Validación y la Curación Humana (GIMP Bridge)</span>
+### <span style="color: #FFC000;">2.2 La Paradoja de Edición y clasificación Hmanual (GIMP Bridge)</span>
 
 ```mermaid
 graph LR
-    A((Modelo U-Net)) -->|Inferencia| B[Tensor Predicción 0-4]
-    B -->|Codificador RGB| C(SCL_UNET_GIMP.tif)
-    C -->|Auditoría| D{Edición Humana GIMP}
-    D -->|Decodificador| E[SCL_edited.tif]
-    E -->|Ground Truth| F((Evaluación Matemática))
+    A(("Modelo U-Net")) -->|Inferencia| B["Tensor Predicción 0-4"]
+    B -->|Codificador RGB| C("SCL_UNET_GIMP.tif")
+    C -->|Auditoría| D{"Edición Humana GIMP"}
+    D -->|Decodificador| E["SCL_edited.tif"]
+    E -->|Ground Truth| F(("Evaluación Matemática"))
 ```
 
 Según *Baetens et al. (2019)*, validar un nuevo clasificador satelital comparándolo directamente contra las máscaras defectuosas de Sen2Cor induce una "paradoja estadística", ya que el modelo sería penalizado (falso positivo) precisamente al corregir un error histórico del algoritmo original.
@@ -70,7 +70,7 @@ Para solventarlo, se ha desarrollado un flujo metodológico de *Encode/Decode* (
 
 Para garantizar la reproducibilidad científica y el procesamiento escalable de más de 640 millones de píxeles, la metodología ha sido codificada en un *pipeline* automatizado de Extracción, Transformación y Carga (ETL). Las fases de ejecución técnica son las siguientes:
 
-1. **Descarga de Entrenamiento:** Mediante la API OData del *Copernicus Data Space Ecosystem*, se ejecutan peticiones automatizadas (vía `download_training.py`) para descargar los 30 gránulos estratificados de entrenamiento y validación definidos en `training_granules.csv`.
+1. **Descarga de Entrenamiento:** Mediante la API OData del *Copernicus Data Space Ecosystem*, se ejecutan peticiones automatizadas (vía `download_training.py`) para descargar los 30 gránulos estratificados definidos en `training_granules.csv`. Específicamente, se descargan las bandas ópticas espectrales en crudo (producto L1C) para alimentar el tensor de la red neuronal, limitando la descarga del producto L2A exclusivamente a su fichero de clasificación (SCL) para establecer la línea base matemática.
 2. **Descarga de Test:** En un canal estanco para evitar el cruce de datos (*Data Leakage*), se descargan los 10 gránulos del examen final (vía `download_test.py`) basándose en `test_granules.csv`.
 3. **Generación del Dataset y Tiling:** Se preprocesan las imágenes masivas ejecutando `create_dataset.py`, fragmentando los gránulos en parches tridimensionales de 512x512 píxeles para evitar colapsos de memoria (Out of Memory - OOM) en las tarjetas gráficas (VRAM). La clase en `dataset.py` indexa y gestiona la inyección asíncrona de estos parches durante el entrenamiento.
 4. **Entrenamiento del Modelo Espacial:** Se ejecuta el módulo `train.py`, donde la red neuronal convolucional U-Net iterativiza sobre el conjunto de datos de entrenamiento minimizando la función de pérdida *Cross Entropy Loss* (configurada con `ignore_index=0` para descartar ruido geográfico oceánico). El proceso convergió de manera estable, guardando los pesos de la red en el archivo `checkpoints/baseline_model.pth`.
