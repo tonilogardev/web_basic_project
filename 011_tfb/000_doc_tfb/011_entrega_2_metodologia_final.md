@@ -4,7 +4,8 @@
 
 # <span style="color: #FFC000;">Entrega 2: Desarrollo del Marco Teórico y Metodología</span>
 
-Página web del proyecto: [https://tonilogar.github.io/tfb/tfb.html](https://tonilogar.github.io/tfb/tfb.html)
+- **Página web del proyecto:** [https://tonilogar.github.io/tfb/tfb.html](https://tonilogar.github.io/tfb/tfb.html)
+- **Documentación técnica extensa y repositorio:** [GitHub - Master Roadmap](https://github.com/tonilogardev/web_basic_project/blob/main_dev_pro_tfb/011_tfb/000_doc_tfb/000_master_roadmap_ml.md)
 
 ---
 
