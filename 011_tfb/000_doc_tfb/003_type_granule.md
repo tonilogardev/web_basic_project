@@ -86,6 +86,6 @@ Dado que la literatura científica y empírica (e.g., *Baetens, Desjardins & Hag
 **El Flujo de Trabajo obligatorio para el Test Set será el siguiente:**
 1. Descargaremos los gránulos de Test incluyendo sus máscaras SCL a través del script [`download_test.py`](../scripts/download_test.py).
 2. Utilizaremos el SCL de Sen2Cor *únicamente* como plantilla o "borrador" inicial para ahorrar trabajo.
-3. Se realizará una **curación manual exhaustiva en QGIS**, revisando los píxeles conflictivos (apoyados en las vistas `ColorReal.vrt` y `FalsoColor_Nieve.vrt`) y repintando a mano los errores de clasificación (ej. nieve marcada como nube).
+3. Se realizará una **edición y clasificación manual exhaustiva en QGIS**, revisando los píxeles conflictivos (apoyados en las vistas `ColorReal.vrt` y `FalsoColor_Nieve.vrt`) y repintando a mano los errores de clasificación (ej. nieve marcada como nube).
 4. Ese archivo corregido a mano se exportará como la **"Edición y Clasificación Manual de Píxeles" (Verdad Terreno)**.
 5. Las métricas científicas del proyecto (F1-Score, IoU, Accuracy) se calcularán enfrentando la predicción matemática de la U-Net *exclusivamente* contra esta Verdad Absoluta revisada por un humano.

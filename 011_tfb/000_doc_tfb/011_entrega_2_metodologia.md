@@ -68,7 +68,7 @@ Para cumplir con los requisitos de escalabilidad del proyecto y permitir la visu
 
 Esta infraestructura garantiza que el visor Web GIS final pueda manejar consultas interactivas sobre terabytes de datos satelitales de forma fluida (*on the fly*) y a bajo coste.
 
-### <span style="color: #FFC000;">2.5 Curación Visual del Ground Truth (GIMP Bridge)</span>
+### <span style="color: #FFC000;">2.5 Edición Visual y Clasificación del Ground Truth (GIMP Bridge)</span>
 Para la validación del modelo, es imperativo comparar sus predicciones contra una "Edición y Clasificación Manual de Píxeles" (máscaras curadas manualmente por un humano donde se corrijan todos los fallos del algoritmo Sen2Cor).
 
 Las máscaras categóricas matemáticas (`.tif` de 1 banda) resultan opacas para los editores fotográficos tradicionales como GIMP o Photoshop, ya que un valor de clase `4` (Nieve) se interpreta como un gris casi negro puro, destruyendo su utilidad visual. Si el analista fuerza el contraste para hacerlo visible, destruye la integridad radiométrica del píxel, corrompiendo el archivo matemático subyacente.
@@ -78,10 +78,10 @@ Para solucionar este cuello de botella sin forzar el uso de herramientas GIS com
 - **Edición Humana:** El analista utiliza herramientas estándar (lazo, cuentagotas, lápiz) sobre la imagen a color, apoyándose en capas subyacentes de Color Real y Falso Color para realizar las correcciones manuales con extrema facilidad.
 - **Decodificador:** Un script inverso escanea los colores RGB inyectados por el operador y reconstruye la matriz matemática original de 1 banda (0-4).
 
-Este "puente" garantiza un proceso de curación altamente ergonómico para el operador humano mientras preserva el rigor matemático indispensable para la Inteligencia Artificial.
+Este "puente" garantiza un proceso de edición y clasificación altamente ergonómico para el operador humano mientras preserva el rigor matemático indispensable para la Inteligencia Artificial.
 
 ### <span style="color: #FFC000;">2.6 Evaluación de Métricas y Clasificación Manual de Píxeles</span>
-Una vez que se ha finalizado la curación visual utilizando la arquitectura *Encode/Decode*, se obtiene un conjunto de archivos matemáticos definitivos a los que se denomina **Edición y Clasificación Manual de Píxeles**.
+Una vez que se ha finalizado la edición visual y clasificación utilizando la arquitectura *Encode/Decode*, se obtiene un conjunto de archivos matemáticos definitivos a los que se denomina **Edición y Clasificación Manual de Píxeles**.
 
 El paso final de la metodología consiste en enfrentar estadísticamente las predicciones puras de la red neuronal U-Net contra esta Edición y Clasificación Manual de Píxeles. Para ello, se calculan métricas estándar de la industria de la Visión Computacional:
 - **Intersection over Union (IoU):** También conocido como el Índice de Jaccard, mide exactamente cuánto se solapa la mancha de nieve/nube que predijo la máquina frente a la mancha real definida manualmente. Es la métrica más estricta y fiable para segmentación semántica.

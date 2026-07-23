@@ -7,7 +7,7 @@
 3. [Creación y Carga del Dataset](#3-creación-y-carga-del-dataset)
 4. [Entrenamiento del Modelo](#4-entrenamiento-del-modelo)
 5. [Inferencia y Examen Final](#5-inferencia-y-examen-final)
-6. [Curación Humana](#6-curación-humana)
+6. [Edición y clasificación Humana](#6-edición y clasificación-humana)
 7. [Evaluación Matemática](#7-evaluación-matemática)
 
 ---

@@ -35,7 +35,7 @@ Las redes neuronales de segmentación no pueden procesar imágenes completas de 
 
 1. **Troceado:** Cada uno de los 40 gránulos se recortará matemáticamente en parches (tiles) de **512x512 píxeles**. Un gránulo produce teóricamente unos 441 parches completos.
 2. **Volumen Teórico Inicial:** 40 gránulos × 441 parches = ~17.640 parches en total.
-3. **Curación (Filtrado Inteligente):** Gran parte de esos parches aportan nulo valor científico. Se descartarán por software:
+3. **Edición y clasificación (Filtrado Inteligente):** Gran parte de esos parches aportan nulo valor científico. Se descartarán por software:
    - Parches que sean 100% mar despejado (no enseñan nada nuevo tras ver el primero).
    - Parches que sean 100% núcleo sólido de nube densa (son demasiado fáciles y sesgan la red).
    Nos quedaremos exclusivamente con el "Hard Negative Mining": parches que contengan bordes sutiles de nubes, mezclas de nieve/nube/sombra, sombras topográficas pirenaicas y zonas urbanas brillantes.

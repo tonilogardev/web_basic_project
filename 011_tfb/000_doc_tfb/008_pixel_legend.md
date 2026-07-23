@@ -25,7 +25,7 @@ El algoritmo oficial de la ESA (Sen2Cor) genera una máscara de clasificación (
 
 Entrenar una red neuronal para discernir entre 12 clases, muchas de las cuales son irrelevantes para el objetivo (Nieve vs Nube), generaría un modelo ineficiente.
 
-Para solucionar esto de forma elegante, el script de descarga ([`download_sentinel.py`](../scripts/download_sentinel.py)) colapsará **físicamente** el archivo `SCL.jp2` original en un nuevo archivo `SCL.tif` (GeoTIFF) que contendrá exclusivamente **5 Clases Maestras**. Esto facilita la curación manual en QGIS y optimiza el filtrado automático de parches en [`create_dataset.py`](../scripts/create_dataset.py).
+Para solucionar esto de forma elegante, el script de descarga ([`download_sentinel.py`](../scripts/download_sentinel.py)) colapsará **físicamente** el archivo `SCL.jp2` original en un nuevo archivo `SCL.tif` (GeoTIFF) que contendrá exclusivamente **5 Clases Maestras**. Esto facilita la edición y clasificación manual en QGIS y optimiza el filtrado automático de parches en [`create_dataset.py`](../scripts/create_dataset.py).
 
 El mapeo físico y visual (RGB) para la edición en GIMP es el siguiente:
 
@@ -49,14 +49,14 @@ Podría parecer lógico agrupar la "Sombra de nube" dentro de la categoría "Nub
 
 ## 4. Casuística Especial: Sombras sobre Nubes (El "Mar de Nubes")
 
-Durante la curación manual de la máscara SCL, es común encontrar escenarios donde la capa nubosa es total y presenta texturas oscuras muy marcadas, como se observa en la siguiente imagen:
+Durante la edición y clasificación manual de la máscara SCL, es común encontrar escenarios donde la capa nubosa es total y presenta texturas oscuras muy marcadas, como se observa en la siguiente imagen:
 
 ![Nubes proyectando sombra sobre nubes](./img/Screenshot_2026-07-18_15-20-28.png)
 
 ### 4.1. El Falso Positivo Geométrico
 El algoritmo Sen2Cor carece de percepción de profundidad 3D. Cuando una formación nubosa alta (ej. un cúmulo) proyecta una sombra sobre una formación nubosa más baja (ej. un estrato), el algoritmo detecta un píxel brillante seguido geométricamente de un píxel muy oscuro. Aplicando su lógica basada en la posición solar, deduce que esa mancha negra es una sombra en la superficie terrestre y la clasifica erróneamente como **Sombra de Nube (3)**, cuando en realidad es material nuboso.
 
-### 4.2. Estrategia de Curación
+### 4.2. Estrategia de Edición y Clasificación
 Ante estas situaciones (imágenes 100% cubiertas por nubes donde el suelo no es visible), se plantean dos opciones metodológicas:
 1. **Conservadora (Recomendada):** Dejar los píxeles negros clasificados como **Sombra de Nube (3)**. La red neuronal aprenderá que estas formas oscuras adyacentes a zonas blancas son sombras. Dado que en producción se eliminará tanto la clase Nube como la Sombra, el resultado final operativo será correcto.
 2. **Purista:** Repintar manualmente la zona negra como **Nube (2)**, asumiendo que físicamente sigue siendo agua condensada.

@@ -90,7 +90,7 @@ Basado en los principios de observación visual humana experta y algoritmos del 
 
 ## 10. Bibliografía Científica Base (Core References)
 
-1. **Limitaciones de Sen2Cor y Necesidad de Curación Manual (Ground Truth)**
+1. **Limitaciones de Sen2Cor y Necesidad de Edición y Clasificación Manual (Ground Truth)**
    > Baetens, L., Desjardins, C., & Hagolle, O. (2019). Validation of Copernicus Sentinel-2 Cloud Masks Obtained from MAJA, Sen2Cor, and FMask Processors Using Reference Cloud Masks Generated with a Supervised Active Learning Procedure. *Remote Sensing, 11*(4), 433. https://doi.org/10.3390/rs11040433
 
 2. **La Física Óptica de Nubes y Nieve (Bandas SWIR)**

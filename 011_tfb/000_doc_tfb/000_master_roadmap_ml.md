@@ -6,7 +6,7 @@ Este documento funciona como el **índice maestro** o "diario de desarrollo" que
 
 ## Paso 1: Definición y Elección de los Gránulos (Dataset)
 
-El primer paso y el cimiento del proyecto ha sido definir con precisión qué datos se le van a entregar a la red neuronal. En lugar de usar la fuerza bruta descargando miles de imágenes, se ha diseñado una estrategia de curación manual ("Smart Data") para buscar específicamente las zonas de Cataluña y España que más confunden al algoritmo de la ESA.
+El primer paso y el cimiento del proyecto ha sido definir con precisión qué datos se le van a entregar a la red neuronal. En lugar de usar la fuerza bruta descargando miles de imágenes, se ha diseñado una estrategia de edición y clasificación manual ("Smart Data") para buscar específicamente las zonas de Cataluña y España que más confunden al algoritmo de la ESA.
 
 **Resumen de hitos y documentación en este paso:**
 
@@ -25,7 +25,7 @@ El primer paso y el cimiento del proyecto ha sido definir con precisión qué da
 4. **Edición y Clasificación Manual de Píxeles (SCL):**
    Se ha definido la estrategia de esfuerzo para la auditoría visual de los datos frente a los errores del algoritmo original de Sen2Cor:
    - **Set de Entrenamiento (30 gránulos):** Revisión rápida. Las redes neuronales son robustas al ruido estadístico. Solo abrimos QGIS para corregir manualmente errores catastróficos muy evidentes.
-   - **Set de Test (10 gránulos):** Curación quirúrgica. Como el Test es el examen final inamovible, aquí sí editamos a mano los píxeles confusos (nieve/nube, sombras/agua) para generar una verdadera "Edición y Clasificación Manual de Píxeles". El script de creación de dataset está preparado para leer `SCL_edited.tif` de forma preferente si detecta que existe.
+   - **Set de Test (10 gránulos):** Edición y clasificación quirúrgica. Como el Test es el examen final inamovible, aquí sí editamos a mano los píxeles confusos (nieve/nube, sombras/agua) para generar una verdadera "Edición y Clasificación Manual de Píxeles". El script de creación de dataset está preparado para leer `SCL_edited.tif` de forma preferente si detecta que existe.
 
 5. **Diseño Arquitectónico de la Red Neuronal (U-Net):**
    Se ha establecido la base teórica del modelo de Deep Learning. Se ha decidido construir una U-Net nativa desde cero (from scratch) usando PyTorch, capaz de ingerir tensores espaciales de 7 canales (6 bandas físicas + NDSI) y devolver 5 mapas de probabilidad (Softmax). Se ha resuelto el problema del enmascarado geográfico (NoData/Mar) utilizando `ignore_index=0` en la función de pérdida (Cross Entropy Loss).

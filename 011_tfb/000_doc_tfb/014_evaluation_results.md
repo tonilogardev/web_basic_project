@@ -18,7 +18,7 @@ Se evaluaron un total de **642.655.893 píxeles geográficos válidos**. Los res
 
 ### 1.1 Análisis Crítico de Resultados
 *   **Detección de Nieve (El objetivo principal):** El modelo ha alcanzado un IoU virtualmente perfecto (99.99%). Esto demuestra matemáticamente que la inyección conjunta de bandas físicas (RGB + SWIR) y el índice normalizado (**NDSI**) en la primera capa convolucional de la arquitectura U-Net consigue mapear el umbral radiométrico exacto, separando topológicamente la nieve de las nubes brillantes y superando contundentemente el déficit histórico del algoritmo **Sen2Cor** descrito por *Baetens* y *Hollstein*.
-*   **Recuperación Absoluta de Nubes:** El Recall del 100% en Nubes significa que la red detectó de forma impecable **absolutamente todos** los píxeles que el curador humano etiquetó geométricamente como "Nube". Ninguna nube densa escapó a la inteligencia artificial.
+*   **Recuperación Absoluta de Nubes:** El Recall del 100% en Nubes significa que la red detectó de forma impecable **absolutamente todos** los píxeles que el operador de clasificación humano etiquetó geométricamente como "Nube". Ninguna nube densa escapó a la inteligencia artificial.
 *   **La Ambigüedad Intrínseca de las Sombras:** La clase "Sombra Nube" obtiene un IoU más moderado (50.86%). Lejos de ser un fallo, esto es un fenómeno topológico ampliamente documentado por la Agencia Espacial Europea (ESA) e ICGC. La transición lumínica gradual en la penumbra hace que las sombras proyectadas sobre laderas montañosas escarpadas sean extremadamente difíciles de discernir sin cruzar los datos ópticos con un Modelo Digital de Elevaciones (DEM).
 
 ---

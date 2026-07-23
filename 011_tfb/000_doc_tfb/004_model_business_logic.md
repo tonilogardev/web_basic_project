@@ -34,11 +34,11 @@ Esta fase constituye el núcleo académico del proyecto y se realiza una única 
 El proceso de construcción del dataset de entrenamiento sigue una mecánica estrictamente secuencial por parte del investigador:
 
 1.  **Selección y Descarga:** El investigador decide qué gránulo específico descargar (fecha y *Tile*), basándose rigurosamente en las especificaciones y casos límite detallados en el documento `003_type_granule.md`.
-2.  **Curación de la Máscara SCL:** Una vez descargados los datos, el investigador revisa la imagen de clasificación de píxeles original de la ESA (SCL) y edita manualmente los píxeles erróneos.
+2.  **Edición y clasificación de la Máscara SCL:** Una vez descargados los datos, el investigador revisa la imagen de clasificación de píxeles original de la ESA (SCL) y edita manualmente los píxeles erróneos.
 3.  **Preprocesamiento (Feature Engineering):** Antes de entregar los datos a la red, el sistema calculará automáticamente el índice NDSI `(B03 - B11) / (B03 + B11)`. En lugar de pasarle a la U-Net solo los colores crudos, se le pasará este índice como un canal de información extra. Al inyectar el conocimiento físico de *Fmask* ya pre-procesado, se dota a la red neuronal de una ventaja matemática masiva para detectar nieve.
 4.  **Ensamblaje del Entrenamiento:** El fichero SCL editado (convertido en el *Ground Truth*), junto con los ficheros de los canales espectrales físicos (B02, B03, B04, B08, B11, B12) y la nueva banda artificial NDSI, conforman el paquete de tensores definitivo que se utilizará para entrenar al modelo de *Machine Learning*. *(Nota: Se ha descartado explícitamente el uso de capas topográficas o DEM, véase doc 006).*
 
-### 1.2 Generación del "Ground Truth" (Técnicas de Curación)
+### 1.2 Generación del "Ground Truth" (Técnicas de Edición y Clasificación)
 Para ejecutar el Paso 2 mencionado anteriormente, se establece una metodología única y pragmática:
 
 *   **Edición y Corrección del producto SCL:** Se toma como base ineludible la máscara SCL (Nivel L2A) generada por el algoritmo clásico Sen2Cor de la ESA. El investigador revisa visualmente la máscara superpuesta a la imagen real (utilizando herramientas SIG como QGIS o scripts de Python) y re-clasifica o "repinta" manualmente los píxeles erróneos (ej. zonas de nieve marcadas falsamente como nubes o litorales costeros). Esta estrategia ahorra más del 90% del trabajo manual de etiquetado.
