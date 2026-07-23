@@ -49,7 +49,7 @@ Las máscaras SCL originales de Sen2Cor contienen 12 clases. Entrenar un modelo 
 
 Adicionalmente, el tensor de entrada incorpora calculos dinámicos del índice **NDSI** (*Normalized Difference Snow Index*), proporcionando a la red un gradiente diferencial matemático explícito entre la nieve y las nubes.
 
-### <span style="color: #FFC000;">2.2 La Paradoja de Edición y clasificación Hmanual (GIMP Bridge)</span>
+### <span style="color: #FFC000;">2.2 La Paradoja de Edición y Clasificación Manual (GIMP Bridge)</span>
 
 ```mermaid
 graph LR
@@ -92,7 +92,17 @@ A continuación, se detalla la matriz de confusión agregada visual (Heatmap) ge
 
 ---
 
-## <span style="color: #FFC000;">5. Bibliografía y Referencias Académicas</span>
+## <span style="color: #FFC000;">5. Líneas de Trabajo Futuro</span>
+
+El excepcional rendimiento del modelo regionalizado sobre la geografía catalana abre múltiples vías de investigación y desarrollo tecnológico para escalar esta solución más allá de su alcance inicial:
+
+1. **Transfer Learning a otras Orografías:** Dado que la arquitectura U-Net ha consolidado un espacio latente robusto para la discriminación espectral en los Pirineos, el siguiente paso metodológico es aplicar técnicas de *Transfer Learning* (congelación de pesos convolucionales tempranos) para exportar el modelo a otras cordilleras geográficamente complejas (ej. Alpes, Andes), requiriendo un mínimo de gránulos locales para el reentrenamiento.
+2. **Fusión Topográfica Nativa (Inyección DEM):** Aunque el índice NDSI fue suficiente para resolver la confusión nieve-nube, integrar un Modelo Digital de Elevaciones (DEM) como un canal matricial adicional en el tensor de entrada dotaría a la red neuronal de consciencia tridimensional para inferir físicamente las sombras topográficas proyectadas por los desniveles escarpados.
+3. **Plataforma Web GIS Serverless:** La meta tecnológica derivada de este TFB consiste en empaquetar los pesos inferenciales de la red en una arquitectura en la nube (*serverless*), exponiendo el modelo como un servicio accesible a través de un visor cartográfico web interactivo de alto rendimiento.
+
+---
+
+## <span style="color: #FFC000;">6. Bibliografía y Referencias Académicas</span>
 
 - Baetens, L., Desjardins, C., & Hagolle, O. (2019). Validation of Copernicus Sentinel-2 Cloud Masks Obtained from MAJA, Sen2Cor, and FMask Processors Using Reference Cloud Masks Generated with a Supervised Active Learning Procedure. *Remote Sensing, 11*(4), 433. https://doi.org/10.3390/rs11040433
 - European Space Agency [ESA]. (2026). *Copernicus Open Access Hub - Sentinel-2 Data Access*. Recuperado el 25 de junio de 2026, de https://scihub.copernicus.eu/
