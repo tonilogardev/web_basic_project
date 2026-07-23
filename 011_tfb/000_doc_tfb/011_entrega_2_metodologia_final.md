@@ -86,7 +86,7 @@ Tras la ejecución del conjunto de pruebas (10 gránulos de Test, superando los 
 
 A continuación, se detalla la matriz de confusión agregada visual (Heatmap) generada algorítmicamente a partir de los 10 gránulos de validación:
 
-![Matriz de Confusión Global Test](../visualizations/confusion_matrix.png)
+![Matriz de Confusión Global Test](img/confusion_matrix.png)
 
 *(La diagonal principal concentra los aciertos positivos frente al Ground Truth curado manualmente, minimizando el ruido estadístico fuera de la diagonal).*
 
