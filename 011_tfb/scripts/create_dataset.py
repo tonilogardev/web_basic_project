@@ -1,6 +1,7 @@
 import os
 import rasterio
 from rasterio.enums import Resampling
+from rasterio.warp import reproject
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -22,12 +23,42 @@ def load_and_resample(file_path, target_shape, is_categorical=False):
         )
     return data
 
+def get_sea_mask(mask_path, target_shape, src_profile):
+    """
+    Lee y reproyecta la máscara estática (ej. MASCARA_CATALUNYA.tif) 
+    para que encaje perfectamente con la cuadrícula de 10m del Tile actual.
+    Devuelve un array booleano o binario de shape target_shape.
+    """
+    sea_mask = np.zeros(target_shape, dtype=np.uint8)
+    
+    with rasterio.open(mask_path) as src_mask:
+        reproject(
+            source=rasterio.band(src_mask, 1),
+            destination=sea_mask,
+            src_transform=src_mask.transform,
+            src_crs=src_mask.crs,
+            dst_transform=src_profile['transform'],
+            dst_crs=src_profile['crs'],
+            resampling=Resampling.nearest
+        )
+    return sea_mask
+
 def process_granule(id_granule, input_dir, output_dir, patch_size=512):
     """Procesa un gránulo completo, calcula NDSI, extrae parches y los guarda."""
     
     # Comprobar que existen los archivos
-    required_bands = ['B02', 'B03', 'B04', 'B08', 'B11', 'B12', 'SCL']
+    required_bands = ['B02', 'B03', 'B04', 'B08', 'B11', 'B12']
     paths = {b: input_dir / f"{id_granule}_{b}.jp2" for b in required_bands}
+    
+    # Soporte para SCL curado manualmente
+    scl_edited_path = input_dir / f"{id_granule}_SCL_edited.tif"
+    scl_original_path = input_dir / f"{id_granule}_SCL.tif"
+    
+    if scl_edited_path.exists():
+        paths['SCL'] = scl_edited_path
+        print(f"    [*] Usando máscara curada manualmente: {scl_edited_path.name}")
+    else:
+        paths['SCL'] = scl_original_path
     
     if not all(p.exists() for p in paths.values()):
         print(f"[-] Saltando {id_granule}: Faltan archivos .jp2 descargados.")
@@ -35,9 +66,10 @@ def process_granule(id_granule, input_dir, output_dir, patch_size=512):
 
     print(f"\n[+] Cargando bandas físicas de {id_granule}...")
     
-    # 1. Leer banda de 10m de referencia (ej. B02) para obtener el tamaño objetivo
+    # 1. Leer banda de 10m de referencia (ej. B02) para obtener el tamaño y CRS objetivo
     with rasterio.open(paths['B02']) as src:
         target_shape = (src.height, src.width) # Típicamente (10980, 10980)
+        target_profile = src.profile
         
     # 2. Cargar bandas nativas a 10m
     with rasterio.open(paths['B02']) as src: b02 = src.read(1)
@@ -60,11 +92,20 @@ def process_granule(id_granule, input_dir, output_dir, patch_size=512):
     print("    Remuestreando máscara SCL...")
     scl = load_and_resample(paths['SCL'], target_shape, is_categorical=True)
     
+    # [NUEVO] Aplicar Máscara de Mar estática (MASCARA_CATALUNYA.tif)
+    sea_mask_path = Path(__file__).parent / "data" / "MASCARA_CATALUNYA.tif"
+    if sea_mask_path.exists():
+        print("    Cruzando con máscara de costa de Catalunya...")
+        sea_mask = get_sea_mask(sea_mask_path, target_shape, target_profile)
+        # La máscara tiene 0 para Mar profundo. Forzamos SCL = 0 (Basura) en esas zonas.
+        scl[sea_mask == 0] = 0
+    else:
+        print("    [!] MASCARA_CATALUNYA.tif no encontrada. Procesando sin ella.")
+        
     # Apilamos todo en un tensor X de forma (7, H, W)
-    # Para ahorrar memoria, convertimos a float32 o mantenemos uint16/float32 según corresponda.
-    # En Deep Learning, normalmente todo acaba en float32. Lo pasaremos a float32 y lo normalizaremos luego.
-    X = np.stack([b02, b03, b04, b08, b11, b12, ndsi], axis=0)
-    Y = scl
+    # Hacemos cast a float16. Esto reduce el peso del dataset un 50% en disco.
+    X = np.stack([b02, b03, b04, b08, b11, b12, ndsi], axis=0).astype(np.float16)
+    Y = scl.astype(np.uint8)
     
     # 6. Troceado (Patching)
     print(f"    Cortando parches de {patch_size}x{patch_size}...")
@@ -80,13 +121,12 @@ def process_granule(id_granule, input_dir, output_dir, patch_size=512):
             y_patch = Y[row:row+patch_size, col:col+patch_size]
             
             # Filtro de parches inútiles:
-            # 0 = NO_DATA, 6 = WATER
-            # Si más del 90% del parche es NO_DATA o AGUA PROFUNDA, lo descartamos
+            # 0 = BASURA / DESCARTE (No Data, Agua, Defectuoso, etc.)
+            # Si más del 90% del parche es BASURA, lo descartamos
             total_pixels = patch_size * patch_size
-            nodata_count = np.sum(y_patch == 0)
-            water_count = np.sum(y_patch == 6)
+            basura_count = np.sum(y_patch == 0)
             
-            if (nodata_count + water_count) / total_pixels > 0.90:
+            if basura_count / total_pixels > 0.90:
                 continue
                 
             x_patch = X[:, row:row+patch_size, col:col+patch_size]

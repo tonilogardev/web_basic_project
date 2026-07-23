@@ -51,3 +51,10 @@ terraform.rc
 
 # TFB data
 011_tfb/data/
+011_tfb/download/
+011_tfb/dataset/
+011_tfb/scripts/.env
+011_tfb/scripts/venv/
+011_tfb/checkpoints/
+011_tfb/**/*.tif
+011_tfb/**/*.pth

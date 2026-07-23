@@ -4,9 +4,15 @@ import requests
 import pandas as pd
 import zipfile
 import shutil
+import subprocess
+import rasterio
+import numpy as np
 from pathlib import Path
 from dotenv import load_dotenv
 from tqdm import tqdm
+from rasterio.enums import Resampling
+from PIL import Image
+from gimp_tools import encode_to_rgb
 
 load_dotenv()
 
@@ -78,6 +84,86 @@ def download_zip(product_id, dest_path):
             size = file.write(data)
             bar.update(size)
 
+def create_vrt(output_vrt, input_bands):
+    if not all(p.exists() for p in input_bands):
+        return False
+    cmd = [
+        "gdalbuildvrt",
+        "-separate",
+        "-resolution", "highest",
+        str(output_vrt)
+    ] + [str(p) for p in input_bands]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return True
+
+def create_8bit_tif(vrt_path, output_tif):
+    if not os.path.exists(vrt_path):
+        return False
+    # gdal_translate escala de 0-3500 a 0-255 (Byte)
+    # -co TFW=YES crea el archivo de texto/xml de coordenadas separado
+    cmd = [
+        "gdal_translate",
+        "-scale", "0", "3500", "0", "255",
+        "-ot", "Byte",
+        "-co", "TFW=YES", 
+        str(vrt_path),
+        str(output_tif)
+    ]
+    # Usamos GDAL_PAM_ENABLED=YES para generar también el .aux.xml por si acaso
+    env = os.environ.copy()
+    env["GDAL_PAM_ENABLED"] = "YES"
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+    return True
+
+def create_preview(vrt_path, output_png):
+    if not os.path.exists(vrt_path):
+        return False
+    try:
+        with rasterio.open(vrt_path) as src:
+            data = src.read(
+                out_shape=(src.count, 1024, 1024),
+                resampling=Resampling.bilinear
+            )
+        data = np.clip(data, 0, 3500)
+        data = (data / 3500 * 255).astype(np.uint8)
+        img_array = np.transpose(data, (1, 2, 0))
+        img = Image.fromarray(img_array)
+        img.save(output_png)
+        return True
+    except Exception as e:
+        print(f"      [!] Error creando preview: {e}")
+        return False
+
+def collapse_scl(scl_jp2_path, dest_tif_path):
+    print("    [+] Colapsando máscara SCL de 12 a 5 clases maestras...")
+    with rasterio.open(scl_jp2_path) as src:
+        meta = src.meta.copy()
+        data = src.read(1)
+        
+    new_data = np.zeros_like(data)
+    
+    # 0 (Basura): 0, 1, 2, 6, 7 (ya es 0)
+    # 1 (Suelo): 4, 5
+    new_data[np.isin(data, [4, 5])] = 1
+    # 2 (Nube): 8, 9, 10
+    new_data[np.isin(data, [8, 9, 10])] = 2
+    # 3 (Sombra Nube): 3
+    new_data[data == 3] = 3
+    # 4 (Nieve): 11
+    new_data[data == 11] = 4
+    
+    meta.update(driver='GTiff', compress='deflate')
+    
+    with rasterio.open(dest_tif_path, 'w', **meta) as dst:
+        dst.write(new_data, 1)
+        
+    os.remove(scl_jp2_path)
+    
+    # Generar la versión RGB para GIMP
+    dest_gimp = str(dest_tif_path).replace('.tif', '_GIMP.tif')
+    if encode_to_rgb(dest_tif_path, dest_gimp):
+        print(f"    [v] Exportado para GIMP: {Path(dest_gimp).name}")
+
 def extract_bands(zip_path, dest_dir, id_granule, level):
     print("    [+] Extrayendo archivos requeridos y borrando ZIP...")
     bandas = ['B02', 'B03', 'B04', 'B08', 'B11', 'B12']
@@ -101,9 +187,16 @@ def extract_bands(zip_path, dest_dir, id_granule, level):
             elif level == 'MSIL2A':
                 # En L2A la máscara se llama SCL_20m.jp2 o similar, dentro de IMG_DATA
                 if 'SCL' in filename and 'IMG_DATA/' in filename and 'QI_DATA/' not in filename:
-                    out_name = dest_dir / f"{id_granule}_SCL.jp2"
+                    out_name = dest_dir / f"{id_granule}_SCL_raw.jp2"
                     with z.open(file_info) as source, open(out_name, "wb") as target:
                         shutil.copyfileobj(source, target)
+                        
+    # Colapsar las clases de la máscara SCL después de extraerla
+    if level == 'MSIL2A':
+        raw_scl = dest_dir / f"{id_granule}_SCL_raw.jp2"
+        if raw_scl.exists():
+            dest_tif = dest_dir / f"{id_granule}_SCL.tif"
+            collapse_scl(raw_scl, dest_tif)
 
 def process_csv(csv_path, output_base_dir):
     df = pd.read_csv(csv_path)
@@ -143,7 +236,7 @@ def process_csv(csv_path, output_base_dir):
         l2a_id = search_odata(tile, date_str, "MSIL2A")
         if l2a_id:
             zip_l2a = dest_dir / "temp_l2a.zip"
-            if not (dest_dir / f"{id_granule}_SCL.jp2").exists():
+            if not (dest_dir / f"{id_granule}_SCL.tif").exists():
                 download_zip(l2a_id, zip_l2a)
                 extract_bands(zip_l2a, dest_dir, id_granule, "MSIL2A")
                 os.remove(zip_l2a)
@@ -152,15 +245,30 @@ def process_csv(csv_path, output_base_dir):
         else:
             print(f"    [!] No se encontró producto L2A")
 
-if __name__ == "__main__":
-    base_path = Path(__file__).parent
-    
-    # Leemos directamente el que ya hemos rellenado
-    train_csv = base_path / "training_granules.csv"
-    out_train = base_path.parent / "download" / "training"
-    
-    if train_csv.exists():
-        print("\n>>> INICIANDO DESCARGAS DE TRAINING <<<")
-        process_csv(train_csv, out_train)
-    else:
-        print("No se encontró training_granules.csv")
+        # 3. Generar Vistas VRT
+        print("[>] Paso 3: Generando Vistas VRT para QGIS")
+        rgb_bands = [dest_dir / f"{id_granule}_B04.jp2", dest_dir / f"{id_granule}_B03.jp2", dest_dir / f"{id_granule}_B02.jp2"]
+        swir_bands = [dest_dir / f"{id_granule}_B11.jp2", dest_dir / f"{id_granule}_B08.jp2", dest_dir / f"{id_granule}_B04.jp2"]
+        
+        vrt_rgb = dest_dir / f"{id_granule}_ColorReal.vrt"
+        vrt_swir = dest_dir / f"{id_granule}_FalsoColor_Nieve.vrt"
+        
+        if create_vrt(vrt_rgb, rgb_bands):
+            print("    [v] Generado: ColorReal.vrt")
+            create_8bit_tif(vrt_rgb, dest_dir / f"{id_granule}_ColorReal.tif")
+            print("    [v] Exportado a 8-bits: ColorReal.tif (con .tfw/.xml)")
+            
+        if create_vrt(vrt_swir, swir_bands):
+            print("    [v] Generado: FalsoColor_Nieve.vrt")
+            create_8bit_tif(vrt_swir, dest_dir / f"{id_granule}_FalsoColor_Nieve.tif")
+            print("    [v] Exportado a 8-bits: FalsoColor_Nieve.tif (con .tfw/.xml)")
+            
+        print("[>] Paso 4: Generando preview PNG...")
+        png_path = dest_dir / f"{id_granule}_preview.png"
+        if create_preview(dest_dir / f"{id_granule}_ColorReal.vrt", png_path):
+            print(f"    [v] Generado: {png_path.name}")
+            artifact_png = Path("/home/a.lopez.g/.gemini/antigravity-ide/brain/b6a3aaf7-4a02-4481-ba6f-7d05e0d0de13/scratch") / f"{id_granule}_preview.png"
+            import shutil
+            shutil.copy(png_path, artifact_png)
+
+
