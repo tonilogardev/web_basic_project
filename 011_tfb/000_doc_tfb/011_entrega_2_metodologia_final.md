@@ -34,18 +34,20 @@ graph TD
     A[("Copernicus CDSE")] -->|Descarga OData| B["Bandas L1C + Máscara SCL (L2A)"]
     B -->|Filtro de Bandas| C["RGB + NIR + SWIR"]
     C -->|NDSI| D["Inyección Índice de Nieve"]
-    D -->|create_dataset.py| E("Tiling Dinámico 512x512")
+    D -->|004_create_dataset.py| E("Tiling Dinámico 512x512")
     E -->|Filtro de Ruido| F{"¿>10% Terreno Válido?"}
     F -->|Sí| G["Dataset PyTorch"]
     F -->|No| H["Descartar (Océano/Basura)"]
 ```
 
-Las máscaras SCL originales de Sen2Cor contienen 12 clases. Entrenar un modelo predictivo sobre 12 clases dispersaría el espacio latente matemático. Por ello, se ha diseñado un proceso de reducción de dimensionalidad, colapsando físicamente las clases originales en 5 Clases Maestras:
-1. **Clase 0 (Basura / NoData)**
-2. **Clase 1 (Suelo Útil)**
-3. **Clase 2 (Nube)**
-4. **Clase 3 (Sombra Nube)**
-5. **Clase 4 (Nieve)**
+Las máscaras SCL originales de Sen2Cor contienen 12 clases. Entrenar un modelo predictivo sobre 12 clases dispersaría el espacio latente matemático. Por ello, se ha diseñado un proceso de reducción de dimensionalidad, colapsando físicamente las clases originales en 6 Clases Maestras:
+
+- **0 (Basura):** Sin datos, errores.
+- **1 (Suelo):** Vegetación, tierra.
+- **2 (Nube):** Nubes de todos los espesores.
+- **3 (Sombra Nube):** Obstrucción oscura.
+- **4 (Nieve):** Objetivo de control.
+- **5 (Masas de Agua):** Mar y lagos profundos.
 
 Adicionalmente, el tensor de entrada incorpora calculos dinámicos del índice **NDSI** (*Normalized Difference Snow Index*), proporcionando a la red un gradiente diferencial matemático explícito entre la nieve y las nubes.
 
@@ -70,13 +72,13 @@ Para solventarlo, se ha desarrollado un flujo metodológico de *Encode/Decode* (
 
 Para garantizar la reproducibilidad científica y el procesamiento escalable de más de 640 millones de píxeles, la metodología ha sido codificada en un *pipeline* automatizado de Extracción, Transformación y Carga (ETL). Las fases de ejecución técnica son las siguientes:
 
-1. **Descarga de Entrenamiento:** Mediante la API OData del *Copernicus Data Space Ecosystem*, se ejecutan peticiones automatizadas (vía `download_training.py`) para descargar los 30 gránulos estratificados definidos en `training_granules.csv`. Específicamente, se descargan las bandas ópticas espectrales en crudo (producto L1C) para alimentar el tensor de la red neuronal, limitando la descarga del producto L2A exclusivamente a su fichero de clasificación (SCL) para establecer la línea base matemática.
-2. **Descarga de Test:** En un canal estanco para evitar el cruce de datos (*Data Leakage*), se descargan los 10 gránulos del examen final (vía `download_test.py`) basándose en `test_granules.csv`.
-3. **Generación del Dataset y Tiling:** Se preprocesan las imágenes masivas ejecutando `create_dataset.py`, fragmentando los gránulos en parches tridimensionales de 512x512 píxeles para evitar colapsos de memoria (Out of Memory - OOM) en las tarjetas gráficas (VRAM). La clase en `dataset.py` indexa y gestiona la inyección asíncrona de estos parches durante el entrenamiento.
-4. **Entrenamiento del Modelo Espacial:** Se ejecuta el módulo `train.py`, donde la red neuronal convolucional U-Net iterativiza sobre el conjunto de datos de entrenamiento minimizando la función de pérdida *Cross Entropy Loss* (configurada con `ignore_index=0` para descartar ruido geográfico oceánico). El proceso convergió de manera estable, guardando los pesos de la red en el archivo `checkpoints/baseline_model.pth`.
-5. **Inferencia de Alto Rendimiento:** Se despliega el modelo entrenado mediante `predict.py` sobre los 10 gránulos del conjunto de Test. El sistema genera máscaras de segmentación matemática puras (`_SCL_UNET.tif`) y versiones coloreadas ergonómicas (`_SCL_UNET_GIMP.tif`) para auditoría humana, almacenadas de forma modular en `visualizations/SCL_UNET/`.
-6. **Revisión y Clasificación Experta (Generación de Verdad Terreno):** Aunque validar millones de píxeles supone un esfuerzo colosal, en pro de un rigor científico inquebrantable, se optó por auditar visualmente las 10 escenas geográficas completas del conjunto de Test (`TE_01` a `TE_10`). Estas imágenes a color, generadas por el modelo, fueron editadas exhaustivamente mediante software gráfico (GIMP) para solventar los falsos positivos y negativos generados por la IA. Posteriormente, la ejecución de `decode_gimp_edits.py` convierte estas ediciones visuales en tensores matemáticos estrictos (`_SCL_edited.tif`), materializando un Patrón Oro (*Ground Truth*) absoluto sobre el cien por cien de la muestra de evaluación (superando los 642 millones de píxeles).
-7. **Evaluación Estadística Rigurosa:** El motor estadístico, materializado en `evaluate.py`, cruza simultáneamente las matrices predichas y curadas, resolviendo métricas estrictas de *Intersection over Union* (IoU), Precisión, y Exhaustividad (*Recall*). El script consolida la auditoría con la generación algorítmica de una extensa Matriz de Confusión térmica.
+1. **Descarga de Entrenamiento:** Mediante la API OData del *Copernicus Data Space Ecosystem*, se ejecutan peticiones automatizadas (vía `001_download_training.py`) para descargar los 30 gránulos estratificados definidos en `training_granules.csv`. Específicamente, se descargan las bandas ópticas espectrales en crudo (producto L1C) para alimentar el tensor de la red neuronal, limitando la descarga del producto L2A exclusivamente a su fichero de clasificación (SCL) para establecer la línea base matemática.
+2. **Descarga de Test:** En un canal estanco para evitar el cruce de datos (*Data Leakage*), se descargan los 10 gránulos del examen final (vía `002_download_test.py`) basándose en `test_granules.csv`.
+3. **Generación del Dataset y Tiling:** Se preprocesan las imágenes masivas ejecutando `004_create_dataset.py`, fragmentando los gránulos en parches tridimensionales de 512x512 píxeles para evitar colapsos de memoria (Out of Memory - OOM) en las tarjetas gráficas (VRAM). La clase en `dataset.py` indexa y gestiona la inyección asíncrona de estos parches durante el entrenamiento.
+4. **Entrenamiento del Modelo Espacial:** Se ejecuta el módulo `005_train.py`, donde la red neuronal convolucional U-Net iterativiza sobre el conjunto de datos de entrenamiento minimizando la función de pérdida *Cross Entropy Loss* (configurada con `ignore_index=0` para descartar ruido geográfico oceánico). El proceso convergió de manera estable, guardando los pesos de la red en el archivo `checkpoints/baseline_model.pth`.
+5. **Inferencia de Alto Rendimiento:** Se despliega el modelo entrenado mediante `006_predict.py` sobre los 10 gránulos del conjunto de Test. El sistema genera máscaras de segmentación matemática puras (`_SCL_UNET.tif`) y versiones coloreadas ergonómicas (`_SCL_UNET_GIMP.tif`) para auditoría humana, almacenadas de forma modular en `visualizations/SCL_UNET/`.
+6. **Revisión y Clasificación Experta (Generación de Verdad Terreno):** Aunque validar millones de píxeles supone un esfuerzo colosal, en pro de un rigor científico inquebrantable, se optó por auditar visualmente las 10 escenas geográficas completas del conjunto de Test (`TE_01` a `TE_10`). Estas imágenes a color, generadas por el modelo, fueron editadas exhaustivamente mediante software gráfico (GIMP) para solventar los falsos positivos y negativos generados por la IA. Posteriormente, la ejecución de `003_decode_gimp_edits.py` convierte estas ediciones visuales en tensores matemáticos estrictos (`_SCL_edited.tif`), materializando un Patrón Oro (*Ground Truth*) absoluto sobre el cien por cien de la muestra de evaluación (superando los 642 millones de píxeles).
+7. **Evaluación Estadística Rigurosa:** El motor estadístico, materializado en `007_evaluate.py`, cruza simultáneamente las matrices predichas y curadas, resolviendo métricas estrictas de *Intersection over Union* (IoU), Precisión, y Exhaustividad (*Recall*). El script consolida la auditoría con la generación algorítmica de una extensa Matriz de Confusión térmica.
 
 ---
 

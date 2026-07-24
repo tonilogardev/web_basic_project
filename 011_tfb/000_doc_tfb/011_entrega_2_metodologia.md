@@ -41,7 +41,7 @@ La descarga de gránulos se realiza mediante la API OData del Copernicus Data Sp
 - **Casos de Verano:** Tormentas convectivas, cúmulos costeros y zonas áridas.
 
 ### <span style="color: #FFC000;">2.2 Ingeniería de Datos y Reducción de Dimensionalidad</span>
-Las máscaras SCL originales de Sen2Cor contienen 12 clases, muchas de las cuales son irrelevantes para el problema binario de "Nube vs Nieve". Entrenar un modelo con 12 clases dispersaría el espacio latente matemático y reduciría la precisión. Por ello, se ha diseñado un proceso de **reducción de dimensionalidad**, colapsando físicamente las clases originales en 5 Clases Maestras:
+Las máscaras SCL originales de Sen2Cor contienen 12 clases, muchas de las cuales son irrelevantes para el problema binario de "Nube vs Nieve". Entrenar un modelo con 12 clases dispersaría el espacio latente matemático y reduciría la precisión. Por ello, se ha diseñado un proceso de **reducción de dimensionalidad**, colapsando físicamente las clases originales en 6 Clases Maestras:
 
 1. **Clase 0 (Basura):** Agrupa [0, 1, 2, 6, 7] (No Data, reflejos saturados, agua profunda). Esta clase es ignorada por la Función de Pérdida (`ignore_index`) durante el entrenamiento.
 2. **Clase 1 (Suelo Útil):** Agrupa [4, 5] (Vegetación y suelo desnudo).

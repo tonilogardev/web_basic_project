@@ -1,6 +1,6 @@
 # Creación del Dataset de Entrenamiento (Feature Engineering y Tiling)
 
-Este documento detalla el funcionamiento lógico y arquitectónico del script [`create_dataset.py`](../scripts/create_dataset.py), encargado de transformar las imágenes satelitales crudas (.jp2) descargadas en tensores matemáticos (.npy) listos para ser consumidos por la red neuronal U-Net.
+Este documento detalla el funcionamiento lógico y arquitectónico del script [`004_create_dataset.py`](../scripts/004_create_dataset.py), encargado de transformar las imágenes satelitales crudas (.jp2) descargadas en tensores matemáticos (.npy) listos para ser consumidos por la red neuronal U-Net.
 
 ## 1. Objetivo del Script
 

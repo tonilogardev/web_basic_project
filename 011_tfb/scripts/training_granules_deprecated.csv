@@ -1,0 +1,31 @@
+id,tile,date,description
+TR_A01,T31TCH,2024-01-15,Nieve Pura 100% soleado (Ene-Mar)
+TR_A02,T31TCH,2024-01-16,Nieve Pura 100% soleado (Ene-Mar)
+TR_A03,T31TDH,2024-01-17,Nieve Pura 100% soleado (Ene-Mar)
+TR_A04,T31TCH,2023-03-08,Nieve en suelo + nubes bajas (Ene-Mar)
+TR_A05,T31TCH,2023-03-08,Nieve en suelo + nubes bajas (Ene-Mar)
+TR_A06,T31TDH,2023-03-26,Nieve en suelo + nubes bajas (Ene-Mar)
+TR_A07,T31TDH,2023-03-26,Nieve en suelo + nubes bajas (Ene-Mar)
+TR_A08,T31TCH,2023-03-08,Nieve en suelo + nubes bajas (Ene-Mar)
+TR_B01,T31TCG,2024-01-07,Niebla espesa en llanura (Dic-Ene)
+TR_B02,T31TCG,2024-01-07,Niebla espesa en llanura (Dic-Ene)
+TR_B03,T31TDG,2024-01-12,Niebla espesa en llanura (Dic-Ene)
+TR_B04,T31TDG,2024-01-12,Niebla espesa en llanura (Dic-Ene)
+TR_B05,T31TCG,2023-06-29,Cirros finos / convectivas verano (Jun-Jul)
+TR_B06,T31TCG,2023-06-29,Cirros finos / convectivas verano (Jun-Jul)
+TR_B07,T31TDG,2023-06-29,Cirros finos / convectivas verano (Jun-Jul)
+TR_B08,T31TDG,2023-06-29,Cirros finos / convectivas verano (Jun-Jul)
+TR_C01,T31TDF,2023-08-15,100% despejado sobre ciudad techos industriales
+TR_C02,T31TDF,2023-08-16,100% despejado sobre ciudad techos industriales
+TR_C03,T31TDF,2023-08-17,Parcialmente nublado sobre mar oscuro y ciudad
+TR_C04,T31TDF,2023-03-08,Parcialmente nublado sobre mar oscuro y ciudad
+TR_C05,T31TDF,2023-03-08,Parcialmente nublado sobre mar oscuro y ciudad
+TR_C06,T31TDF,2023-03-08,Parcialmente nublado sobre mar oscuro y ciudad
+TR_C07,T31TDF,2023-03-08,Neblina marina o contaminacion
+TR_C08,T31TDF,2023-03-08,Neblina marina o contaminacion
+TR_D01,T31TCE,2023-05-25,Delta Ebro arrozales inundados (May-Jun)
+TR_D02,T31TCE,2023-05-25,Delta Ebro arrozales inundados (May-Jun)
+TR_D03,T31TCF,2023-05-25,Delta Ebro arrozales inundados (May-Jun)
+TR_D04,T31TCE,2023-08-28,Llanura seca palida con nubes medias (Ago)
+TR_D05,T31TCF,2023-08-28,Llanura seca palida con nubes medias (Ago)
+TR_D06,T31TCF,2023-08-28,Llanura seca palida con nubes medias (Ago)

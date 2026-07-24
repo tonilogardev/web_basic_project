@@ -3,11 +3,12 @@ import rasterio
 from pathlib import Path
 
 COLOR_MAP = {
-    0: [0, 0, 0],  # Basura / Mar
+    0: [0, 0, 0],  # Basura / Bordes NoData
     1: [34, 139, 34],  # Suelo
     2: [255, 255, 255],  # Nube
     3: [100, 100, 100],  # Sombra Nube
     4: [0, 255, 255],  # Nieve
+    5: [0, 0, 255],  # Masas de Agua (Mar, lagos)
 }
 
 

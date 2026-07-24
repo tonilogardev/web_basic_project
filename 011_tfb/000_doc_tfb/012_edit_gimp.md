@@ -29,14 +29,14 @@ Para superar estas limitaciones sin forzar al analista a utilizar herramientas G
 
 1. **Fase de Codificación (Encode)**: Los scripts principales que implementan la librería puente ([`gimp_tools.py`](../scripts/gimp_tools.py)) interceptan la máscara matemática generada (ya sea la descarga de Sen2Cor o la predicción de U-Net) y la transforman en un **GeoTIFF RGB de 3 bandas a todo color** (`[ID]_GIMP.tif`). A cada valor se le asigna su color real según la leyenda oficial del proyecto (Verde, Blanco, Gris, Cyan).
 2. **Fase de Backup Geoespacial**: Durante la conversión, GDAL inyecta archivos separados (`.tfw` o `.xml`) que sobreviven aunque GIMP sobrescriba el archivo principal y destruya sus cabeceras geográficas originales.
-3. **Fase de Decodificación (Decode)**: Una vez editada la imagen a color por el operador, el script ejecutable ([`decode_gimp_edits.py`](../scripts/decode_gimp_edits.py)) lee cada píxel RGB, calcula su distancia euclidiana hacia la paleta oficial de colores, y re-asigna el valor categórico puro (0-4), reconstruyendo el TIF matemático de una banda con su georreferencia original (`[ID]_SCL_edited.tif`).
+3. **Fase de Decodificación (Decode)**: Una vez editada la imagen a color por el operador, el script ejecutable ([`003_decode_gimp_edits.py`](../scripts/003_decode_gimp_edits.py)) lee cada píxel RGB, calcula su distancia euclidiana hacia la paleta oficial de colores, y re-asigna el valor categórico puro (0-4), reconstruyendo el TIF matemático de una banda con su georreferencia original (`[ID]_SCL_edited.tif`).
 
 ---
 
 ## 3. Flujo de Trabajo (Paso a Paso)
 
 ### Paso A: Generación Automática
-No tienes que hacer nada. Cuando descargas nuevos gránulos ([`download_test.py`](../scripts/download_test.py)) o ejecutas la inferencia de IA ([`predict.py`](../scripts/predict.py)), el sistema generará de forma automática archivos terminados en `_GIMP.tif`.
+No tienes que hacer nada. Cuando descargas nuevos gránulos ([`002_download_test.py`](../scripts/002_download_test.py)) o ejecutas la inferencia de IA ([`006_predict.py`](../scripts/006_predict.py)), el sistema generará de forma automática archivos terminados en `_GIMP.tif`.
 *Ejemplo:* `visualizations/SCL_UNET/TE_01_SCL_UNET_GIMP.tif`
 
 ### Paso B: Edición Fotográfica
@@ -51,7 +51,7 @@ Cierra GIMP. Abre tu terminal de Python y lanza el decodificador:
 
 ```bash
 source venv/bin/activate
-python scripts/decode_gimp_edits.py
+python scripts/003_decode_gimp_edits.py
 ```
 
 Este script detectará qué archivos han sido manipulados y generará las versiones definitivas `[ID]_SCL_edited.tif`. Estas imágenes matemáticas perfectas actuarán como la **Edición y Clasificación Manual de Píxeles** final.
@@ -61,4 +61,4 @@ Este script detectará qué archivos han sido manipulados y generará las versio
 ## 4. Archivos y Scripts
 
 - [`scripts/gimp_tools.py`](../scripts/gimp_tools.py): Es la librería base. Contiene las funciones matriciales `encode_to_rgb` y `decode_to_classes`. Utiliza `rasterio` y `numpy` para operaciones matriciales ultrarrápidas de inyección de color.
-- [`scripts/decode_gimp_edits.py`](../scripts/decode_gimp_edits.py): Herramienta de usuario por línea de comandos para invocar el proceso de decodificación masiva.
+- [`scripts/003_decode_gimp_edits.py`](../scripts/003_decode_gimp_edits.py): Herramienta de usuario por línea de comandos para invocar el proceso de decodificación masiva.

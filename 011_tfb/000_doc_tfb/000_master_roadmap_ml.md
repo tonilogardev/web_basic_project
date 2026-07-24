@@ -19,7 +19,7 @@ El primer paso y el cimiento del proyecto ha sido definir con precisión qué da
    - *Documentación profunda:* [003_type_granule.md](003_type_granule.md)
 
 3. **Arquitectura de Descargas Automatizadas:**
-   Se ha desarrollado una librería modular ([`sentinel_downloader.py`](../scripts/sentinel_downloader.py)) y dos scripts independientes ([`download_training.py`](../scripts/download_training.py) y [`download_test.py`](../scripts/download_test.py)) que se conectan al OData de Copernicus, descargan decenas de GB, extraen las bandas físicas, colapsan dinámicamente las 12 clases de la máscara SCL original en las 5 Clases Maestras y generan automáticamente miniaturas de previsualización (PNG) para auditoría visual.
+   Se ha desarrollado una librería modular ([`sentinel_downloader.py`](../scripts/sentinel_downloader.py)) y dos scripts independientes ([`001_download_training.py`](../scripts/001_download_training.py) y [`002_download_test.py`](../scripts/002_download_test.py)) que se conectan al OData de Copernicus, descargan decenas de GB, extraen las bandas físicas, colapsan dinámicamente las 12 clases de la máscara SCL original en las 6 Clases Maestras y generan automáticamente miniaturas de previsualización (PNG) para auditoría visual.
    - *Documentación profunda:* [005_execute_download_sentinel.md](005_execute_download_sentinel.md)
 
 4. **Edición y Clasificación Manual de Píxeles (SCL):**
@@ -32,7 +32,7 @@ El primer paso y el cimiento del proyecto ha sido definir con precisión qué da
    - *Documentación profunda:* [009_unet_architecture.md](009_unet_architecture.md)
 
 6. **Desarrollo del Pipeline de Entrenamiento (Baseline):**
-   Se han programado los scripts modulares en PyTorch ([`dataset.py`](../scripts/dataset.py), [`model.py`](../scripts/model.py) y [`train.py`](../scripts/train.py)) para ingestar las matrices espaciales y entrenar la U-Net. Para aislar fallos de programación del ruido en los datos, se ha decidido lanzar un "Baseline Model" entrenando la red con la máscara SCL original (sin curar). Esto asegura que la infraestructura matemática, las funciones de pérdida (`ignore_index`) y la gestión de memoria en GPU funcionen correctamente antes de invertir horas de esfuerzo humano en la edición de píxeles.
+   Se han programado los scripts modulares en PyTorch ([`dataset.py`](../scripts/dataset.py), [`model.py`](../scripts/model.py) y [`005_train.py`](../scripts/005_train.py)) para ingestar las matrices espaciales y entrenar la U-Net. Para aislar fallos de programación del ruido en los datos, se ha decidido lanzar un "Baseline Model" entrenando la red con la máscara SCL original (sin curar). Esto asegura que la infraestructura matemática, las funciones de pérdida (`ignore_index`) y la gestión de memoria en GPU funcionen correctamente antes de invertir horas de esfuerzo humano en la edición de píxeles.
    - *Documentación profunda:* [010_training_pipeline.md](010_training_pipeline.md)
 
 7. **Arquitectura Encode/Decode (GIMP Bridge):**
@@ -49,7 +49,7 @@ El primer paso y el cimiento del proyecto ha sido definir con precisión qué da
 49: ---
 50: 
 51: 10. **Resultados de la Evaluación (Test Set):**
-52:     Se ha ejecutado el motor estadístico `evaluate.py` cruzando las inferencias contra la verdad absoluta (más de 600 millones de píxeles evaluados). Los resultados demuestran el cumplimiento total de los objetivos del TFB, alcanzando un IoU del 99.99% en detección de nieve y solucionando matemáticamente la confusión histórica de Sen2Cor. Se han documentado las métricas estratosféricas (IoU, Recall, Precisión) y generado la gran matriz de confusión agregada térmica.
+52:     Se ha ejecutado el motor estadístico `007_evaluate.py` cruzando las inferencias contra la verdad absoluta (más de 600 millones de píxeles evaluados). Los resultados demuestran el cumplimiento total de los objetivos del TFB, alcanzando un IoU del 99.99% en detección de nieve y solucionando matemáticamente la confusión histórica de Sen2Cor. Se han documentado las métricas estratosféricas (IoU, Recall, Precisión) y generado la gran matriz de confusión agregada térmica.
 53:     - *Documentación profunda:* [014_evaluation_results.md](014_evaluation_results.md)
 54: 
 55: ---

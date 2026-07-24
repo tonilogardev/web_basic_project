@@ -4,17 +4,17 @@
 
 1. [Descarga de Entrenamiento](#1-descarga-de-entrenamiento)
 2. [Descarga de Test](#2-descarga-de-test)
-3. [Creación y Carga del Dataset](#3-creación-y-carga-del-dataset)
-4. [Entrenamiento del Modelo](#4-entrenamiento-del-modelo)
-5. [Inferencia y Examen Final](#5-inferencia-y-examen-final)
-6. [Edición y clasificación Humana](#6-edición y clasificación-humana)
+3. [Edición Manual (GIMP) y Decodificación](#3-edición-manual-gimp-y-decodificación)
+4. [Creación y Carga del Dataset](#4-creación-y-carga-del-dataset)
+5. [Entrenamiento del Modelo](#5-entrenamiento-del-modelo)
+6. [Inferencia y Examen Final](#6-inferencia-y-examen-final)
 7. [Evaluación Matemática](#7-evaluación-matemática)
 
 ---
 
 ## 1 Descarga de Entrenamiento
 
-- Ejecuta [`download_training.py`](../scripts/download_training.py).
+- Ejecuta [`001_download_training.py`](../scripts/001_download_training.py).
 - Lee la lista de gránulos de [`training_granules.csv`](../scripts/training_granules.csv).
 - Descarga los 30 gránulos de entrenamiento en `download/training/`.
 
@@ -22,45 +22,47 @@
 
 ## 2 Descarga de Test
 
-- Ejecuta [`download_test.py`](../scripts/download_test.py).
+- Ejecuta [`002_download_test.py`](../scripts/002_download_test.py).
 - Lee la lista de gránulos ocultos de [`test_granules.csv`](../scripts/test_granules.csv).
 - Descarga los 10 gránulos en `download/test/`.
 
-[←Index](#index)
-
-## 3 Creación y Carga del Dataset
-
-- Ejecuta [`create_dataset.py`](../scripts/create_dataset.py) para recortar las imágenes gigantes en parches de 512x512 píxeles (guardados en `dataset/patches/train/`).
-- Referencia [`dataset.py`](../scripts/dataset.py) para cargar estos parches en la memoria GPU de forma ordenada durante la fase de entrenamiento.
+*Nota: Es indiferente bajar Test antes o después de entrenar, pero es muy eficiente bajarlo ahora para que puedas editar manualmente todas las imágenes (Train y Test) de una sola vez en el Paso 3.*
 
 [←Index](#index)
 
-## 4 Entrenamiento del Modelo
+## 3 Edición Manual (GIMP) y Decodificación
 
-- Ejecuta [`train.py`](../scripts/train.py) para entrenar la red neuronal (U-Net) con los parches.
+- Edita a color los archivos originales `_SCL_GIMP.tif` de las carpetas de descargas utilizando GIMP (pintando mares, corrigiendo nieve/nubes).
+- Ejecuta [`003_decode_gimp_edits.py`](../scripts/003_decode_gimp_edits.py).
+- Reconstruye los archivos editados en formato puro matemático, generando la Verdad Terreno Absoluta (`_SCL_edited.tif`) en las mismas carpetas.
+
+[←Index](#index)
+
+## 4 Creación y Carga del Dataset
+
+- Ejecuta [`004_create_dataset.py`](../scripts/004_create_dataset.py). El script priorizará tus máscaras manuales (`_SCL_edited.tif`) para recortar las imágenes gigantes en parches puros de 512x512 píxeles (guardados en `dataset/patches/train/`).
+- Referencia [`dataset.py`](../scripts/dataset.py) para cargar estos parches en la memoria GPU de forma ordenada.
+
+[←Index](#index)
+
+## 5 Entrenamiento del Modelo
+
+- Ejecuta [`004_train.py`](../scripts/004_train.py) para entrenar la red neuronal (U-Net) con tus parches limpios.
 - Crea el archivo de pesos de PyTorch `baseline_model.pth` en el directorio [`checkpoints/`](../checkpoints/).
 
 [←Index](#index)
 
-## 5 Inferencia y Examen Final
+## 6 Inferencia y Examen Final
 
-- Ejecuta [`predict.py`](../scripts/predict.py) cargando el modelo entrenado.
-- Crea las máscaras matemáticas (`_SCL_UNET.tif`) y las versiones coloreadas (`_SCL_UNET_GIMP.tif`) en el directorio [`visualizations/SCL_UNET/`](../visualizations/SCL_UNET/).
-
-[←Index](#index)
-
-## 6 Edición manual
-
-- Edita a color los archivos `_SCL_UNET_GIMP.tif` utilizando GIMP para corregir la IA.
-- Ejecuta [`decode_gimp_edits.py`](../scripts/decode_gimp_edits.py).
-- Reconstruye el archivo editado en un formato puro matemático, generando la Verdad Terreno (`_SCL_edited.tif`).
+- Ejecuta [`006_predict.py`](../scripts/006_predict.py) cargando el modelo recién entrenado.
+- La IA predice sobre los gránulos de Test, creando sus propias máscaras matemáticas (`_SCL_UNET.tif`) en el directorio [`visualizations/SCL_UNET/`](../visualizations/SCL_UNET/).
 
 [←Index](#index)
 
 ## 7 Evaluación Matemática
 
-- Ejecuta [`evaluate.py`](../scripts/evaluate.py) para cruzar píxel a píxel las inferencias contra la Verdad Terreno.
-- Extrae métricas de IoU, Precisión y Recall por clase.
+- Ejecuta [`005_evaluate.py`](../scripts/005_evaluate.py) para cruzar píxel a píxel las inferencias de la IA contra tu Verdad Terreno del Set de Test.
+- Extrae métricas de IoU, Precisión y Recall por clase (ahora sobre 6 clases).
 - Crea el gráfico térmico `confusion_matrix.png` en el directorio de visualizaciones.
 
 [←Index](#index)

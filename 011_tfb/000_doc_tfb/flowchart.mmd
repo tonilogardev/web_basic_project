@@ -1,0 +1,8 @@
+graph TD
+    A[("Copernicus CDSE")] -->|Descarga OData| B["Bandas L1C + Máscara SCL (L2A)"]
+    B -->|Filtro de Bandas| C["RGB + NIR + SWIR"]
+    C -->|NDSI| D["Inyección Índice de Nieve"]
+    D -->|004_create_dataset.py| E("Tiling Dinámico 512x512")
+    E -->|Filtro de Ruido| F{"¿>10% Terreno Válido?"}
+    F -->|Sí| G["Dataset PyTorch"]
+    F -->|No| H["Descartar (Océano/Basura)"]

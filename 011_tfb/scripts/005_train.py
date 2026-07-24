@@ -47,7 +47,7 @@ def train_baseline():
     )
 
     # 2. Inicializar Modelo, Loss y Optimizador
-    model = UNet(in_channels=7, out_classes=5).to(DEVICE)
+    model = UNet(in_channels=7, out_classes=6).to(DEVICE)
 
     # ignore_index=0 es el secreto para no entrenar sobre el Mar Profundo y los bordes negros
     criterion = nn.CrossEntropyLoss(ignore_index=0)

@@ -33,10 +33,10 @@ Esta fase constituye el núcleo académico del proyecto y se realiza una única 
 ### 1.1 Flujo de Trabajo Operativo (Los 30 Gránulos)
 El proceso de construcción del dataset de entrenamiento sigue una mecánica estrictamente secuencial por parte del investigador:
 
-1.  **Selección y Descarga:** El investigador decide qué gránulo específico descargar (fecha y *Tile*), basándose rigurosamente en las especificaciones y casos límite detallados en el documento `003_type_granule.md`.
-2.  **Edición y clasificación de la Máscara SCL:** Una vez descargados los datos, el investigador revisa la imagen de clasificación de píxeles original de la ESA (SCL) y edita manualmente los píxeles erróneos.
-3.  **Preprocesamiento (Feature Engineering):** Antes de entregar los datos a la red, el sistema calculará automáticamente el índice NDSI `(B03 - B11) / (B03 + B11)`. En lugar de pasarle a la U-Net solo los colores crudos, se le pasará este índice como un canal de información extra. Al inyectar el conocimiento físico de *Fmask* ya pre-procesado, se dota a la red neuronal de una ventaja matemática masiva para detectar nieve.
-4.  **Ensamblaje del Entrenamiento:** El fichero SCL editado (convertido en el *Ground Truth*), junto con los ficheros de los canales espectrales físicos (B02, B03, B04, B08, B11, B12) y la nueva banda artificial NDSI, conforman el paquete de tensores definitivo que se utilizará para entrenar al modelo de *Machine Learning*. *(Nota: Se ha descartado explícitamente el uso de capas topográficas o DEM, véase doc 006).*
+1.  **Extracción Automatizada (API OData):** Basándose en un listado curado de gránulos críticos para la orografía catalana, el sistema ejecuta el pipeline de ingesta (`download_sentinel.py`). Se extraen las bandas crudas (B02, B03, B04, B08, B11, B12) y la máscara nativa de la ESA (SCL).
+2.  **Arquitectura "GIMP Bridge" (El Ground Truth):** Dado que los fallos de Sen2Cor requieren corrección humana, se ejecuta un *script* de codificación (`002_encode_for_gimp.py`) que transforma las matrices espaciales en una composición visualmente editable. El investigador emplea GIMP para reclasificar manualmente errores graves (falsos positivos de nieve, sombras escarpadas, y masas de agua). Finalmente, un decodificador (`003_decode_gimp_edits.py`) re-inyecta las correcciones fotográficas en el mapa científico matricial.
+3.  **Ingeniería de Datos (Feature Engineering):** El flujo calcula el índice matemático de nieve NDSI `(B03 - B11) / (B03 + B11)` a partir de la reflectancia física, y lo apila como un séptimo canal de información. Esta inyección de conocimiento físico puro reduce drásticamente la curva de aprendizaje de la U-Net.
+4.  **Troceado de Tensores y Filtrado OOM (Tiling):** Las colosales imágenes originales (10980x10980 píxeles) destrozarían la memoria RAM de cualquier máquina. Mediante el script `004_create_dataset.py`, el mapa geográfico se despedaza en teselas operativas de 512x512 píxeles. Durante este proceso, un filtro purga y destruye sistemáticamente cualquier cuadrante de terreno que contenga más de un 90% de vacío (bordes satelitales ciegos u océano profundo), ensamblando los paquetes definitivos `.pt` (PyTorch) compuestos por las 6 Clases Maestras de predicción.
 
 ### 1.2 Generación del "Ground Truth" (Técnicas de Edición y Clasificación)
 Para ejecutar el Paso 2 mencionado anteriormente, se establece una metodología única y pragmática:
@@ -45,7 +45,16 @@ Para ejecutar el Paso 2 mencionado anteriormente, se establece una metodología 
 
 **Casos Extremos (El efecto confeti):** En situaciones de *Hard Negatives* (ej. Pirineos con cirros finos sobre nieve), el algoritmo de la ESA suele generar un "ruido de confeti" clasificando píxeles erróneos de forma masiva y altamente fragmentada. En estos escenarios extremos, la mecánica de edición sigue siendo la misma, con la salvedad de que a nivel operativo resulta más eficiente borrar la máscara SCL completa y redibujar el contorno de la nube con la herramienta de polígono, en lugar de intentar corregir el ruido píxel a píxel.
 
-### 1.3 Entrenamiento y Validación
+### 1.3 Taxonomía de Clases (El Ground Truth)
+Para que la red neuronal aprenda correctamente la física espectral sin ambigüedades, se establece una ontología estricta de **6 clases maestras**:
+* **Clase 0 (NoData / Bordes):** Píxeles vacíos del sensor. Se ignoran activamente durante el entrenamiento matemático (`ignore_index=0`).
+* **Clase 1 (Suelo):** Tierra, rocas, vegetación, ciudades. Reflejan intensamente el infrarrojo (SWIR).
+* **Clase 2 (Nube):** Alta reflectancia visible e infrarroja.
+* **Clase 3 (Sombra Nube):** Oscurecimiento proyectado.
+* **Clase 4 (Nieve):** Alta reflectancia visible, pero absorción total en infrarrojo de onda corta (SWIR).
+* **Clase 5 (Masas de Agua):** Mar, pantanos, lagos. Absorbe el SWIR. Esta clase se aisló del "Suelo" (Clase 1) y del "NoData" (Clase 0) debido a su tendencia a generar reflejos solares especulares (*Sun Glint*). Al forzar a la red a predecir esta clase de forma independiente, el modelo aprende la física del agua y deja de confundir sus destellos con nubes.
+
+### 1.4 Entrenamiento y Validación
 *   **Entrenamiento Supervisado Inicial:** Se entrena la U-Net utilizando el conjunto de entrenamiento curado. Durante este proceso (dividido en cientos de *Epochs*), la Función de Pérdida (*Loss Function*) evalúa matemáticamente el error entre la predicción de la red y la máscara real (*Ground Truth*), ajustando los pesos internos mediante *Backpropagation*.
 *   **Validación Ciega (Test):** Una vez la red ha convergido, se somete al examen final utilizando el **conjunto de Test oculto de 10 gránulos** (que la red jamás ha visto). 
 *   **Métricas de Éxito:** Si las métricas (IoU, F1-Score) sobre el conjunto de test superan los umbrales de precisión esperados (y superan los resultados de algoritmos clásicos como Sen2Cor en casos complejos), se da por validada la arquitectura y nace oficialmente el Modelo V1.

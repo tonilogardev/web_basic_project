@@ -29,13 +29,13 @@
   - **Encoder (Bajada)**: Recibe una imagen de 7 canales. Aplica convoluciones reduciendo el tamaño espacial y aumentando la profundidad (hasta 1024 canales en el cuello de botella).
   - **Decoder (Subida)**: Expande la imagen de nuevo a la resolución original (512x512).
   - **Skip Connections**: Conecta físicamente las capas de bajada con las de subida para no perder la resolución espacial fina de los bordes de la nieve y nubes.
-  - **Capa Final**: Convierte la profundidad a 5 canales exactos (los "Logits" de las 5 Clases Maestras).
+  - **Capa Final**: Convierte la profundidad a 6 canales exactos (los "Logits" de las 6 Clases Maestras).
 
 [←Index](#index)
 
 ## 3 Script train
 
-- **Archivo**: [train.py](../scripts/train.py)
+- **Archivo**: [005_train.py](../scripts/005_train.py)
 - **Misión**: Orquestar el proceso de aprendizaje repetitivo (Épocas).
 - **Flujo de Ejecución**:
   - Selecciona la tarjeta gráfica libre (en este caso `cuda:1`).

@@ -15,8 +15,8 @@ from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_
 from pathlib import Path
 
 # Definición de las clases
-CLASS_NAMES = ["Suelo (1)", "Nube (2)", "Sombra Nube (3)", "Nieve (4)"]
-CLASSES = [1, 2, 3, 4]
+CLASS_NAMES = ["Suelo (1)", "Nube (2)", "Sombra Nube (3)", "Nieve (4)", "Masas de Agua (5)"]
+CLASSES = [1, 2, 3, 4, 5]
 
 
 def calculate_iou_per_class(cm):
@@ -39,10 +39,10 @@ def calculate_iou_per_class(cm):
     return np.array(ious)
 
 
-def fast_confusion_matrix(y_true, y_pred, n_classes=5):
+def fast_confusion_matrix(y_true, y_pred, n_classes=6):
     cm_1d = np.bincount(y_true * n_classes + y_pred, minlength=n_classes**2)
     cm_2d = cm_1d.reshape((n_classes, n_classes))
-    return cm_2d[1:, 1:]  # Extraer solo clases 1,2,3,4
+    return cm_2d[1:, 1:]  # Extraer solo clases 1,2,3,4,5
 
 
 def main():
@@ -64,8 +64,8 @@ def main():
         f"[*] Se encontraron {len(edited_files)} archivos de Test curados manualmente."
     )
 
-    # Matriz global acumulativa de 4x4 (clases 1 a 4)
-    global_cm = np.zeros((4, 4), dtype=np.int64)
+    # Matriz global acumulativa de 5x5 (clases 1 a 5)
+    global_cm = np.zeros((5, 5), dtype=np.int64)
     total_valid = 0
 
     for gt_path in edited_files:

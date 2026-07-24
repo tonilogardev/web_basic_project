@@ -163,7 +163,7 @@ def collapse_scl(scl_jp2_path, dest_tif_path):
 
     new_data = np.zeros_like(data)
 
-    # 0 (Basura): 0, 1, 2, 6, 7 (ya es 0)
+    # 0 (Basura): 0, 1, 2, 7 (ya es 0)
     # 1 (Suelo): 4, 5
     new_data[np.isin(data, [4, 5])] = 1
     # 2 (Nube): 8, 9, 10
@@ -172,6 +172,8 @@ def collapse_scl(scl_jp2_path, dest_tif_path):
     new_data[data == 3] = 3
     # 4 (Nieve): 11
     new_data[data == 11] = 4
+    # 5 (Masas de Agua): 6
+    new_data[data == 6] = 5
 
     meta.update(driver="GTiff", compress="deflate")
 

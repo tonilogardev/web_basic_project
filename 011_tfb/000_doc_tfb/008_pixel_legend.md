@@ -1,5 +1,7 @@
 # Leyenda de Píxeles y Estrategia de Agrupación (SCL)
 
+![Comparativa Leyenda ESA vs Modelo](leyenda_comparativa.svg)
+
 Este documento detalla la justificación teórica y la estrategia de Ingeniería de Datos aplicada a las máscaras de segmentación de Sentinel-2 (Scene Classification Layer - SCL) para el entrenamiento de la red neuronal U-Net.
 
 ## 1. El Estándar Sen2Cor (Las 12 Clases Originales)
@@ -21,19 +23,20 @@ El algoritmo oficial de la ESA (Sen2Cor) genera una máscara de clasificación (
 | 10 | Thin Cirrus | Nubes de hielo muy altas y delgadas (Cirros). |
 | 11 | Snow / Ice | Superficies cubiertas por nieve o hielo. |
 
-## 2. Reducción de Dimensionalidad (Colapso Físico a 5 Clases)
+## 2. Reducción de Dimensionalidad (Colapso Físico a 6 Clases)
 
 Entrenar una red neuronal para discernir entre 12 clases, muchas de las cuales son irrelevantes para el objetivo (Nieve vs Nube), generaría un modelo ineficiente.
 
-Para solucionar esto de forma elegante, el script de descarga ([`download_sentinel.py`](../scripts/download_sentinel.py)) colapsará **físicamente** el archivo `SCL.jp2` original en un nuevo archivo `SCL.tif` (GeoTIFF) que contendrá exclusivamente **5 Clases Maestras**. Esto facilita la edición y clasificación manual en QGIS y optimiza el filtrado automático de parches en [`create_dataset.py`](../scripts/create_dataset.py).
+Para solucionar esto de forma elegante, el script de descarga ([`download_sentinel.py`](../scripts/download_sentinel.py)) colapsará **físicamente** el archivo `SCL.jp2` original en un nuevo archivo `SCL.tif` (GeoTIFF) que contendrá exclusivamente **6 Clases Maestras**. Esto facilita la edición y clasificación manual en QGIS y optimiza el filtrado automático de parches en [`004_create_dataset.py`](../scripts/004_create_dataset.py).
 
 El mapeo físico y visual (RGB) para la edición en GIMP es el siguiente:
 
-- **Clase 0 (Basura / Descarte):** [COLOR GIMP: Negro puro / `000000`] Agrupa [0, 1, 2, 6, 7]. Píxeles sin datos, mares profundos o errores. Si un parche contiene más del 90% de Clase 0, [`create_dataset.py`](../scripts/create_dataset.py) lo descarta para no llenar el disco duro. La red neuronal ignorará esta clase durante el entrenamiento (`ignore_index=0`).
+- **Clase 0 (Basura / Descarte):** [COLOR GIMP: Negro puro / `000000`] Agrupa [0, 1, 2, 7]. Píxeles sin datos o errores. Si un parche contiene más del 90% de Clase 0, [`004_create_dataset.py`](../scripts/004_create_dataset.py) lo descarta para no llenar el disco duro. La red neuronal ignorará esta clase durante el entrenamiento (`ignore_index=0`).
 - **Clase 1 (Suelo Útil):** [COLOR GIMP: Verde Bosque / `228B22`] Agrupa [4, 5]. Vegetación y suelo desnudo.
 - **Clase 2 (Nube):** [COLOR GIMP: Blanco puro / `FFFFFF`] Agrupa [8, 9, 10]. Toda la obstrucción atmosférica brillante.
 - **Clase 3 (Sombra Nube):** [COLOR GIMP: Gris / `646464`] Mantiene [3]. Obstrucción terrestre oscura generada por nube.
 - **Clase 4 (Nieve):** [COLOR GIMP: Cyan Brillante / `00FFFF`] Mantiene [11]. El objetivo de control.
+- **Clase 5 (Masas de Agua):** [COLOR GIMP: Azul Puro / `0000FF`] Mantiene [6]. El mar y lagos profundos. Evita falsos positivos por sun glint.
 
 ## 3. Justificaciones Científicas de la Agrupación
 

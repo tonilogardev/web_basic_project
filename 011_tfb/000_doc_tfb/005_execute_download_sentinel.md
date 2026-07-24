@@ -54,20 +54,20 @@ Abrir terminal y lanzar el script correspondiente según la fase entrenamiento o
 
 Para descargar el **Conjunto de Entrenamiento**:
 ```bash
-python scripts/download_training.py
+python scripts/001_download_training.py
 ```
 
 Para descargar el **Conjunto de Test**:
 ```bash
-python scripts/download_test.py
+python scripts/002_download_test.py
 ```
 
 Este script es un "todo en uno" (basado en la librería [`sentinel_downloader.py`](../scripts/sentinel_downloader.py)):
 - *El script leerá los CSVs y realizará **cinco** acciones automáticas:*
   1. *Obtendrá el L1C (Bandas Físicas) a 10m y 20m.*
-  2. *Descargará la máscara SCL (L2A), la colapsará físicamente de 12 a 5 Clases Maestras y la guardará como `[ID]_SCL_5classes.tif`.*
+  2. *Descargará la máscara SCL (L2A), la colapsará físicamente de 12 a **6 Clases Maestras** (incluyendo el mar) y la guardará como `[ID]_SCL.tif`.*
   3. *Generará archivos físicos GeoTIFF de alta resolución para **Color Real** (`[ID]_ColorReal.tif`) y **Falso Color Nieve** (`[ID]_FalsoColor_Nieve.tif`), garantizando una carga rápida y sin errores de interpolación en QGIS o visores web.*
-  4. *Extraerá una versión de 8-bits reales RGB (`[ID]_GIMP.tif`) de la máscara matemática con sus coordenadas `.tfw` separadas para permitir su edición segura en editores fotográficos tradicionales (GIMP/Photoshop).*
+  4. *Extraerá una versión a color lista para pintar (`[ID]_GIMP.tif`) de la máscara matemática, permitiendo la **edición y clasificación manual segura** en editores fotográficos (como pintar el mar de azul).*
   5. *Extraerá y procesará una miniatura `.png` de 1024x1024 píxeles de Color Real (`[ID]_thumbnail.png`) para facilitar la inspección visual rápida de los gránulos.*
 - *Los resultados se guardarán limpios en `../download/training` y `../download/test`.*
 - **Desactiva** el entorno al terminar:

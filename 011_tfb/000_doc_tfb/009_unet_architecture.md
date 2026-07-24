@@ -37,8 +37,8 @@
     - Entran en la red como `Float32`: Cuando la red neuronal está aprendiendo, hace ajustes matemáticos microscópicos. Si usáramos la baja precisión de `Float16`, el ordenador no tendría suficientes decimales para guardar números tan diminutos, los redondearía a cero o daría error, y el aprendizaje colapsaría. Por eso necesitamos la alta precisión de `Float32` para los cálculos internos.
 
 - **Outputs (`Y_pred`)**:
-  - Forma: `(N, 5, 512, 512)`
-  - Logits por Clase Maestra: 0 (Basura), 1 (Suelo), 2 (Nube), 3 (Sombra), 4 (Nieve).
+  - Forma: `(N, 6, 512, 512)`
+  - Logits por Clase Maestra: 0 (Basura), 1 (Suelo), 2 (Nube), 3 (Sombra), 4 (Nieve), 5 (Agua).
   - Función Final: `Softmax` (suma 1.0 por píxel).
 
 [←Index](#index)
@@ -49,9 +49,9 @@
 
 - **Arquitectura**: U-Net programada *From Scratch*.
 - **Análisis Crítico**:
-  - **Incompatibilidad de Entradas (Canales Físicos)**: Los modelos públicos de Sentinel-2 están rígidamente diseñados para ingerir las 10 bandas crudas. La arquitectura propuesta utiliza 7 canales específicos (6 bandas filtradas + el índice NDSI explícito). Modificar la capa de entrada de un modelo pre-entrenado para que acepte 7 canales en lugar de 10 corrompe sus pesos matemáticos iniciales, anulando la ventaja del *Transfer Learning*.
-  - **Incompatibilidad de Salidas (Taxonomía)**: Las redes pre-entrenadas devuelven máscaras binarias (Nube / Despejado) o de 3 clases. El proyecto exige mapear una taxonomía semántica de 5 Clases Maestras (incluyendo sombras complejas, nieve y píxeles de descarte). Adaptar el modelo requeriría amputar y reemplazar completamente su capa final de predicción.
-  - **Abundancia de Datos (Volumen)**: El *Transfer Learning* es una técnica para paliar la falta de datos. El proceso de Ingeniería de Datos ha extraído más de 8.000 tensores espaciales de 512x512 píxeles. Este volumen masivo de información proporciona suficiente varianza estadística para que una U-Net iniciada en blanco aprenda la física multiespectral por sí misma.
+  - **Incompatibilidad de Entradas (Canales Físicos y VRAM)**: Los modelos públicos de Sentinel-2 están rígidamente diseñados para ingerir las 10 o 13 bandas crudas del satélite. Nuestra arquitectura realiza una reducción drástica de dimensionalidad a 7 canales específicos (6 bandas filtradas + el índice NDSI). Esta decisión no es casual: descartar bandas irrelevantes (como aerosoles costeros) previene el colapso de memoria de la tarjeta gráfica (OOM) y acelera el entrenamiento. Además, inyectar el NDSI pre-calculado como un canal explícito fuerza matemáticamente a la red a prestar atención a la física de la nieve desde la época cero. Modificar la capa de entrada de un modelo pre-entrenado para que acepte 7 canales en lugar de 10 corrompe irreversiblemente sus pesos matemáticos iniciales, anulando la supuesta ventaja del *Transfer Learning*.
+  - **Incompatibilidad de Salidas (Taxonomía Adaptada)**: Las redes pre-entrenadas genéricas suelen devolver máscaras binarias simplistas (Nube / Despejado). Este proyecto exige mapear una taxonomía semántica de 6 Clases Maestras perfectamente acotada a la geografía catalana (incluyendo el mar Mediterráneo, las sombras orográficas complejas de los Pirineos, la nieve alpina y los píxeles de descarte espacial). Adaptar un modelo externo requeriría amputar y reconstruir completamente su capa final de predicción, lo que desestabilizaría el modelo entero. Diseñar la topología de salida desde cero garantiza que la red asimile nuestra taxonomía de forma nativa.
+  - **Abundancia de Datos y Sesgo Geográfico (Volumen)**: El *Transfer Learning* es una técnica nacida para paliar la falta de datos. Sin embargo, el esfuerzo de Ingeniería de Datos de este proyecto ha logrado extraer y curar más de 8.000 tensores espaciales de 512x512 píxeles específicos de Cataluña. Iniciar el entrenamiento en blanco (*From Scratch*) utilizando exclusivamente esta biblioteca de tensores locales asegura que el modelo aprenda la física multiespectral pura de nuestro terreno. Si utilizáramos un modelo pre-entrenado con paisajes globales genéricos, estaríamos heredando "sesgos geográficos" ajenos a la paradoja topográfica que precisamente intentamos resolver.
   - **Superioridad de las CNN**: La literatura científica actual (e.g., *Wieland, Li & Martinis, 2019*) demuestra que las arquitecturas CNN convolucionales superan ampliamente a los algoritmos heurísticos tradicionales en la segmentación de nubes y sombras complejas multisensores, justificando el diseño "From Scratch" frente a herramientas algorítmicas heredadas.
   
 
@@ -59,7 +59,7 @@
 
 ## 4. Loss Function (Función de Pérdida)
 
-- **Función Principal**: `CrossEntropyLoss` (Implementada en el script de entrenamiento [`train.py`](../scripts/train.py)).
+- **Función Principal**: `CrossEntropyLoss` (Implementada en el script de entrenamiento [`005_train.py`](../scripts/005_train.py)).
 - **Estrategia Crítica de Enmascarado (`ignore_index`)**:
   - Se configura matemáticamente como `nn.CrossEntropyLoss(ignore_index=0)`.
   - **Justificación Extensa**: Las imágenes satelitales Sentinel-2 contienen habitualmente vastas áreas de "Basura / NoData" (ej. mares profundos oscuros, o triángulos negros fuera de la órbita del satélite). Si la función de pérdida procesa estos píxeles, la red neuronal intentará encontrar patrones ópticos donde solo hay "ruido geográfico", corrompiendo la actualización de sus pesos matemáticos. Al inyectar el parámetro `ignore_index=0`, el algoritmo anula cualquier castigo o recompensa en estas áreas. De esta forma, la U-Net concentra el 100% de su capacidad de cálculo y aprendizaje exclusivamente en la física real: la nieve, las nubes y el terreno.

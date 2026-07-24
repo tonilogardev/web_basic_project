@@ -3,7 +3,7 @@
 Hemos finalizado con éxito la evaluación estadística de la red neuronal **U-Net** diseñada "Desde Cero", validándola matemáticamente frente a la "Edición y Clasificación Manual de Píxeles" (la Verdad Terreno extraída de los 10 gránulos ocultos de Test curados meticulosamente con GIMP).
 
 > [!TIP]
-> **Optimización Técnica Implementada**: El motor estadístico de validación (`evaluate.py`) tuvo que re-escribirse. Dado el volumen descomunal de datos (más de 600 millones de píxeles espaciales), el uso estándar de matrices en memoria provocaba colapsos. Se desarrolló una función matemática de indexación directa mediante tensores unidimensionales (`np.bincount`) capaz de procesar toda Cataluña en un segundo sin penalizar la memoria RAM.
+> **Optimización Técnica Implementada**: El motor estadístico de validación (`007_evaluate.py`) tuvo que re-escribirse. Dado el volumen descomunal de datos (más de 600 millones de píxeles espaciales), el uso estándar de matrices en memoria provocaba colapsos. Se desarrolló una función matemática de indexación directa mediante tensores unidimensionales (`np.bincount`) capaz de procesar toda Cataluña en un segundo sin penalizar la memoria RAM.
 
 ## 1. Métricas Agregadas por Clase
 

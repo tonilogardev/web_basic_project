@@ -47,7 +47,8 @@ def build_scl_mask(scl_raw):
     scl_5class[np.isin(scl_raw, [8, 9, 10])] = 2  # Nube
     scl_5class[scl_raw == 3] = 3  # Sombra
     scl_5class[scl_raw == 11] = 4  # Nieve
-    # El resto (0, 1, 2, 6, 7) ya es 0 (Basura) al inicializar con ceros.
+    scl_5class[scl_raw == 6] = 5  # Masas de Agua
+    # El resto (0, 1, 2, 7) ya es 0 (Basura) al inicializar con ceros.
     return scl_5class
 
 
@@ -56,7 +57,7 @@ def predict_granule(granule_dir, model_path, output_path):
 
     # 1. Cargar el Modelo
     device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-    model = UNet(in_channels=7, out_classes=5).to(device)
+    model = UNet(in_channels=7, out_classes=6).to(device)
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
     print("    [+] Modelo Baseline cargado correctamente.")
