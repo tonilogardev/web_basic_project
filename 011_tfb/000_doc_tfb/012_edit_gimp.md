@@ -23,28 +23,31 @@ Si el usuario intenta hacer visible la imagen utilizando herramientas de contras
 
 ---
 
-## 2. La Solución: Arquitectura Encode/Decode
+## 2. La Solución: Arquitectura Multicapa (Lienzo Único)
 
-Para superar estas limitaciones sin forzar al analista a utilizar herramientas GIS complejas para tareas de pintura, se ha diseñado una arquitectura puente basada en la inyección temporal de color.
+Para superar estas limitaciones sin forzar al analista a utilizar herramientas GIS complejas para tareas de pintura, se ha diseñado una arquitectura puente basada en un **TIFF Multicapa**.
 
-1. **Fase de Codificación (Encode)**: Los scripts principales que implementan la librería puente ([`gimp_tools.py`](../scripts/gimp_tools.py)) interceptan la máscara matemática generada (ya sea la descarga de Sen2Cor o la predicción de U-Net) y la transforman en un **GeoTIFF RGB de 3 bandas a todo color** (`[ID]_GIMP.tif`). A cada valor se le asigna su color real según la leyenda oficial del proyecto (Verde, Blanco, Gris, Cyan).
-2. **Fase de Backup Geoespacial**: Durante la conversión, GDAL inyecta archivos separados (`.tfw` o `.xml`) que sobreviven aunque GIMP sobrescriba el archivo principal y destruya sus cabeceras geográficas originales.
-3. **Fase de Decodificación (Decode)**: Una vez editada la imagen a color por el operador, el script ejecutable ([`003_decode_gimp_edits.py`](../scripts/003_decode_gimp_edits.py)) lee cada píxel RGB, calcula su distancia euclidiana hacia la paleta oficial de colores, y re-asigna el valor categórico puro (0-4), reconstruyendo el TIF matemático de una banda con su georreferencia original (`[ID]_SCL_edited.tif`).
+1. **Fase de Empaquetado (Multicapa)**: El descargador automático intercepta las bandas ópticas y la máscara SCL matemática. Utilizando la librería Pillow, ensambla un único archivo `[ID]_SCL_GIMP.tif` que contiene 3 capas (páginas) apiladas a 20 metros de resolución:
+   - **Capa Base**: Color Real.
+   - **Capa Intermedia**: Falso Color (Nieve).
+   - **Capa Superior**: Máscara SCL a color (Verde, Blanco, Gris, Cyan).
+2. **Edición Ergonómica**: El analista abre un único archivo en GIMP, puede encender y apagar las capas de satélite subyacentes, y pinta exclusivamente sobre la capa superior. No dependemos de formatos propietarios (`.xcf`), manteniendo el estándar abierto GeoTIFF.
+3. **Fase de Decodificación (Resiliencia Geográfica)**: Los editores fotográficos destruyen los metadatos geográficos (GeoTIFF tags). Por ello, el script `003_decode_gimp_edits.py` extrae únicamente la máscara pintada, mapea los colores de vuelta a los valores matemáticos (0-4), y **roba las coordenadas geográficas inalterables** del archivo `.vrt` original, inyectándolas por la fuerza en el resultado final (`[ID]_SCL_edited.tif`).
 
 ---
 
 ## 3. Flujo de Trabajo (Paso a Paso)
 
 ### Paso A: Generación Automática
-No tienes que hacer nada. Cuando descargas nuevos gránulos ([`002_download_test.py`](../scripts/002_download_test.py)) o ejecutas la inferencia de IA ([`006_predict.py`](../scripts/006_predict.py)), el sistema generará de forma automática archivos terminados en `_GIMP.tif`.
-*Ejemplo:* `visualizations/SCL_UNET/TE_01_SCL_UNET_GIMP.tif`
+No tienes que hacer nada. Cuando descargas nuevos gránulos, el sistema generará de forma automática archivos terminados en `_SCL_GIMP.tif` dentro de sus respectivas carpetas en `download/training/` o `download/test/`.
+*Ejemplo:* `download/training/2025-02-13_T31TCH/2025-02-13_T31TCH_SCL_GIMP.tif`
 
 ### Paso B: Edición Fotográfica
-1. Abre el archivo `_GIMP.tif` en GIMP.
-2. Abre también las imágenes ópticas de referencia (`ColorReal.tif` o `FalsoColor_Nieve.tif`) como capas subyacentes para comprobar la realidad física del terreno.
+1. Abre el archivo `_SCL_GIMP.tif` en GIMP. Te pedirá importar las páginas como capas. Acéptalo.
+2. Juega con la opacidad de la capa superior (Máscara SCL) para ver el terreno real en la capa inferior.
 3. Utiliza la herramienta de **Cuentagotas** para seleccionar el color oficial que deseas aplicar (ej: Cyan puro para Nieve).
-4. Utiliza el **Lápiz** (sin antialiasing / difuminado de bordes) para corregir los píxeles erróneos sobre la capa `_GIMP.tif`.
-5. Selecciona `Archivo > Sobrescribir [ID]_GIMP.tif` (File > Overwrite).
+4. Utiliza el **Lápiz** (sin difuminado de bordes) para corregir los píxeles erróneos **asegurándote de pintar única y exclusivamente en la capa superior**.
+5. Selecciona `Archivo > Sobrescribir [ID]_SCL_GIMP.tif` (File > Overwrite). Si te pregunta si deseas guardar las capas o aplanar la imagen, elige la que prefieras. El decodificador Python es lo bastante inteligente para encontrar tu máscara en ambos escenarios.
 
 ### Paso C: Decodificación y Recuperación
 Cierra GIMP. Abre tu terminal de Python y lanza el decodificador:
@@ -54,26 +57,11 @@ source venv/bin/activate
 python scripts/003_decode_gimp_edits.py
 ```
 
-Este script detectará qué archivos han sido manipulados y generará las versiones definitivas `[ID]_SCL_edited.tif`. Estas imágenes matemáticas perfectas actuarán como la **Edición y Clasificación Manual de Píxeles** final.
+Este script detectará automáticamente qué archivos han sido manipulados y generará las versiones definitivas `[ID]_SCL_edited.tif`. Estas imágenes matemáticas, con sus coordenadas perfectas restauradas, actuarán como la **Verdad Terreno** final para el entrenamiento o validación.
 
 ---
 
-## 4. Archivos y Scripts
+## 4. Archivos y Scripts Relevantes
 
-- [`scripts/gimp_tools.py`](../scripts/gimp_tools.py): Es la librería base. Contiene las funciones matriciales `encode_to_rgb` y `decode_to_classes`. Utiliza `rasterio` y `numpy` para operaciones matriciales ultrarrápidas de inyección de color.
-- [`scripts/003_decode_gimp_edits.py`](../scripts/003_decode_gimp_edits.py): Herramienta de usuario por línea de comandos para invocar el proceso de decodificación masiva.
-
-## 5. Reflexión de la arquitectura de la edición y clasificación de píxeles de forma manual
-
-Una vez empleado el método de edición y clasificación de píxeles con la arquitectura descrita, llegamos a la conclusión empírica de que el flujo de trabajo (Ergonomía del Analista) requiere una mejora estructural para ser óptimo. 
-
-**Mejoras propuestas y lecciones aprendidas:**
-
-1. **Adopción de un flujo de trabajo Multicapa (El Lienzo Único):**
-   Para poder corregir los bordes de una nube con precisión quirúrgica, abrir las distintas imágenes por separado resulta ineficiente. La solución arquitectónica óptima es generar un único archivo que contenga tres capas superpuestas:
-   - *Capa Superior (Opacidad ajustable):* La máscara `_GIMP.tif` donde el analista pinta.
-   - *Capa Intermedia:* El satélite `_FalsoColor_Nieve.tif` (para encender/apagar y detectar el hielo).
-   - *Capa Base:* El satélite `_ColorReal.tif` (para ver la geografía física).
-
-2. **Evasión del Vendor Lock-in (TIFF multicapa vs XCF):**
-   Al montar este lienzo único, es vital **no utilizar formatos propietarios como el `.xcf` nativo de GIMP**. La decisión de utilizar un archivo contenedor **TIFF multicapa (`.tif`)** es estratégica: evita la dependencia ciega de un único software (*Vendor Lock-in*), democratizando el proyecto. Un TIFF multicapa es un estándar universal que permite a cualquier institución heredar la metodología y emplear el editor *raster* de su elección (GIMP, Photoshop, Affinity, Krita).
+- [`scripts/gimp_tools.py`](../scripts/gimp_tools.py): Librería base. Contiene las funciones matriciales `create_multilayer_gimp` y `decode_multilayer_to_classes`. Utiliza `Pillow` para la manipulación multipágina y `rasterio` para la georreferenciación.
+- [`scripts/003_decode_gimp_edits.py`](../scripts/003_decode_gimp_edits.py): Herramienta que recorre las carpetas `training` y `test` buscando archivos editados e invocando la reconstrucción matemática.
