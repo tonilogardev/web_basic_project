@@ -5,7 +5,7 @@
 <br><br>
 
 <h1 align="center" style="font-size: 3em; margin-bottom: 10px;">Trabajo Final de Grado (TFB)</h1>
-<h2 align="center" style="color: #FFC000; font-size: 2em; margin-bottom: 50px;">Segmentación Semántica de Nubes y Nieve con Sentinel-2 mediante Deep Learning</h2>
+<h2 align="center" style="color: #FFC000; font-size: 2em; margin-bottom: 50px;">Desarrollar un entorno escalable (pipeline geoespacial) para imágenes Sentinel-2, diseñado para integrar y ejecutar un modelo de Machine Learning</h2>
 
 <br><br><br>
 
