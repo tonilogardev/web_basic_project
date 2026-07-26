@@ -99,3 +99,114 @@ def decode_to_classes(input_rgb_tif, output_tif, base_profile=None):
             dst.write(new_data, 1)
 
     return True
+
+
+def create_multilayer_gimp(scl_tif, swir_tif, rgb_tif, output_tif):
+    """
+    Genera un archivo TIFF multipágina (multicapa).
+    1. Máscara SCL
+    2. Falso Color (Nieve)
+    3. Color Real
+    """
+    from PIL import Image
+    import shutil
+    try:
+        im_scl = Image.open(scl_tif)
+        im_swir = Image.open(swir_tif)
+        im_rgb = Image.open(rgb_tif)
+        
+        # GIMP carga la primera página (page 0) como la capa base (fondo) y las siguientes
+        # páginas las apila por encima. Queremos que el ColorReal sea la base,
+        # Nieve en medio, y la máscara SCL arriba del todo (page 2).
+        im_rgb.save(
+            output_tif, 
+            save_all=True, 
+            append_images=[im_swir, im_scl], 
+            compression="tiff_deflate"
+        )
+        
+        tfw_source = str(rgb_tif).replace('.tif', '.tfw')
+        if Path(tfw_source).exists():
+            tfw_dest = str(output_tif).replace('.tif', '.tfw')
+            shutil.copy(tfw_source, tfw_dest)
+            
+        xml_source = str(rgb_tif) + '.aux.xml'
+        if Path(xml_source).exists():
+            xml_dest = str(output_tif) + '.aux.xml'
+            shutil.copy(xml_source, xml_dest)
+
+        return True
+    except Exception as e:
+        print(f"[-] Error empaquetando multicapa: {e}")
+        return False
+
+
+def decode_multilayer_to_classes(input_tif, output_tif, base_profile=None):
+    """
+    Lee un archivo TIFF multicapa editado en GIMP, extrae automáticamente la capa
+    de la máscara (que es la última página o la capa superior) y decodifica sus
+    colores RGB a clases matemáticas (0-4).
+    Si la imagen fue aplanada por error al guardarse, procesará la única capa disponible.
+    """
+    from PIL import Image
+    input_tif = Path(input_tif)
+    output_tif = Path(output_tif)
+
+    if not input_tif.exists():
+        print(f"[-] No se encontró: {input_tif}")
+        return False
+
+    try:
+        im = Image.open(input_tif)
+        
+        # En GIMP, la capa superior (donde pintamos la máscara SCL) 
+        # se corresponde con la última página del TIFF al exportar.
+        target_page = im.n_frames - 1
+        im.seek(target_page)
+        
+        # Extraemos esa página y nos aseguramos de que sea RGB
+        im_rgb = im.convert("RGB")
+        rgb_data = np.array(im_rgb, dtype=np.float32)
+    except Exception as e:
+        print(f"[-] Error abriendo imagen multicapa: {e}")
+        return False
+
+    h, w, _ = rgb_data.shape
+    new_data = np.zeros((h, w), dtype=np.uint8)
+
+    classes = list(COLOR_MAP.keys())
+    colors = np.array([COLOR_MAP[c] for c in classes], dtype=np.float32)
+
+    # Calcular distancia euclidiana al cuadrado para cada píxel
+    rgb_expanded = rgb_data[:, :, np.newaxis, :]
+    dists = np.sum((rgb_expanded - colors) ** 2, axis=3)
+    min_idx = np.argmin(dists, axis=2)
+
+    for i, c in enumerate(classes):
+        new_data[min_idx == i] = c
+
+    # Construir metadatos de salida
+    if base_profile:
+        out_meta = base_profile.copy()
+    else:
+        out_meta = {
+            "driver": "GTiff",
+            "height": h,
+            "width": w,
+            "count": 1,
+            "dtype": rasterio.uint8,
+            "crs": None,
+            "transform": rasterio.Affine.identity(),
+            "compress": "deflate",
+        }
+
+    out_meta.update(count=1, dtype=rasterio.uint8, driver="GTiff", compress="deflate")
+    if "photometric" in out_meta:
+        del out_meta["photometric"]
+
+    with rasterio.Env(GDAL_PAM_ENABLED="NO"):
+        with rasterio.open(output_tif, "w", **out_meta) as dst:
+            dst.write(new_data, 1)
+
+    return True
+

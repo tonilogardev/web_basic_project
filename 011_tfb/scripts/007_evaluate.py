@@ -48,13 +48,14 @@ def fast_confusion_matrix(y_true, y_pred, n_classes=6):
 def main():
     base_path = Path(__file__).parent
     viz_dir = base_path.parent / "visualizations" / "SCL_UNET"
+    test_dir = base_path.parent / "download" / "test"
 
     if not viz_dir.exists():
-        print(f"[-] Directorio no encontrado: {viz_dir}")
+        print(f"[-] Directorio de visualizaciones no encontrado: {viz_dir}")
         return
 
-    # Buscar todos los archivos _SCL_edited.tif (Ground Truth)
-    edited_files = sorted(list(viz_dir.glob("*_SCL_edited.tif")))
+    # Buscar todos los archivos _SCL_edited.tif (Ground Truth) en las carpetas de Test
+    edited_files = sorted(list(test_dir.glob("*/*_SCL_edited.tif")))
 
     if not edited_files:
         print("[-] No se encontraron archivos *_SCL_edited.tif.")

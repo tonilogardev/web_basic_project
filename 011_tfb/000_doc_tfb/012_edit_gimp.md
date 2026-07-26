@@ -62,3 +62,18 @@ Este script detectará qué archivos han sido manipulados y generará las versio
 
 - [`scripts/gimp_tools.py`](../scripts/gimp_tools.py): Es la librería base. Contiene las funciones matriciales `encode_to_rgb` y `decode_to_classes`. Utiliza `rasterio` y `numpy` para operaciones matriciales ultrarrápidas de inyección de color.
 - [`scripts/003_decode_gimp_edits.py`](../scripts/003_decode_gimp_edits.py): Herramienta de usuario por línea de comandos para invocar el proceso de decodificación masiva.
+
+## 5. Reflexión de la arquitectura de la edición y clasificación de píxeles de forma manual
+
+Una vez empleado el método de edición y clasificación de píxeles con la arquitectura descrita, llegamos a la conclusión empírica de que el flujo de trabajo (Ergonomía del Analista) requiere una mejora estructural para ser óptimo. 
+
+**Mejoras propuestas y lecciones aprendidas:**
+
+1. **Adopción de un flujo de trabajo Multicapa (El Lienzo Único):**
+   Para poder corregir los bordes de una nube con precisión quirúrgica, abrir las distintas imágenes por separado resulta ineficiente. La solución arquitectónica óptima es generar un único archivo que contenga tres capas superpuestas:
+   - *Capa Superior (Opacidad ajustable):* La máscara `_GIMP.tif` donde el analista pinta.
+   - *Capa Intermedia:* El satélite `_FalsoColor_Nieve.tif` (para encender/apagar y detectar el hielo).
+   - *Capa Base:* El satélite `_ColorReal.tif` (para ver la geografía física).
+
+2. **Evasión del Vendor Lock-in (TIFF multicapa vs XCF):**
+   Al montar este lienzo único, es vital **no utilizar formatos propietarios como el `.xcf` nativo de GIMP**. La decisión de utilizar un archivo contenedor **TIFF multicapa (`.tif`)** es estratégica: evita la dependencia ciega de un único software (*Vendor Lock-in*), democratizando el proyecto. Un TIFF multicapa es un estándar universal que permite a cualquier institución heredar la metodología y emplear el editor *raster* de su elección (GIMP, Photoshop, Affinity, Krita).

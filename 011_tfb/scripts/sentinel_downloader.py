@@ -101,9 +101,16 @@ def download_zip(product_id, dest_path):
 
 
 def create_vrt(output_vrt, input_bands):
+    """
+    Genera un Virtual Raster (VRT) apilando múltiples bandas de entrada.
+    Se fuerza una resolución de salida de 20 metros (-tr 20 20) para 
+    estandarizar las dimensiones del lienzo (Color Real y Falso Color) 
+    y hacer que coincidan geométricamente con la máscara SCL de 20m.
+    """
     if not all(p.exists() for p in input_bands):
         return False
-    cmd = ["gdalbuildvrt", "-separate", "-resolution", "highest", str(output_vrt)] + [
+    
+    cmd = ["gdalbuildvrt", "-separate", "-resolution", "user", "-tr", "20", "20", str(output_vrt)] + [
         str(p) for p in input_bands
     ]
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -213,9 +220,11 @@ def extract_bands(zip_path, dest_dir, id_granule, level):
                         shutil.copyfileobj(source, target)
 
             elif level == "MSIL2A":
-                # En L2A la máscara se llama SCL_20m.jp2 o similar, dentro de IMG_DATA
+                # En L2A buscamos estrictamente la máscara SCL a 20 metros de resolución.
+                # Se descarta explícitamente la versión de 60m ("SCL_60m.jp2") generada por Sen2Cor
+                # para evitar sobrescribirla en disco y descuadrar las dimensiones en GIMP.
                 if (
-                    "SCL" in filename
+                    "SCL_20m.jp2" in filename
                     and "IMG_DATA/" in filename
                     and "QI_DATA/" not in filename
                 ):
@@ -304,7 +313,47 @@ def process_csv(csv_path, output_base_dir):
             create_8bit_tif(vrt_swir, dest_dir / f"{id_granule}_FalsoColor_Nieve.tif")
             print("    [v] Exportado a 8-bits: FalsoColor_Nieve.tif (con .tfw/.xml)")
 
-        print("[>] Paso 4: Generando preview PNG...")
+        print("[>] Paso 4: Empaquetando Lienzo Multicapa para GIMP (20m)...")
+        from gimp_tools import create_multilayer_gimp
+        
+        # Objetivo: Inyectar las capas visuales dentro de la propia máscara _SCL_GIMP.tif
+        # para centralizar el flujo de trabajo en un único archivo maestro.
+        scl_gimp = dest_dir / f"{id_granule}_SCL_GIMP.tif"
+        swir_tif = dest_dir / f"{id_granule}_FalsoColor_Nieve.tif"
+        rgb_tif = dest_dir / f"{id_granule}_ColorReal.tif"
+        
+        # Se genera el multicapa en un archivo temporal para evitar la corrupción 
+        # que ocurriría al leer y escribir el mismo archivo simultáneamente.
+        out_gimp_temp = dest_dir / f"{id_granule}_SCL_GIMP_temp.tif"
+        
+        if scl_gimp.exists() and swir_tif.exists() and rgb_tif.exists():
+            if create_multilayer_gimp(scl_gimp, swir_tif, rgb_tif, out_gimp_temp):
+                # Sustituimos el archivo original de 1 capa por el nuevo lienzo multicapa.
+                out_gimp_temp.replace(scl_gimp)
+                
+                # IMPORTANT: Renombrar los sidecars temporales (.tfw y .aux.xml) para que acompañen al SCL_GIMP final
+                tfw_temp = dest_dir / f"{id_granule}_SCL_GIMP_temp.tfw"
+                if tfw_temp.exists():
+                    tfw_temp.replace(dest_dir / f"{id_granule}_SCL_GIMP.tfw")
+                
+                xml_temp = dest_dir / f"{id_granule}_SCL_GIMP_temp.tif.aux.xml"
+                if xml_temp.exists():
+                    xml_temp.replace(dest_dir / f"{id_granule}_SCL_GIMP.tif.aux.xml")
+                
+                print(f"    [v] Generado archivo multicapa sobrescribiendo: {scl_gimp.name} (con .tfw/.xml)")
+                
+                # Garbage Collection: Eliminamos los TIF intermedios generados por GDAL 
+                # (Color Real y Falso Color) para optimizar drásticamente el espacio en disco.
+                print("    [+] Limpiando archivos visuales intermedios (conservando .vrt)...")
+                for ext in ['.tif', '.tfw', '.aux.xml']:
+                    for prefix in ['_ColorReal', '_FalsoColor_Nieve']:
+                        f_to_del = dest_dir / f"{id_granule}{prefix}{ext}"
+                        if f_to_del.exists():
+                            f_to_del.unlink()
+        else:
+            print("    [!] Faltan archivos para generar el Multicapa.")
+
+        print("[>] Paso 5: Generando preview PNG...")
         png_path = dest_dir / f"{id_granule}_preview.png"
         if create_preview(dest_dir / f"{id_granule}_ColorReal.vrt", png_path):
             print(f"    [v] Generado: {png_path.name}")
