@@ -15,8 +15,11 @@ from rasterio.enums import Resampling
 import matplotlib.pyplot as plt
 from pathlib import Path
 from model import UNet
-from create_dataset import load_and_resample, get_sea_mask
-from gimp_tools import encode_to_rgb
+import importlib
+create_dataset = importlib.import_module("004_create_dataset")
+load_and_resample = create_dataset.load_and_resample
+get_sea_mask = create_dataset.get_sea_mask
+from gimp_tools import encode_to_rgb, create_multilayer_gimp, encode_binary_to_rgb
 
 # Definición de Colores (RGB) para cada clase (Leyenda del Documento 008)
 COLOR_MAP = {
@@ -52,7 +55,7 @@ def build_scl_mask(scl_raw):
     return scl_5class
 
 
-def predict_granule(granule_dir, model_path, output_path):
+def predict_granule(granule_dir, model_path, output_path, out_dir):
     print(f"\n[*] Iniciando Inferencia sobre: {granule_dir.name}")
 
     # 1. Cargar el Modelo
@@ -128,7 +131,7 @@ def predict_granule(granule_dir, model_path, output_path):
                 predicted_mask[row : row + patch_size, col : col + patch_size] = preds
 
     print("    [+] Aplicando Máscara de Mar (Post-procesamiento)...")
-    sea_mask_path = base_path.parent / "scripts" / "data" / "MASCARA_CATALUNYA.tif"
+    sea_mask_path = Path(__file__).parent / "data" / "MASCARA_CATALUNYA.tif"
     if sea_mask_path.exists():
         sea_mask = get_sea_mask(sea_mask_path, target_shape, target_profile)
         # Forzar a 0 (Basura/Descarte) todo el mar profundo
@@ -136,8 +139,8 @@ def predict_granule(granule_dir, model_path, output_path):
         scl_raw[sea_mask == 0] = 0
 
     print("    [+] Guardando predicción SCL (GeoTIFF)...")
-    out_tif_dir = base_path.parent / "visualizations" / "SCL_UNET"
-    out_tif_dir.mkdir(exist_ok=True)
+    out_tif_dir = out_dir / "SCL_UNET"
+    out_tif_dir.mkdir(parents=True, exist_ok=True)
     out_tif_path = out_tif_dir / f"{id_granule}_SCL_UNET.tif"
 
     out_profile = target_profile.copy()
@@ -148,21 +151,59 @@ def predict_granule(granule_dir, model_path, output_path):
         with rasterio.open(out_tif_path, "w", **out_profile) as dst:
             dst.write(predicted_mask, 1)
 
-    print("    [+] Generando versión RGB para editar en GIMP...")
-    out_gimp_path = out_tif_dir / f"{id_granule}_SCL_UNET_GIMP.tif"
-    if encode_to_rgb(out_tif_path, out_gimp_path):
-        print(f"    [v] Exportado para GIMP: {out_gimp_path.name}")
+    print("    [+] Generando versión RGB plana...")
+    out_scl_color_path = out_tif_dir / f"{id_granule}_SCL_UNET_COLOR.tif"
+    encode_to_rgb(out_tif_path, out_scl_color_path)
 
-    print("    [+] Generando máscara binaria (Nube vs No-Nube)...")
-    # 1: Válido (Suelo=1, Nieve=4)
-    # 0: Inválido (Basura=0, Nube=2, Sombra=3)
-    binary_mask = np.zeros_like(predicted_mask, dtype=np.uint8)
-    binary_mask[np.isin(predicted_mask, [1, 4])] = 1
-
-    out_binary_path = out_tif_dir / f"{id_granule}_SCL_UNET_mask_clouds.tif"
+    print("    [+] Generando máscaras lógicas puras (B/N y Nieve)...")
+    # Máscara B/N: 2 (Nube), 3 (Sombra) -> 0. Resto -> 1
+    mask_bw = np.ones_like(predicted_mask, dtype=np.uint8)
+    mask_bw[np.isin(predicted_mask, [2, 3])] = 0
+    
+    temp_bw_path = out_tif_dir / f"{id_granule}_temp_bw.tif"
     with rasterio.Env(GDAL_PAM_ENABLED="NO"):
-        with rasterio.open(out_binary_path, "w", **out_profile) as dst:
-            dst.write(binary_mask, 1)
+        with rasterio.open(temp_bw_path, "w", **out_profile) as dst:
+            dst.write(mask_bw, 1)
+
+    # Máscara Nieve: 4 (Nieve) -> 1. Resto -> 0
+    mask_snow = np.zeros_like(predicted_mask, dtype=np.uint8)
+    mask_snow[predicted_mask == 4] = 1
+    
+    temp_snow_path = out_tif_dir / f"{id_granule}_temp_snow.tif"
+    with rasterio.Env(GDAL_PAM_ENABLED="NO"):
+        with rasterio.open(temp_snow_path, "w", **out_profile) as dst:
+            dst.write(mask_snow, 1)
+
+    print("    [+] Guardando RGB Real (temporal)...")
+    out_rgb_profile = out_profile.copy()
+    out_rgb_profile.update(count=3)
+    temp_rgb_path = out_tif_dir / f"{id_granule}_temp_rgb.tif"
+    
+    # rgb real
+    rgb = np.stack([b04, b03, b02], axis=0)
+    rgb = np.clip(rgb / 3000.0 * 255.0, 0, 255).astype(np.uint8)
+    
+    with rasterio.Env(GDAL_PAM_ENABLED="NO"):
+        with rasterio.open(temp_rgb_path, "w", **out_rgb_profile) as dst:
+            dst.write(rgb)
+
+    print("    [+] Coloreando máscaras para GIMP...")
+    temp_bw_rgb_path = out_tif_dir / f"{id_granule}_temp_bw_rgb.tif"
+    temp_snow_rgb_path = out_tif_dir / f"{id_granule}_temp_snow_rgb.tif"
+    
+    encode_binary_to_rgb(temp_bw_path, temp_bw_rgb_path, color_true=[255, 255, 255], color_false=[0, 0, 0])
+    encode_binary_to_rgb(temp_snow_path, temp_snow_rgb_path, color_true=[0, 255, 255], color_false=[0, 0, 0])
+
+    print("    [+] Empaquetando multicapa GIMP (4 capas)...")
+    out_gimp_path = out_tif_dir / f"{id_granule}_SCL_UNET_GIMP.tif"
+    layers = [temp_bw_rgb_path, temp_snow_rgb_path, out_scl_color_path]
+    
+    if create_multilayer_gimp(temp_rgb_path, layers, out_gimp_path):
+        print(f"    [v] Exportado para GIMP multicapa: {out_gimp_path.name}")
+        
+    # Limpiar temporales pesados
+    for p in [temp_rgb_path, temp_bw_path, temp_snow_path, temp_bw_rgb_path, temp_snow_rgb_path, out_scl_color_path]:
+        if p.exists(): p.unlink()
 
     print("    [+] Generando panel visual comparativo...")
 
@@ -170,13 +211,8 @@ def predict_granule(granule_dir, model_path, output_path):
     # Haremos un Downsample agresivo (10%) para el PNG
     scale_factor = 10
 
-    rgb = np.stack([b04, b03, b02], axis=-1)
-
-    # Normalizar RGB para visualización bonita
-    rgb = np.clip(rgb / 3000.0 * 255.0, 0, 255).astype(np.uint8)
-
-    # Reducir resoluciones
-    rgb_small = rgb[::scale_factor, ::scale_factor]
+    # Usar el mismo RGB que re-escalamos
+    rgb_small = rgb.transpose(1, 2, 0)[::scale_factor, ::scale_factor]
     scl_small = scl_raw[::scale_factor, ::scale_factor]
     pred_small = predicted_mask[::scale_factor, ::scale_factor]
 
@@ -206,18 +242,25 @@ def predict_granule(granule_dir, model_path, output_path):
     print(f"    [v] Imagen comparativa guardada en: {output_path}")
 
 
+import argparse
+
 if __name__ == "__main__":
-    base_path = Path(__file__).parent
-    test_dir = base_path.parent / "download" / "test"
-    model_path = base_path.parent / "checkpoints" / "baseline_model.pth"
-    out_dir = base_path.parent / "visualizations"
-    out_dir.mkdir(exist_ok=True)
+    parser = argparse.ArgumentParser(description="Inferencia U-Net")
+    parser.add_argument("--test_dir", type=str, required=True, help="Directorio con gránulos de test")
+    parser.add_argument("--model_path", type=str, required=True, help="Ruta al modelo entrenado (.pth)")
+    parser.add_argument("--out_dir", type=str, default="visualizations", help="Ruta de salida de predicciones")
+    args = parser.parse_args()
+
+    test_dir = Path(args.test_dir)
+    model_path = Path(args.model_path)
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     # Buscar gránulos descargados
     if test_dir.exists():
         granules = [d for d in test_dir.iterdir() if d.is_dir()]
         for g in granules:
             out_file = out_dir / f"comparison_{g.name}.png"
-            predict_granule(g, model_path, out_file)
+            predict_granule(g, model_path, out_file, out_dir)
     else:
         print("El directorio de test está vacío.")

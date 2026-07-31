@@ -153,14 +153,28 @@ def process_granule(id_granule, input_dir, output_dir, patch_size=512):
     return patches_saved
 
 
+import argparse
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Dataset creation for U-Net")
+    parser.add_argument("--out_dir", type=str, required=True, help="Ruta base de salida (ej. /dades/tfb/dataset)")
+    parser.add_argument("--split", type=str, choices=["train", "test"], required=True, help="Conjunto a procesar (train o test)")
+    args = parser.parse_args()
+
     base_path = Path(__file__).parent
-    csv_path = base_path / "training_granules.csv"
-    download_base = base_path.parent / "download" / "training"
-    output_base = base_path.parent / "dataset" / "patches" / "train"
+    
+    if args.split == "train":
+        csv_path = base_path / "training_granules.csv"
+        download_base = base_path.parent / "download" / "training"
+    else:
+        csv_path = base_path / "test_granules.csv"
+        download_base = base_path.parent / "download" / "test"
+
+    # La carpeta final será /dades/tfb/dataset/patches/train/ (o test/)
+    output_base = Path(args.out_dir) / "patches" / args.split
 
     if not csv_path.exists():
-        print("Error: No se encuentra training_granules.csv")
+        print(f"Error: No se encuentra {csv_path.name}")
         exit(1)
 
     df = pd.read_csv(csv_path)
@@ -168,7 +182,8 @@ if __name__ == "__main__":
 
     total_patches = 0
     print("==================================================")
-    print(" INICIANDO CREACIÓN DE DATASET (FEATURE ENGINEERING)")
+    print(f" INICIANDO CREACIÓN DE DATASET ({args.split.upper()})")
+    print(f" Salida base: {output_base}")
     print("==================================================")
 
     for index, row in df_valid.iterrows():

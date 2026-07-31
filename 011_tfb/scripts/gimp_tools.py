@@ -51,6 +51,46 @@ def encode_to_rgb(input_tif, output_tif):
     return True
 
 
+def encode_binary_to_rgb(input_tif, output_tif, color_true=[255, 255, 255], color_false=[0, 0, 0]):
+    """
+    Convierte una máscara binaria de 1 banda (0 y 1) a un GeoTIFF RGB de 3 bandas
+    para que sea visible en editores como GIMP.
+    """
+    input_tif = Path(input_tif)
+    output_tif = Path(output_tif)
+
+    if not input_tif.exists():
+        return False
+
+    with rasterio.open(input_tif) as src:
+        meta = src.meta.copy()
+        data = src.read(1)
+
+    h, w = data.shape
+    rgb = np.zeros((3, h, w), dtype=np.uint8)
+
+    mask_true = data == 1
+    mask_false = data == 0
+
+    for band in range(3):
+        rgb[band][mask_true] = color_true[band]
+        rgb[band][mask_false] = color_false[band]
+
+    meta.update(
+        count=3,
+        dtype=rasterio.uint8,
+        photometric="RGB",
+        driver="GTiff",
+        compress="deflate",
+    )
+
+    with rasterio.Env(GDAL_PAM_ENABLED="NO"):
+        with rasterio.open(output_tif, "w", **meta) as dst:
+            dst.write(rgb)
+
+    return True
+
+
 def decode_to_classes(input_rgb_tif, output_tif, base_profile=None):
     """
     Escanea un GeoTIFF RGB (ej. editado en GIMP) y reconstruye la matriz matemática
@@ -101,36 +141,33 @@ def decode_to_classes(input_rgb_tif, output_tif, base_profile=None):
     return True
 
 
-def create_multilayer_gimp(scl_tif, swir_tif, rgb_tif, output_tif):
+def create_multilayer_gimp(base_rgb_tif, list_of_layer_tifs, output_tif):
     """
     Genera un archivo TIFF multipágina (multicapa).
-    1. Máscara SCL
-    2. Falso Color (Nieve)
-    3. Color Real
+    - base_rgb_tif: Capa inferior (fondo)
+    - list_of_layer_tifs: Lista de rutas a las capas superiores (en orden de abajo a arriba)
     """
     from PIL import Image
     import shutil
     try:
-        im_scl = Image.open(scl_tif)
-        im_swir = Image.open(swir_tif)
-        im_rgb = Image.open(rgb_tif)
+        im_base = Image.open(base_rgb_tif)
+        append_images = [Image.open(tif) for tif in list_of_layer_tifs]
         
         # GIMP carga la primera página (page 0) como la capa base (fondo) y las siguientes
-        # páginas las apila por encima. Queremos que el ColorReal sea la base,
-        # Nieve en medio, y la máscara SCL arriba del todo (page 2).
-        im_rgb.save(
+        # páginas las apila por encima.
+        im_base.save(
             output_tif, 
             save_all=True, 
-            append_images=[im_swir, im_scl], 
+            append_images=append_images, 
             compression="tiff_deflate"
         )
         
-        tfw_source = str(rgb_tif).replace('.tif', '.tfw')
+        tfw_source = str(base_rgb_tif).replace('.tif', '.tfw')
         if Path(tfw_source).exists():
             tfw_dest = str(output_tif).replace('.tif', '.tfw')
             shutil.copy(tfw_source, tfw_dest)
             
-        xml_source = str(rgb_tif) + '.aux.xml'
+        xml_source = str(base_rgb_tif) + '.aux.xml'
         if Path(xml_source).exists():
             xml_dest = str(output_tif) + '.aux.xml'
             shutil.copy(xml_source, xml_dest)

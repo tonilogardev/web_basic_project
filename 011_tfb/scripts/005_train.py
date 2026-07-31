@@ -15,13 +15,10 @@ from dataset import SentinelDataset
 from model import UNet
 from tqdm import tqdm
 from pathlib import Path
+import argparse
 
-# Configuración del entrenamiento
-BATCH_SIZE = 8
-EPOCHS = 20
+# Configuración predeterminada (modificada por argparse)
 LEARNING_RATE = 1e-4
-DATA_DIR = Path(__file__).parent.parent / "dataset" / "patches" / "train"
-CHECKPOINT_DIR = Path(__file__).parent.parent / "checkpoints"
 
 # Dispositivo: Forzamos cuda:1 porque la GPU 0 está ocupada por otro proceso
 DEVICE = torch.device(
@@ -31,19 +28,20 @@ DEVICE = torch.device(
 )
 
 
-def train_baseline():
+def train_baseline(data_dir, checkpoint_dir, epochs, batch_size, lr=LEARNING_RATE):
     print(f"[*] Usando dispositivo: {DEVICE}")
-    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    checkpoint_dir = Path(checkpoint_dir)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. Preparar Datasets y DataLoaders
-    train_dataset = SentinelDataset(DATA_DIR, split="train")
-    val_dataset = SentinelDataset(DATA_DIR, split="val")
+    train_dataset = SentinelDataset(data_dir, split="train")
+    val_dataset = SentinelDataset(data_dir, split="val")
 
     train_loader = DataLoader(
-        train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4
     )
     val_loader = DataLoader(
-        val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4
+        val_dataset, batch_size=batch_size, shuffle=False, num_workers=4
     )
 
     # 2. Inicializar Modelo, Loss y Optimizador
@@ -60,12 +58,12 @@ def train_baseline():
     print("==================================================")
 
     # 3. Bucle de Épocas
-    for epoch in range(EPOCHS):
+    for epoch in range(epochs):
         model.train()
         train_loss = 0.0
 
         # tqdm para ver la barra de progreso en la terminal
-        train_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{EPOCHS} [Train]")
+        train_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]")
         for x, y in train_bar:
             x, y = x.to(DEVICE), y.to(DEVICE)
 
@@ -85,7 +83,7 @@ def train_baseline():
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
-            val_bar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{EPOCHS} [Val]")
+            val_bar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} [Val]")
             for x, y in val_bar:
                 x, y = x.to(DEVICE), y.to(DEVICE)
                 logits = model(x)
@@ -101,11 +99,18 @@ def train_baseline():
         # 5. Guardar el mejor modelo
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(), CHECKPOINT_DIR / "baseline_model.pth")
+            torch.save(model.state_dict(), checkpoint_dir / "baseline_model.pth")
             print(
                 f"[*] ¡Mejora detectada! Modelo guardado con Val Loss: {best_val_loss:.4f}"
             )
 
 
 if __name__ == "__main__":
-    train_baseline()
+    parser = argparse.ArgumentParser(description="Entrenamiento U-Net Sentinel")
+    parser.add_argument("--data_dir", type=str, required=True, help="Ruta de los parches de entrenamiento")
+    parser.add_argument("--checkpoint_dir", type=str, default="checkpoints", help="Ruta de guardado de modelos")
+    parser.add_argument("--epochs", type=int, default=20, help="Número de épocas")
+    parser.add_argument("--batch_size", type=int, default=8, help="Tamaño del batch")
+    args = parser.parse_args()
+
+    train_baseline(args.data_dir, args.checkpoint_dir, args.epochs, args.batch_size)

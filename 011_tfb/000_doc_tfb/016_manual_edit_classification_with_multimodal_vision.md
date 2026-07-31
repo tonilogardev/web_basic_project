@@ -42,3 +42,19 @@ El análisis satelital Sentinel-2 es inherentemente temporal (mismo cuadrante, d
 - **Resolución de Ambigüedades Nieve/Nube:** Una mancha blanca en una sola imagen puede generar dudas. Sin embargo, si la IA audita una tira temporal compuesta por `[T-1 (hace 5 días) | T0 (hoy) | T+1 (en 5 días)]`, el razonamiento es trivial para el modelo: si la mancha persiste inmóvil a lo largo del tiempo, es Nieve o un Glaciar. Si es efímera, es una Nube.
 - **Auditoría de Consistencia Topográfica:** La IA puede detectar si una ladera (Clase 4) ha sido catalogada erróneamente como Sombra de Nube (Clase 2) al comparar fechas. Si en imágenes de días despejados anteriores la misma ladera sigue siendo oscura, la IA deduce lógicamente que es una sombra topográfica permanente y no un efecto meteorológico pasajero.
 - **Implementación en el Pipeline:** En lugar de empaquetar 3 capas del mismo día, el script de recorte (Tiling) podría generar un mosaico visual que contraste el parche del día problemático con el mismo parche de la observación Sentinel-2 inmediatamente anterior, otorgándole a la IA un contexto de 4D (Espacio + Tiempo + Espectro) para emitir su veredicto en el CSV.
+
+## 6. Estado del Arte: La Vanguardia en VLMs Geoespaciales
+La intuición de combinar el razonamiento lingüístico con datos satelitales se alinea directamente con las líneas de investigación más punteras de la IA actual (2025-2026). Mientras que los LLMs genéricos como Gemini permiten auditar píxeles mediante "Early Visual Fusion", la industria está desarrollando *Vision-Language Models (VLMs)* nativos para este dominio:
+
+- **GeoChat:** El primer modelo fundacional "Vision-Language" especializado en teledetección. Entrenado con cientos de miles de imágenes de satélite emparejadas con instrucciones textuales, está diseñado específicamente para razonar sobre imágenes cenitales y no sobre fotografías estándar.
+- **GeoVLM (Esri):** Un avance que integra el razonamiento textual con la generación real de coordenadas y máscaras a nivel de píxel, cerrando la brecha entre "decir dónde está el error" y "dibujar el error matemáticamente".
+- **EarthDial:** Un modelo masivo diseñado para procesar datos satelitales en 4D, infiriendo información no solo del espectro óptico (RGB), sino del infrarrojo, radar y sobre todo, series temporales.
+
+## 7. Reflexión Estratégica: ¿Qué camino seguir en nuestro proyecto?
+Ante este panorama de vanguardia, el camino a seguir para este Trabajo Final de Grado (y posteriores desarrollos industriales) no debe ser intentar competir entrenando un nuevo modelo fundacional gigante (como GeoChat), lo cual requeriría centros de datos inaccesibles.
+
+Nuestra **Hoja de Ruta (Roadmap)** estratégica es abrazar una arquitectura **Híbrida y Desacoplada (El Auditor y el Obrero)**:
+1. **El Obrero Cuantitativo (U-Net):** Mantener y optimizar nuestra red U-Net. Es ágil, ligera, barata de alojar en servidores *Serverless* e inmensamente precisa pintando matrices de píxeles (geometría matemática).
+2. **El Auditor Cualitativo (LLM Multimodal Genérico):** Utilizar APIs de LLMs comerciales (como Gemini) a través de scripts orquestadores (como `multimodal_auditor.py`) exclusivamente como un filtro de calidad durante la fase de *Active Learning*. 
+
+**Conclusión del Camino:** No necesitamos un LLM que escupa máscaras de píxeles (GeoVLM). Solo necesitamos que el LLM guíe la atención del humano (GIMP Bridge) o de algoritmos heurísticos para limpiar el *Ground Truth*. De esta manera, con recursos computacionales mínimos, conseguiremos alimentar a nuestra humilde U-Net con los datos más perfectos posibles, logrando que una red pequeña supere en precisión a los estándares monolíticos de la industria (Sen2Cor).

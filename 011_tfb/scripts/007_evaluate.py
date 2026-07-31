@@ -45,10 +45,9 @@ def fast_confusion_matrix(y_true, y_pred, n_classes=6):
     return cm_2d[1:, 1:]  # Extraer solo clases 1,2,3,4,5
 
 
-def main():
-    base_path = Path(__file__).parent
-    viz_dir = base_path.parent / "visualizations" / "SCL_UNET"
-    test_dir = base_path.parent / "download" / "test"
+def main(test_dir_str, viz_dir_str, out_plot_str):
+    viz_dir = Path(viz_dir_str)
+    test_dir = Path(test_dir_str)
 
     if not viz_dir.exists():
         print(f"[-] Directorio de visualizaciones no encontrado: {viz_dir}")
@@ -81,11 +80,16 @@ def main():
 
         print(f"    [+] Procesando: {gt_path.name}")
 
-        with rasterio.open(gt_path) as src_gt:
-            y_true_2d = src_gt.read(1)
-
         with rasterio.open(pred_path) as src_pred:
             y_pred_2d = src_pred.read(1)
+
+        with rasterio.open(gt_path) as src_gt:
+            from rasterio.enums import Resampling
+            y_true_2d = src_gt.read(
+                1, 
+                out_shape=y_pred_2d.shape,
+                resampling=Resampling.nearest
+            )
 
         # Aplanar matrices
         y_true_1d = y_true_2d.flatten()
@@ -203,7 +207,7 @@ def main():
     plt.xlabel("Clase Predicha (U-Net)")
     plt.ylabel("Clase Real (Curación Manual)")
 
-    out_plot = base_path.parent / "visualizations" / "confusion_matrix.png"
+    out_plot = Path(out_plot_str)
     plt.tight_layout()
     plt.savefig(out_plot, dpi=300)
     plt.close()
@@ -212,5 +216,12 @@ def main():
     print("\n[+] EVALUACIÓN FINALIZADA.\n")
 
 
+import argparse
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Evaluación U-Net")
+    parser.add_argument("--test_dir", type=str, required=True, help="Directorio con gránulos de test")
+    parser.add_argument("--viz_dir", type=str, required=True, help="Directorio con predicciones SCL_UNET")
+    parser.add_argument("--out_plot", type=str, required=True, help="Ruta para guardar confusion_matrix.png")
+    args = parser.parse_args()
+    main(args.test_dir, args.viz_dir, args.out_plot)
