@@ -163,15 +163,15 @@ def main(test_dir_str, viz_dir_str, out_plot_str):
     print("=" * 50)
     # Print formatted matrix
     print(
-        f"{'':>15} | {'Pred: Suelo':>12} | {'Pred: Nube':>12} | {'Pred: Sombra':>12} | {'Pred: Nieve':>12}"
+        f"{'':>15} | {'Pred: Suelo':>12} | {'Pred: Nube':>12} | {'Pred: Sombra':>12} | {'Pred: Nieve':>12} | {'Pred: Agua':>12}"
     )
-    print("-" * 75)
+    print("-" * 90)
     for i, class_name in enumerate(
-        ["Real: Suelo", "Real: Nube", "Real: Sombra", "Real: Nieve"]
+        ["Real: Suelo", "Real: Nube", "Real: Sombra", "Real: Nieve", "Real: Agua"]
     ):
         row = cm[i]
         print(
-            f"{class_name:>15} | {row[0]:>12,} | {row[1]:>12,} | {row[2]:>12,} | {row[3]:>12,}"
+            f"{class_name:>15} | {row[0]:>12,} | {row[1]:>12,} | {row[2]:>12,} | {row[3]:>12,} | {row[4]:>12,}"
         )
 
     # Generar gráfico visual
