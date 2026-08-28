@@ -40,6 +40,7 @@ services:
         VITE_SENTINEL_URL: "${SENTINEL_URL}"
         VITE_CASSINI_URL: "${CASSINI_URL}"
         VITE_DEV_WEB_URL: "${DEV_WEB_URL}"
+        VITE_TFB_VIEWER_URL: "${TFB_VIEWER_URL}"
     restart: always
     # ELIMINADO env_file: No requerimos que el servidor estático "Nginx" asimile .envs crudos
     labels:
