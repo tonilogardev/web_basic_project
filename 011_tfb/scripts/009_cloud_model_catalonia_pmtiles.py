@@ -331,6 +331,31 @@ def get_granules_in_range(start_date_str, end_date_str):
     print(f"    [v] Se encontraron {len(granules)} gránulos L2A en ese periodo.")
     return granules
 
+import subprocess
+
+def create_pmtiles(tif_path, pmtiles_path, resampling="average"):
+    """
+    Convierte un Cloud Optimized GeoTIFF (o TIF normal) a formato PMTiles 
+    compatible con MapLibre GL JS, pasando por EPSG:3857 y formato MBTiles.
+    """
+    print(f"    [>] Convirtiendo a PMTiles: {pmtiles_path.name}")
+    tif_3857 = str(tif_path).replace('.tif', '_3857.tif')
+    mbtiles_path = str(tif_path).replace('.tif', '.mbtiles')
+    
+    try:
+        subprocess.run(["gdalwarp", "-t_srs", "EPSG:3857", str(tif_path), tif_3857], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["gdal_translate", "-of", "MBTILES", tif_3857, mbtiles_path], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["gdaladdo", "-r", resampling, mbtiles_path, "2", "4", "8", "16", "32"], check=True, stdout=subprocess.DEVNULL)
+        
+        pmtiles_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pmtiles")
+        subprocess.run([pmtiles_bin, "convert", mbtiles_path, str(pmtiles_path)], check=True, stdout=subprocess.DEVNULL)
+        print(f"    [v] Creado PMTiles: {pmtiles_path.name}")
+    except Exception as e:
+        print(f"    [!] Error al generar PMTiles: {e}")
+    finally:
+        if os.path.exists(tif_3857): os.remove(tif_3857)
+        if os.path.exists(mbtiles_path): os.remove(mbtiles_path)
+
 
 def process_pipeline(start_date_str, end_date_str):
     """
@@ -425,12 +450,20 @@ def process_pipeline(start_date_str, end_date_str):
             vrt_swir = temp_dir / f"{id_granule}_FalsoColor_Nieve.vrt"
             
             if create_vrt(vrt_rgb, rgb_bands):
-                create_8bit_tif(vrt_rgb, out_dir / f"{id_granule}_ColorReal.tif")
+                rgb_tif = out_dir / f"{id_granule}_ColorReal.tif"
+                create_8bit_tif(vrt_rgb, rgb_tif)
                 print(f"    [v] Exportado: {id_granule}_ColorReal.tif")
+                # Generar PMTiles RGB (usando interpolación average)
+                create_pmtiles(rgb_tif, out_dir / f"{id_granule}_ColorReal.pmtiles", resampling="average")
                 
             if create_vrt(vrt_swir, swir_bands):
                 create_8bit_tif(vrt_swir, out_dir / f"{id_granule}_FalsoColor_Nieve.tif")
                 print(f"    [v] Exportado: {id_granule}_FalsoColor_Nieve.tif")
+
+            # Generar PMTiles de la Máscara de Nubes Binaria (interpolación nearest para no alterar clases)
+            mask_tif = out_dir / f"{id_granule}_SCL_UNET_mask_clouds.tif"
+            if mask_tif.exists():
+                create_pmtiles(mask_tif, out_dir / f"{id_granule}_mask_clouds.pmtiles", resampling="nearest")
 
             print("[>] Fase 4: Limpieza absoluta del directorio temporal (Automática)")
             # Al salir de este nivel de indentación, Python hace un "Garbage Collection" físico
@@ -498,7 +531,12 @@ if __name__ == "__main__":
     from rasterio.enums import Resampling
     from tqdm import tqdm
     from model import UNet
-    from create_dataset import load_and_resample, get_sea_mask
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("create_dataset", "004_create_dataset.py")
+    create_dataset = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(create_dataset)
+    load_and_resample = create_dataset.load_and_resample
+    get_sea_mask = create_dataset.get_sea_mask
     from gimp_tools import encode_to_rgb
 
     process_pipeline(start_date, end_date)

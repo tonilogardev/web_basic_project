@@ -58,3 +58,8 @@ terraform.rc
 011_tfb/checkpoints/
 011_tfb/**/*.tif
 011_tfb/**/*.pth
+011_tfb/**/*.pmtiles
+011_tfb/**/*.mbtiles
+011_tfb/**/*.vrt
+011_tfb/scripts/pmtiles
+011_tfb/scripts/*.tar.gz

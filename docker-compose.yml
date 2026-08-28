@@ -177,6 +177,19 @@ services:
     networks:
       - traefik-net
 
+  tfb-viewer:
+    container_name: tfb_viewer
+    build:
+      context: ./011_tfb/viewer
+      dockerfile: Dockerfile
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tfbviewer.rule=Host(`tfb-viewer.${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.tfbviewer.entrypoints=web,websecure"
+    networks:
+      - traefik-net
+
 networks:
   traefik-net:
     driver: bridge
