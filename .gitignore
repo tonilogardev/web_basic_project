@@ -63,3 +63,12 @@ terraform.rc
 011_tfb/**/*.vrt
 011_tfb/scripts/pmtiles
 011_tfb/scripts/*.tar.gz
+
+# Ignorar datos generados por modelos
+011_tfb/visualizations/SCL_UNET_catalonia/
+
+# Global ignores
+__pycache__/
+*.py[cod]
+.*.swp
+.~lock.*#

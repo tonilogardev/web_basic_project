@@ -37,10 +37,7 @@ services:
       context: ./004_homepage
       dockerfile: Dockerfile
       args:
-        VITE_SENTINEL_URL: "${SENTINEL_URL}"
-        VITE_CASSINI_URL: "${CASSINI_URL}"
-        VITE_DEV_WEB_URL: "${DEV_WEB_URL}"
-        VITE_TFB_VIEWER_URL: "${TFB_VIEWER_URL}"
+        VITE_BASE_URL: "${VITE_BASE_URL}"
     restart: always
     # ELIMINADO env_file: No requerimos que el servidor estático "Nginx" asimile .envs crudos
     labels:
@@ -178,12 +175,14 @@ services:
     networks:
       - traefik-net
 
-  tfb-viewer:
+  tfb_viewer:
     container_name: tfb_viewer
     build:
       context: ./011_tfb/viewer
       dockerfile: Dockerfile
     restart: always
+    volumes:
+      - ./011_tfb/visualizations/SCL_UNET_catalonia:/usr/share/nginx/html/data
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.tfbviewer.rule=Host(`tfb-viewer.${DOMAIN_NAME:-localhost}`)"

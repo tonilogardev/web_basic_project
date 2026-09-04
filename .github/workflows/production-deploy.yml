@@ -23,7 +23,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "."
           target: "/opt/gis_platform"
-          exclude: ".git*,.github*,001_documentation,002_ssh_key,003_terraform,007_format_transformation,.agents,dev_run.sh,logica_*,*.md,LICENSE,.env.development"
+          exclude: ".git*,.github*,001_documentation,002_ssh_key,003_terraform,007_format_transformation,.agents,dev_run.sh,logica_*,*.md,LICENSE,.env.development,011_tfb/visualizations/SCL_UNET_catalonia"
 
       - name: Despliegue con Docker Compose
         uses: appleboy/ssh-action@master

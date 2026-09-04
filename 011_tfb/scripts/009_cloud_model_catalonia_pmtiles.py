@@ -460,10 +460,23 @@ def process_pipeline(start_date_str, end_date_str):
                 create_8bit_tif(vrt_swir, out_dir / f"{id_granule}_FalsoColor_Nieve.tif")
                 print(f"    [v] Exportado: {id_granule}_FalsoColor_Nieve.tif")
 
-            # Generar PMTiles de la Máscara de Nubes Binaria (interpolación nearest para no alterar clases)
+            # Generar PMTiles de la Máscara de Nubes coloreada (RGBA)
             mask_tif = out_dir / f"{id_granule}_SCL_UNET_mask_clouds.tif"
             if mask_tif.exists():
-                create_pmtiles(mask_tif, out_dir / f"{id_granule}_mask_clouds.pmtiles", resampling="nearest")
+                color_txt = out_dir / "cloud_color.txt"
+                if not color_txt.exists():
+                    with open(color_txt, "w") as f:
+                        f.write("0 0 0 0 0\n")
+                        f.write("1 255 255 255 200\n")
+                
+                rgba_tif = out_dir / f"{id_granule}_RGBA_mask.tif"
+                try:
+                    subprocess.run(["gdaldem", "color-relief", str(mask_tif), str(color_txt), str(rgba_tif), "-alpha"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    create_pmtiles(rgba_tif, out_dir / f"{id_granule}_mask_clouds.pmtiles", resampling="average")
+                except Exception as e:
+                    print(f"    [!] Error coloreando máscara: {e}")
+                finally:
+                    if rgba_tif.exists(): os.remove(rgba_tif)
 
             print("[>] Fase 4: Limpieza absoluta del directorio temporal (Automática)")
             # Al salir de este nivel de indentación, Python hace un "Garbage Collection" físico
@@ -540,3 +553,8 @@ if __name__ == "__main__":
     from gimp_tools import encode_to_rgb
 
     process_pipeline(start_date, end_date)
+    
+    # Generar inventario automáticamente tras terminar el proceso
+    import generate_inventory
+    print("\n[*] Actualizando inventario estático para el Web GIS...")
+    generate_inventory.generate_inventory()
