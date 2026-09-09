@@ -333,7 +333,7 @@ def get_granules_in_range(start_date_str, end_date_str):
 
 import subprocess
 
-def create_pmtiles(tif_path, pmtiles_path, resampling="average"):
+def create_pmtiles(tif_path, pmtiles_path, resampling="average", is_mask=False):
     """
     Convierte un Cloud Optimized GeoTIFF (o TIF normal) a formato PMTiles 
     compatible con MapLibre GL JS, pasando por EPSG:3857 y formato MBTiles.
@@ -343,7 +343,11 @@ def create_pmtiles(tif_path, pmtiles_path, resampling="average"):
     mbtiles_path = str(tif_path).replace('.tif', '.mbtiles')
     
     try:
-        subprocess.run(["gdalwarp", "-t_srs", "EPSG:3857", str(tif_path), tif_3857], check=True, stdout=subprocess.DEVNULL)
+        gdalwarp_cmd = ["gdalwarp", "-t_srs", "EPSG:3857"]
+        if is_mask:
+            gdalwarp_cmd.extend(["-srcnodata", "0 0 0 0", "-dstnodata", "0 0 0 0"])
+        gdalwarp_cmd.extend([str(tif_path), tif_3857])
+        subprocess.run(gdalwarp_cmd, check=True, stdout=subprocess.DEVNULL)
         subprocess.run(["gdal_translate", "-of", "MBTILES", tif_3857, mbtiles_path], check=True, stdout=subprocess.DEVNULL)
         subprocess.run(["gdaladdo", "-r", resampling, mbtiles_path, "2", "4", "8", "16", "32"], check=True, stdout=subprocess.DEVNULL)
         
@@ -460,23 +464,53 @@ def process_pipeline(start_date_str, end_date_str):
                 create_8bit_tif(vrt_swir, out_dir / f"{id_granule}_FalsoColor_Nieve.tif")
                 print(f"    [v] Exportado: {id_granule}_FalsoColor_Nieve.tif")
 
-            # Generar PMTiles de la Máscara de Nubes coloreada (RGBA)
+            # Generar PMTiles Vectorial de la Máscara de Nubes (MVT)
             mask_tif = out_dir / f"{id_granule}_SCL_UNET_mask_clouds.tif"
             if mask_tif.exists():
-                color_txt = out_dir / "cloud_color.txt"
-                if not color_txt.exists():
-                    with open(color_txt, "w") as f:
-                        f.write("0 0 0 0 0\n")
-                        f.write("1 255 255 255 200\n")
-                
-                rgba_tif = out_dir / f"{id_granule}_RGBA_mask.tif"
+                print("    [>] Convirtiendo máscara a PMTiles Vectorial (MVT)...")
                 try:
-                    subprocess.run(["gdaldem", "color-relief", str(mask_tif), str(color_txt), str(rgba_tif), "-alpha"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    create_pmtiles(rgba_tif, out_dir / f"{id_granule}_mask_clouds.pmtiles", resampling="average")
+                    # 1. Reproyectar a EPSG:4326 (requerido por GeoJSON y Tippecanoe)
+                    mask_4326 = temp_dir / f"{id_granule}_mask_4326.tif"
+                    subprocess.run(["gdalwarp", "-t_srs", "EPSG:4326", "-r", "near", str(mask_tif), str(mask_4326)], check=True, stdout=subprocess.DEVNULL)
+                    
+                    # 2. Extraer polígonos (solo valor 0 = nubes)
+                    import json
+                    import rasterio.features
+                    geojson_path = temp_dir / f"{id_granule}_clouds.geojson"
+                    
+                    with rasterio.open(mask_4326) as src:
+                        img = src.read(1)
+                        transform = src.transform
+                        
+                    # Filtramos donde el píxel es nube (0)
+                    mask_filter = (img == 0).astype(np.uint8)
+                    shapes = rasterio.features.shapes(mask_filter, mask=mask_filter, transform=transform)
+                    
+                    features = []
+                    for geom, val in shapes:
+                        features.append({
+                            "type": "Feature",
+                            "geometry": geom,
+                            "properties": {"is_cloud": 1}
+                        })
+                        
+                    with open(geojson_path, "w") as f:
+                        json.dump({"type": "FeatureCollection", "features": features}, f)
+                        
+                    # 3. Empaquetar con Tippecanoe a MBTiles y convertir a PMTiles v3
+                    mbtiles_mask_path = temp_dir / f"{id_granule}_mask_clouds.mbtiles"
+                    pmtiles_mask_path = out_dir / f"{id_granule}_mask_clouds.pmtiles"
+                    
+                    subprocess.run(["tippecanoe", "-zg", "--drop-densest-as-needed", "-l", "clouds", "-o", str(mbtiles_mask_path), "--force", str(geojson_path)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    
+                    pmtiles_bin = base_path / "pmtiles"
+                    subprocess.run([str(pmtiles_bin), "convert", str(mbtiles_mask_path), str(pmtiles_mask_path)], check=True, stdout=subprocess.DEVNULL)
+                    
+                    print(f"    [v] Creado PMTiles Vectorial: {pmtiles_mask_path.name}")
+                    
                 except Exception as e:
-                    print(f"    [!] Error coloreando máscara: {e}")
-                finally:
-                    if rgba_tif.exists(): os.remove(rgba_tif)
+                    print(f"    [!] Error creando PMTiles Vectorial: {e}")
+
 
             print("[>] Fase 4: Limpieza absoluta del directorio temporal (Automática)")
             # Al salir de este nivel de indentación, Python hace un "Garbage Collection" físico

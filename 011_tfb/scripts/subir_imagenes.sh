@@ -5,7 +5,7 @@
 # ==========================================
 # CONFIGURACIÓN (Ajustar con la IP de tu VPS)
 # ==========================================
-VPS_IP="<IP_DE_TU_SERVIDOR>"
+VPS_IP="tonilogar.com"
 VPS_USER="root"
 
 # Directorios de origen y destino
@@ -33,6 +33,7 @@ echo "[*] Conectando con $VPS_USER@$VPS_IP..."
 # --progress : Muestra barra de progreso por archivo
 # --exclude : Ignora archivos temporales (tif, jp2) para subir SOLO lo que necesita el visor
 rsync -avzh --progress \
+    -e "ssh -i ../../002_ssh_key/ssh_vps_hetzner -o StrictHostKeyChecking=no" \
     --exclude="*.tif" \
     --exclude="*.jp2" \
     --exclude="*.vrt" \

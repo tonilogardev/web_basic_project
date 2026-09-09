@@ -1,203 +1,164 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { Map as MapLibreMap, addProtocol, removeProtocol } from 'maplibre-gl';
+  import { onMount, untrack } from 'svelte';
+  import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { Protocol } from 'pmtiles';
+  
+  import Buscador from './components/Buscador.svelte';
+  import PanelPmtiles from './components/PanelPmtiles.svelte';
+  import CapasActivas from './components/CapasActivas.svelte';
+  import { capasState } from './state/capasState.svelte';
 
   let mapContainer: HTMLElement;
   let map: MapLibreMap;
+  
+  let isProcessingQueue = false;
+  let mapLoaded = $state(false);
 
-  // Estado del Inventario
-  let inventory: Record<string, string[]> = {};
-  let availableDates: string[] = [];
-  let availableTiles: string[] = [];
-
-  let selectedDate = "";
-  let selectedTile = "";
-
-  // Estado de los controles
-  let showColorReal = true;
-  let showCloudMask = true;
-  let maskOpacity = 100;
-  let loading = true;
-
-  onMount(async () => {
-    // 1. Cargar el inventario
+  /**
+   * Sincroniza el estado global reactivo (capasState) con las capas reales de MapLibre.
+   * Implementa un sistema de cola (Queue System) para añadir las imágenes secuencialmente
+   * con un retardo de 100ms. Esto evita saturar el motor WebGL y el límite de 
+   * conexiones HTTP concurrentes del navegador cuando el usuario carga múltiples PMTiles.
+   */
+  async function processLayerQueue() {
+    if (isProcessingQueue || !mapLoaded || !map) return;
+    isProcessingQueue = true;
+    
     try {
-      const res = await fetch('/data/inventory.json');
-      if (res.ok) {
-        inventory = await res.json();
-        availableDates = Object.keys(inventory);
-        if (availableDates.length > 0) {
-          selectedDate = availableDates[0];
-          availableTiles = inventory[selectedDate] || [];
-          if (availableTiles.length > 0) {
-            selectedTile = availableTiles[0];
+      const stateLayers = capasState.capasActivas;
+      const currentMapSources = map.getStyle()?.sources || {};
+      
+      // 1. Eliminar capas que ya no están en el estado
+      const stateLayerIds = stateLayers.map(c => c.id);
+      for (const sourceId in currentMapSources) {
+        if (sourceId.startsWith('pmtiles-') && !stateLayerIds.includes(sourceId.replace('pmtiles-', ''))) {
+          const id = sourceId.replace('pmtiles-', '');
+          if (map.getLayer(id)) map.removeLayer(id);
+          if (map.getSource(sourceId)) map.removeSource(sourceId);
+        }
+      }
+      
+      // 2. Añadir/Actualizar capas activas
+      for (const capa of stateLayers) {
+        const sourceId = `pmtiles-${capa.id}`;
+        
+        // Si no existe, la instanciamos con retardo
+        if (!map.getSource(sourceId)) {
+          const isMask = capa.url.includes('mask_clouds');
+          
+          if (isMask) {
+            map.addSource(sourceId, {
+              type: 'vector',
+              url: `pmtiles://${window.location.origin}${capa.url}`
+            });
+            
+            map.addLayer({
+              id: capa.id,
+              type: 'fill',
+              source: sourceId,
+              'source-layer': 'clouds',
+              paint: {
+                'fill-color': '#ff0000',
+                'fill-opacity': capa.opacidad
+              },
+              layout: {
+                visibility: capa.visible ? 'visible' : 'none'
+              }
+            });
+          } else {
+            map.addSource(sourceId, {
+              type: 'raster',
+              url: `pmtiles://${window.location.origin}${capa.url}`
+            });
+            
+            map.addLayer({
+              id: capa.id,
+              type: 'raster',
+              source: sourceId,
+              minzoom: 0, // Fuerza overzoom desde lejos ignorando minzoom del PMTiles
+              paint: {
+                'raster-opacity': capa.opacidad
+              },
+              layout: {
+                visibility: capa.visible ? 'visible' : 'none'
+              }
+            });
+          }
+          
+          // Retardo para que el navegador no se ahogue con muchas peticiones Range seguidas
+          await new Promise(r => setTimeout(r, 100));
+        } else {
+          // Si ya existe, actualizamos sus propiedades (Slider y Checkbox) muy rápido
+          if (map.getLayer(capa.id)) {
+            const isMask = capa.url.includes('mask_clouds');
+            if (isMask) {
+              map.setPaintProperty(capa.id, 'fill-opacity', capa.opacidad);
+            } else {
+              map.setPaintProperty(capa.id, 'raster-opacity', capa.opacidad);
+            }
+            map.setLayoutProperty(capa.id, 'visibility', capa.visible ? 'visible' : 'none');
           }
         }
       }
-    } catch (e) {
-      console.error("No se pudo cargar el inventario.json", e);
+    } finally {
+      isProcessingQueue = false;
     }
-    
-    loading = false;
+  }
 
-    // 2. Inicializar Mapa
-    const protocol = new Protocol();
-    addProtocol('pmtiles', protocol.tile);
+  // Effect para reaccionar a cambios en capasActivas y en mapLoaded
+  $effect(() => {
+    // Al acceder a capasState.capasActivas Svelte 5 se suscribe a los cambios profundos
+    const _capas = capasState.capasActivas;
+    if (mapLoaded) {
+      processLayerQueue();
+    }
+  });
+
+  /**
+   * Centra la cámara del mapa en un lugar geocodificado
+   * @param lugar Objeto devuelto por el buscador nominatim con coords y boundingbox
+   */
+  function irALugar(lugar: any) {
+    if (!map) return;
+    const { boundingbox, lat, lon } = lugar;
+    if (boundingbox) {
+      const [latMin, latMax, lonMin, lonMax] = boundingbox.map(Number);
+      map.fitBounds([ [lonMin, latMin], [lonMax, latMax] ], { padding: 50, duration: 1500 });
+    } else {
+      map.flyTo({ center: [Number(lon), Number(lat)], zoom: 12, duration: 1500 });
+    }
+  }
+
+  onMount(() => {
+    // Registramos PMTiles en MapLibre
+    let protocol = new Protocol();
+    maplibregl.addProtocol('pmtiles', protocol.tile);
 
     map = new MapLibreMap({
       container: mapContainer,
-      style: {
-        version: 8,
-        sources: {
-          'osm': {
-            type: 'raster',
-            tiles: [
-              'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-              'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-              'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-            ],
-            tileSize: 256,
-            attribution: '© OpenStreetMap contributors'
-          }
-        },
-        layers: [
-          {
-            id: 'osm',
-            type: 'raster',
-            source: 'osm',
-            minzoom: 0,
-            maxzoom: 22
-          }
-        ]
-      },
-      center: [2.17, 41.38],
-      zoom: 9
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [1.74, 41.69],
+      zoom: 7.5
     });
 
     map.on('load', () => {
-      loadGranuleLayers(selectedDate, selectedTile);
+      mapLoaded = true;
     });
 
     return () => {
       if (map) map.remove();
-      removeProtocol('pmtiles');
+      maplibregl.removeProtocol('pmtiles');
     };
   });
-
-  // Reaccionar a cambios en los selectores
-  function onDateChange() {
-    availableTiles = inventory[selectedDate] || [];
-    if (availableTiles.length > 0) {
-      selectedTile = availableTiles[0];
-    } else {
-      selectedTile = "";
-    }
-    loadGranuleLayers(selectedDate, selectedTile);
-  }
-
-  function onTileChange() {
-    loadGranuleLayers(selectedDate, selectedTile);
-  }
-
-  // Función núcleo para cargar dinámicamente un PMTiles
-  function loadGranuleLayers(date: string, tile: string) {
-    if (!map || !map.isStyleLoaded() || !date || !tile) return;
-
-    // Rutas dinámicas referenciando a la carpeta montada en NGINX /data/
-    const rgbUrl = `pmtiles:///data/${date}_${tile}_ColorReal.pmtiles`;
-    const maskUrl = `pmtiles:///data/${date}_${tile}_mask_clouds.pmtiles`;
-
-    // Eliminar capas antiguas
-    if (map.getLayer('mask-layer')) map.removeLayer('mask-layer');
-    if (map.getSource('mask-source')) map.removeSource('mask-source');
-    
-    if (map.getLayer('rgb-layer')) map.removeLayer('rgb-layer');
-    if (map.getSource('rgb-source')) map.removeSource('rgb-source');
-
-    // Añadir nuevas fuentes y capas
-    map.addSource('rgb-source', { type: 'raster', url: rgbUrl });
-    map.addLayer({
-      id: 'rgb-layer',
-      type: 'raster',
-      source: 'rgb-source',
-      layout: { visibility: showColorReal ? 'visible' : 'none' }
-    });
-
-    map.addSource('mask-source', { type: 'raster', url: maskUrl });
-    map.addLayer({
-      id: 'mask-layer',
-      type: 'raster',
-      source: 'mask-source',
-      layout: { visibility: showCloudMask ? 'visible' : 'none' },
-      paint: { 'raster-opacity': maskOpacity / 100 }
-    });
-  }
-
-  // Reactividad para Opacidad y Visibilidad
-  $: if (map && map.isStyleLoaded()) {
-    if (map.getLayer('rgb-layer')) {
-      map.setLayoutProperty('rgb-layer', 'visibility', showColorReal ? 'visible' : 'none');
-    }
-    if (map.getLayer('mask-layer')) {
-      map.setLayoutProperty('mask-layer', 'visibility', showCloudMask ? 'visible' : 'none');
-      map.setPaintProperty('mask-layer', 'raster-opacity', maskOpacity / 100);
-    }
-  }
-
 </script>
 
 <main class="app-layout">
-  <aside class="sidebar">
-    <h1>Visor de Nubes</h1>
-    <p>Cataluña Sentinel-2</p>
-
-    <!-- SELECTORES DINÁMICOS -->
-    <div class="controls selector-box">
-      <h3>Seleccionar Imagen</h3>
-      {#if loading}
-        <p class="loading">Cargando inventario...</p>
-      {:else}
-        <label>
-          <span>Fecha de Adquisición:</span>
-          <select bind:value={selectedDate} on:change={onDateChange}>
-            {#each availableDates as date}
-              <option value={date}>{date}</option>
-            {/each}
-          </select>
-        </label>
-        
-        <label>
-          <span>Cuadrícula (Tile):</span>
-          <select bind:value={selectedTile} on:change={onTileChange}>
-            {#each availableTiles as tile}
-              <option value={tile}>{tile}</option>
-            {/each}
-          </select>
-        </label>
-      {/if}
-    </div>
-    
-    <div class="controls">
-      <h3>Capas Gráficas</h3>
-      <label class="toggle">
-        <input type="checkbox" bind:checked={showColorReal} />
-        <span>Imagen Color Real (RGB)</span>
-      </label>
-      
-      <label class="toggle">
-        <input type="checkbox" bind:checked={showCloudMask} />
-        <span>Máscara de Nubes (Predicción)</span>
-      </label>
-
-      <div class="slider-container">
-        <label>Opacidad Máscara ({maskOpacity}%)</label>
-        <input type="range" min="0" max="100" bind:value={maskOpacity} />
-      </div>
-    </div>
-  </aside>
-  
+  <div class="left-sidebar">
+    <PanelPmtiles />
+    <CapasActivas />
+  </div>
+  <Buscador onLugarSeleccionado={irALugar} />
   <div class="map-container" bind:this={mapContainer}></div>
 </main>
 
@@ -207,7 +168,6 @@
     padding: 0;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background-color: #0f172a;
-    color: #f8fafc;
   }
 
   .app-layout {
@@ -215,108 +175,24 @@
     height: 100vh;
     width: 100vw;
     overflow: hidden;
+    position: relative;
   }
 
-  .sidebar {
-    width: 320px;
-    background-color: #1e293b;
-    border-right: 1px solid #334155;
-    padding: 20px;
+  .left-sidebar {
+    position: absolute;
+    top: 20px;
+    left: 20px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    box-shadow: 4px 0 15px rgba(0,0,0,0.3);
-    z-index: 10;
+    gap: 16px;
+    z-index: 20;
+    pointer-events: none; /* Dejar pasar los clicks al mapa... */
+    max-height: calc(100vh - 40px);
   }
 
-  h1 {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #38bdf8;
-  }
-
-  p {
-    margin: 5px 0 0 0;
-    color: #94a3b8;
-    font-size: 0.9rem;
-  }
-
-  .controls {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    background: #0f172a;
-    padding: 15px;
-    border-radius: 8px;
-    border: 1px solid #334155;
-  }
-
-  .selector-box label {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    font-size: 0.85rem;
-    color: #94a3b8;
-  }
-
-  .selector-box select {
-    background-color: #1e293b;
-    color: #f8fafc;
-    border: 1px solid #475569;
-    padding: 8px;
-    border-radius: 4px;
-    outline: none;
-    cursor: pointer;
-  }
-  
-  .selector-box select:focus {
-    border-color: #38bdf8;
-  }
-
-  .loading {
-    color: #38bdf8;
-    font-size: 0.85rem;
-    font-style: italic;
-  }
-
-  h3 {
-    margin: 0 0 5px 0;
-    font-size: 1rem;
-    color: #e2e8f0;
-  }
-
-  .toggle {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    font-size: 0.95rem;
-    color: #cbd5e1;
-  }
-
-  .toggle input {
-    cursor: pointer;
-    width: 16px;
-    height: 16px;
-    accent-color: #38bdf8;
-  }
-
-  .slider-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 10px;
-  }
-  
-  .slider-container label {
-    font-size: 0.85rem;
-    color: #94a3b8;
-  }
-
-  .slider-container input[type="range"] {
-    width: 100%;
-    accent-color: #38bdf8;
+  /* ...pero capturar clicks en los hijos */
+  .left-sidebar > :global(*) {
+    pointer-events: auto;
   }
 
   .map-container {
