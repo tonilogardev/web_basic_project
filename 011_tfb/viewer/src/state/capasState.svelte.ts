@@ -44,7 +44,7 @@ export function toggleGranulo(granulo: string) {
       id: `${granulo}_ColorReal`,
       granulo,
       tipo: 'RGB',
-      url: `/${granulo}_ColorReal.pmtiles?v=${version}`, // Se sirven desde la raíz / en public
+      url: `/data/${granulo}_ColorReal.pmtiles?v=${version}`, // Se sirven dinámicamente desde el volumen /data
       visible: true,
       opacidad: 1.0
     });
@@ -54,7 +54,7 @@ export function toggleGranulo(granulo: string) {
       id: `${granulo}_mask_clouds`,
       granulo,
       tipo: 'Mask',
-      url: `/${granulo}_mask_clouds.pmtiles?v=${version}`, // Se sirven desde la raíz / en public
+      url: `/data/${granulo}_mask_clouds.pmtiles?v=${version}`, // Se sirven dinámicamente desde el volumen /data
       visible: true,
       opacidad: 1.0
     });

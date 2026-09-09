@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { 
     capasState, 
     toggleGranulo, 
@@ -10,36 +11,31 @@
   let colapsado = $state(false);
   let listaDesplegada = $state(false);
   
-  // Extraemos todos los ficheros .pmtiles de public/ en tiempo de compilación tratándolos como URLs para que Vite no intente parsearlos como JS
-  const pmtilesRaw = import.meta.glob('/public/*.pmtiles', { query: '?url', eager: true });
-  const allPaths = Object.keys(pmtilesRaw);
-  
-  // 1. Encontrar todos los prefijos posibles
-  const posiblesPrefijos = new Set<string>();
-  allPaths.forEach(path => {
-    const filename = path.split('/').pop() || '';
-    const nameWithoutExt = filename.replace('.pmtiles', '');
-    const prefix = nameWithoutExt.replace('_ColorReal', '').replace('_mask_clouds', '');
-    if (prefix && prefix !== 'favicon' && prefix !== 'icons') {
-      posiblesPrefijos.add(prefix);
+  let opciones = $state<string[]>([]);
+  let cargando = $state(true);
+
+  onMount(async () => {
+    try {
+      // Cargamos dinámicamente el inventario generado por Python en el directorio montado (/data)
+      const res = await fetch('/data/inventory.json');
+      if (res.ok) {
+        const inventory = await res.json();
+        const granulosValidos: string[] = [];
+        for (const date in inventory) {
+          for (const tile of inventory[date]) {
+            granulosValidos.push(`${date}_${tile}`);
+          }
+        }
+        opciones = granulosValidos.sort();
+      } else {
+        console.warn("No se pudo cargar /data/inventory.json");
+      }
+    } catch (e) {
+      console.error("Error al cargar inventario PMTiles", e);
+    } finally {
+      cargando = false;
     }
   });
-  
-  // 2. Validar que exista el par completo para cada prefijo
-  const granulosValidos: string[] = [];
-  posiblesPrefijos.forEach(prefix => {
-    const hasColorReal = allPaths.includes(`/public/${prefix}_ColorReal.pmtiles`);
-    const hasMaskClouds = allPaths.includes(`/public/${prefix}_mask_clouds.pmtiles`);
-    
-    if (hasColorReal && hasMaskClouds) {
-      granulosValidos.push(prefix);
-    } else {
-      console.warn(`Gránulo incompleto descartado: ${prefix} (ColorReal: ${hasColorReal}, MaskClouds: ${hasMaskClouds})`);
-    }
-  });
-  
-  // Ordenar la lista (alfabéticamente y por fecha)
-  const opciones = granulosValidos.sort();
   
   let ultimoIndiceSeleccionado = $state<number | null>(null);
   
@@ -109,8 +105,10 @@
                 </label>
               {/each}
               
-              {#if opciones.length === 0}
-                <p class="empty-state">No PMTiles found in /public</p>
+              {#if cargando}
+                <p class="empty-state">Cargando inventario...</p>
+              {:else if opciones.length === 0}
+                <p class="empty-state">No PMTiles found in /data</p>
               {/if}
             </div>
           {/if}

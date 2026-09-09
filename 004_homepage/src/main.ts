@@ -8,8 +8,12 @@ cookieManager.init();
 // Menos es más: HTML y CSS Grid se encargan de toda la vista interactiva.
 // Sólo inyectamos Javascript global cuando es absolutamente crucial (ej. Formularios, Cookies, Estado Complejo).
 
-// 2. Inyección Dinámica de Subdominios (Patrón URL Base)
-const baseUrl = import.meta.env.VITE_BASE_URL || 'http://{subdomain}.localhost:8001';
+// 2. Inyección Dinámica de Subdominios (Patrón URL Base robusto)
+let baseUrl = import.meta.env.VITE_BASE_URL;
+if (!baseUrl) {
+  const isLocal = window.location.hostname.includes('localhost') || window.location.hostname === '127.0.0.1';
+  baseUrl = isLocal ? 'http://{subdomain}.localhost:8001' : 'https://{subdomain}.tonilogar.com';
+}
 const getUrl = (subdomain: string) => baseUrl.replace('{subdomain}', subdomain);
 
 document.addEventListener('DOMContentLoaded', () => {
