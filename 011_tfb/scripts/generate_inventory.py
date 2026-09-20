@@ -4,7 +4,11 @@ from pathlib import Path
 from collections import defaultdict
 
 def generate_inventory():
-    base_dir = Path("/home/a.lopez.g/Documents/trabajos/node_2/web_basic_project/011_tfb/visualizations/SCL_UNET_catalonia")
+    out_dir_env = os.getenv("OUTPUT_DIR")
+    if out_dir_env:
+        base_dir = Path(out_dir_env)
+    else:
+        base_dir = Path(__file__).parent.parent / "visualizations" / "SCL_UNET_catalonia"
     
     inventory = defaultdict(list)
     

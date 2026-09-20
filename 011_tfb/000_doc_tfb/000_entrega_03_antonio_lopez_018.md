@@ -8,8 +8,7 @@
 <div align="center" style="font-size: 1.4em; line-height: 1.6; margin-bottom: 40px;">
   <strong>Autor:</strong> Antonio López<br>
   <strong>Tutor/a:</strong> Favela Natalie Quintero Chona<br>
-  <strong>Fase:</strong> Entrega 3: ENTREGA COMPLETA DEL TFT<br>
-  <strong>Fecha:</strong> 31/08/2026 - 06/09/2026
+  <strong>Fecha:</strong> 31/08/2026 - 20/09/2026
 </div>
 
 <div align="center" style="font-size: 1.2em; margin-bottom: 20px;">
@@ -20,19 +19,32 @@
 
 <div style="page-break-after: always;"></div>
 
-## Resumen con palabras clave
+## Resumen  
 
-El presente Trabajo Final de Bàtxelor (TFB) tiene como objetivo principal el desarrollo de una infraestructura Web GIS escalable y diseñada para procesar datos satélite de la constelación Copernicus para permitir la integración de **cualquier modelo de *Machine Learning***. Para validar esta arquitectura modular se utiliza como caso de estudio práctico:la clasificación errónea de pixeles por parte del algoritmo estándar Sen2Cor en zonas de Cataluña. Como solución a esta deficiencia, se ha implementado y ejecutado un modelo de aprendizaje profundo (*Deep Learning*) utilizando la red neuronal convolucional U-Net. El proyecto abarca la descarga automatizada de gránulos Sentinel-2, la edición y clasificación manual de máscaras mediante GIMP para el entrenamiento y test del modelo de machine learning. El resultado se desplegará en una infraestructura *WEB GIS*, demostrando que esta arquitectura modular sirve de base para futuros proyectos y resolver distintas problemáticas geoespaciales de Observación de la Tierra.
+El objetivo de este trabajo es el desarrollo de una infraestructura modular base para proyectos geoespaciales. Los módulos serán agnósticos al software, entornos, sistemas operativos o librerías utilizadas; esta base será escalable y replicable para futuros proyectos.  
+La infraestructura se divide en 4 módulos:  
 
-**Palabras clave:** *Deep Learning, Sentinel-2, Segmentación Semántica, U-Net, Observación de la Tierra, Copernicus.*
+1. Buscar, descargar y procesar datos geoespaciales; en el caso de estudio se utilizará la API OData del Copernicus Data Space Ecosystem (CDSE) para bajar las imágenes Sentinel-2 de la constelación Copernicus.  
+2. Editar y clasificar manualmente los datos necesarios para el entrenamiento supervisado del modelo; en el caso de estudio se utilizará GIMP para crear la verdad del terreno **"Ground Truth"** a partir de los ficheros de clasificación de la ESA.   
+3. Preparar los datos para el entrenamiento y el test del modelo U-Net de deep learning; en el caso de estudio se comparan los resultados del modelo con los resultados del algoritmo del software Sen2Cor de la ESA.  
+4. Construir un entorno Web GIS para la visualización de los resultados; en el caso de estudio se utilizará un entorno con contenedores Docker, Svelte para el frontend, la librería cartográfica MapLibre GL y el formato PMTiles para visualizar los resultados.  
+
+
+**Palabras clave:** *Deep Learning, Sentinel-2, U-Net, Copernicus.*
 
 <br><br>
 
 ## Abstract
 
-This Bachelor's Final Project (TFB) has as its main objective the development of a scalable Web GIS infrastructure designed to process satellite data from the Copernicus satellite constellation to allow the integration of **any *Machine Learning* model**. To validate this modular architecture, a practical case study is used: the pixel misclassification by the standard Sen2Cor algorithm in areas of Catalonia. As a solution to this deficiency, a deep learning model has been implemented and executed using the U-Net convolutional neural network. The project encompasses the automated download of Sentinel-2 granules, and the manual editing and classification of masks using GIMP for the training and testing of the machine learning model. The result will be deployed in a *WEB GIS* infrastructure, demonstrating that this modular architecture serves as a foundation for future projects and for solving various Earth Observation geospatial problems.
+The objective of this work is to develop a modular base infrastructure for geospatial projects. The modules will be agnostic regarding the software, environments, operating systems, or libraries used; this foundation will be scalable and replicable for future projects.  
+The infrastructure is divided into four modules:  
 
-**Keywords:** *Deep Learning, Sentinel-2, Semantic Segmentation, U-Net, Earth Observation, Copernicus.*
+1. Searching for, downloading, and processing geospatial data; in the case study, the Copernicus Data Space Ecosystem (CDSE) OData API is utilized to download Sentinel-2 imagery from the Copernicus constellation.  
+2. Manually editing and classifying the data required for supervised model training; in the case study, GIMP is used to create the "ground truth" based on ESA classification files.  
+3. Preparing data for training and testing the U-Net deep learning model; in the case study, the model's results are compared with those produced by ESA's Sen2Cor software algorithm.  
+4. Building a Web GIS environment to visualize the results; in the case study, an environment featuring Docker containers, Svelte for the frontend, the MapLibre GL mapping library, and the PMTiles format is employed for result visualization.
+
+**Keywords:** *Deep Learning, Sentinel-2, U-Net, Copernicus.*
 
 <br><br>
 
@@ -78,7 +90,7 @@ Para facilitar la lectura a evaluadores y personas no especialistas en Sistemas 
 - **Tiling:** Técnica geoespacial que consiste en "trocear" imágenes satelitales gigantes en cuadrados más pequeños para que el ordenador pueda procesarlos sin saturar la memoria RAM.
 - **OOM:** *Out of Memory* (Fuera de memoria). Colapso del ordenador por intentar cargar demasiados datos gráficos a la vez.
 - **COG:** *Cloud Optimized GeoTIFF*. Formato de imagen satelital optimizado para ser consultado y procesado de forma rápida y directa en la nube.
-- **PMTiles:** Formato de archivo de mapa diseñado para almacenar teselas geoespaciales en la nube de forma estática, optimizando la velocidad y coste del servidor.
+- **PMTiles:** Formato de archivo de mapa diseñado para almacenar teselas geoespaciales de forma estática sin necesidad de crear servidores cartográficos dedicados en backend.
 - **gpkg:** *GeoPackage*. Formato de base de datos geoespacial open source.
 - **shp:** *Shapefile*. Formato de archivo informático vectorial clásico y muy extendido para almacenar sistemas de información geográfica.
 - **On the fly:** Procesamiento o renderizado en tiempo real. Siendo ejecutado dinámicamente por el backend sin necesidad de procesarlo en el servidor de la herramienta.
@@ -98,12 +110,16 @@ Para facilitar la lectura a evaluadores y personas no especialistas en Sistemas 
 
 # 1. Introducción
 
-El programa Copernicus, de la Agencia Espacial Europea (ESA) y la Unión Europea, representa actualmente uno de los mayores esfuerzos tecnológicos para la observación de la Tierra. Sentinel-2 es una misión compuesta por dos satélites(Sentinel-2A y Sentinel-2B) que proporcionan imágenes ópticas multiespectrales de alta resolución. Los satélites capturan información en 13 bandas espectrales que abarcan desde el espectro visible (RGB) hasta el infrarrojo cercano (NIR) y de onda corta (SWIR). Su resolución espacial es heterogénea, alcanzando los 10 metros por píxel en las bandas principales, 20 metros en las bandas infrarrojas y 60 metros para correcciones atmosféricas. Gracias al desfase orbital de sus dos satélites, ofrece una resolución temporal de 5 días. Los datos que estos satélites envían son fundamentales para la observación de la Tierra, lo que permite el seguimiento continuo de fenómenos globales, como el control de la agricultura de precisión, la predicción, detección y prevención de desastres naturales, entre otros.
+El programa Copernicus, de la Agencia Espacial Europea (ESA), es una constelación de satélites que proporcionan diferentes datos para la observación de la Tierra. Desde Sentinel-1 (datos radar) y Sentinel-2 (datos ópticos), hasta Sentinel-3 (datos de temperatura), entre otros.
+En este trabajo se pretende crear un metodo modular para poder solucionar problemas cartograficos, con modelos de machine learning, y poder representarlos en una plataforma web gis. En esta caso en concreto detectar nubes en imagens satelitales para después mostrarlas en una plataforma web gis. Para ello se utilizarán los datos de Sentinel-2.  
+Sentinel-2 es una misión compuesta por dos satélites (Sentinel-2A y Sentinel-2B) que proporcionan imágenes ópticas multiespectrales de alta resolución. Los satélites capturan información en 13 bandas espectrales. Su resolución espacial va desde 10 m en el espectro visible y el infrarrojo cercano, las bandas de 20 m proporcionan rangos especializados como el Red Edge, el infrarrojo cercano estrecho (Narrow NIR) y el infrarrojo de onda corta (SWIR) y las bandas de 60 m capturan la información atmosférica exclusiva (aerosoles, vapor de agua, nubes y cirros) para proporcionar datos para las correcciones atmosféricas y obtener datos de reflectancia real. 
+Gracias al desfase orbital de sus dos satélites, ofrece una resolución temporal de 5 días sobre Cataluña. Los datos de estos satélites son fundamentales para la observación de la Tierra, lo que permite el seguimiento continuo de fenómenos globales, como el control de la agricultura de precisión, la predicción, detección y prevención de desastres naturales, entre otros.
 
-Uno de los productos derivados de estas observaciones es el mapa de clasificación de píxeles (producto SCL), generado mediante el procesador estándar de la ESA (Sen2Cor). Sin embargo, dada la heterogeneidad de la superficie terrestre, este algoritmo comete fallos de clasificación al enfrentarse a geografías complejas. Para solucionar esta limitación, entrenaremos un modelo, para el territorio de Cataluña, capaz de interpretar el contexto espacial.
+Uno de los productos derivados de estas observaciones es el mapa de clasificación de píxeles (producto SCL), generado mediante el procesador estándar de la ESA (Sen2Cor). 
+Dado que es un procesador estándar y está hecho para abarcar todo el mundo, no tiene en cuenta las peculiaridades geográficas y el contexto espacial de las distintas regiones. Por esta razón, el algoritmo comete fallos de clasificación al enfrentarse a geografías complejas y heterogéneas. Para solucionar estas limitaciones, se entrenará un modelo, para el territorio de Cataluña, capaz de interpretar el contexto espacial.
+A continuación se muestra la clasificación que genera el algoritmo estándar Sen2Cor:
 
 **Leyenda producto SCL:**
-
 - **0**: Sin datos (*No Data*)
 - **1**: Píxeles saturados o defectuosos
 - **2**: Áreas oscuras
@@ -117,31 +133,32 @@ Uno de los productos derivados de estas observaciones es el mapa de clasificaci�
 - **10**: Cirros finos
 - **11**: Nieve o hielo
 
+![Ejemplo de mapa de clasificación de píxeles (producto SCL)](img/img_scl.png)  
+*Figura 1: Ejemplo de mapa de clasificación de píxeles (producto SCL) generado por Sen2Cor.*
+
 <div style=\"page-break-after: always;\"></div>
 
 # 2. Justificación
 
-2. Justificación
-Aunque el algoritmo oficial (Sen2Cor) es el estándar mundial para generar estos mapas, tiene un problema fundamental: analiza la imagen punto por punto (píxel a píxel), fijándose únicamente en el color y brillo exacto de cada punto por separado, sin tener en cuenta qué hay a su alrededor. Esta falta de contexto visual hace que el algoritmo se confunda fácilmente cuando dos elementos muy distintos brillan de forma parecida (como una nube blanca y la nieve de una montaña), equivocándose a menudo al clasificar zonas con una geografía muy variada.
+El problema de la clasificación del algoritmo Sen2Cor es que analiza la imagen punto por punto (píxel a píxel), fijándose únicamente en el color y brillo exacto de cada punto por separado, sin tener en cuenta qué hay a su alrededor. Esta falta de contexto visual hace que el algoritmo clasifique erroneamente pixeles.
 
-En el caso específico de Cataluña, estos fallos en la clasificación de pixeles se detectan en tres casos concretos:
-1: Confunde la nieve con nubes.
-2: Confunde las sombras topográficas como sombras de nubes.
-3: Clasifica aguas profundas con pixeles nodata y zonas de arrozales del delta del ebro con masas de agua o nubes en lugar de pixeles de tierra.
+En el caso específico de Cataluña, estos fallos en la clasificación de pixeles se detectan en tres casos concretos:  
+1: Confunde la nieve con nubes.  
+2: Confunde las sombras topográficas como sombras de nubes.  
+3: Clasifica aguas profundas con pixeles nodata y zonas de arrozales del delta del ebro con masas de agua o nubes en lugar de pixeles de tierra.  
 
-Pero el aprendizaje profundo (Deep Learning) ofrece una solución. A diferencia de las herramientas de clasificación programaticas tradicionales, las Redes Neuronales Convolucionales (CNN) poseen la capacidad de asimilar el contexto espacial, las texturas y la morfología del entorno. Esto permite a la Inteligencia Artificial diferenciar una nube de una cumbre nevada basándose no solo en su brillo individual, sino en su geometría y su relación con el territorio físico.
+Pero el aprendizaje profundo (Deep Learning) ofrece una solución. A diferencia de las herramientas de clasificación programaticas tradicionales, las Redes Neuronales Convolucionales (CNN) poseen la capacidad de asimilar el contexto espacial, las texturas y la morfología del entorno. Esto permite al modelo diferenciar una nube de una cumbre nevada basándose no solo en su brillo individual, sino en su geometría y su relación con el territorio físico.
 
-Vigilar correctamente lo que ocurre en la superficie de la Tierra desde el espacio es clave para tomar buenas decisiones. Por ejemplo, ayuda a gestionar el agua durante las sequías (algo vital para organismos como el Institut Cartogràfic i Geològic de Catalunya, ICGC) o a controlar la salud de los bosques. Si nos basamos en mapas satelitales que tienen errores, terminaremos tomando decisiones equivocadas. Con el modelo que entrenaremos en este trabajao intentaremos mejorar la clasificación de pixeles de las imagenes sentinel 2 en la zona de Cataluña.
+La observación de la tierra es clave para tomar buenas decisiones. Por ejemplo, ayuda a gestionar el agua durante las sequías (algo vital para organismos como el Institut Cartogràfic i Geològic de Catalunya, ICGC) o a controlar la salud de los bosques. Si nos basamos en mapas satelitales que tienen errores, terminaremos tomando decisiones equivocadas. Con el modelo que se entrenara en este trabajao intentaremos mejorar la clasificación de pixeles de las imagenes sentinel 2 en la zona de Cataluña.
 
 <div style=\"page-break-after: always;\"></div>
 
 # 3. Contextualización del problema (El límite de Sen2Cor)
 
-Para entender bien el reto al que nos enfrentamos, debemos fijarnos en dónde se equivoca exactamente Sen2Cor al clasificar los píxeles. Al ser un programa rígido que sigue unas reglas matemáticas fijas (por ejemplo: si un píxel brilla por encima de cierto nivel, asume automáticamente que es una nube), se queda muy corto al analizar territorios tan variados y complejos como el de Cataluña. Esta falta de flexibilidad provoca tres errores principales que este proyecto intenta solucionar:
 
-1. **Ambigüedad espectral de la Nieve:** Sen2Cor confunde frecuentemente la firma espectral altamente reflectiva de la nieve de alta montaña (Pirineos) con los frentes de nubes gruesas.
-2. **Falsos positivos por Sombras Topográficas:** El algoritmo europeo carece de percepción orográfica profunda, por lo que a menudo clasifica la sombra oscura natural que proyecta un relieve escarpado como si fuera la sombra proyectada por una nube, llenando los valles de falsas nubes.
-3. **Anomalías hídricas (El Delta del Ebro):** Las grandes masas de agua profunda son diagnosticadas erróneamente como sombras o nodata, mientras que los terrenos con alta saturación hídrica (arrozales inundados) generan destellos especulares (*Sun Glint*) que ciegan al algoritmo, induciéndole a predecir densos bancos de nubes inexistentes o masas de agua.
+1. **Ambigüedad espectral de la Nieve:** Sen2Cor puede confundir la firma espectral altamente reflectiva de la nieve de alta montaña (Pirineos) con los frentes de nubes gruesas.
+2. **Falsos positivos por Sombras Topográficas:** Sen2Cor no trabaja con el modelo del terreno, por lo que a menudo clasifica la sombra oscura de una montaña como sombras de nubes, llenando los valles de falsas sombras de nubes.
+3. **Anomalías hídricas (El Delta del Ebro):** Las grandes masas de agua profunda son diagnosticadas erróneamente como sombras o nodata, mientras que los terrenos con alta saturación hídrica (arrozales inundados) son clasificados como masas de agua y en algunos casos también como nubes.
 
 <div style=\"page-break-after: always;\"></div>
 
@@ -149,39 +166,34 @@ Para entender bien el reto al que nos enfrentamos, debemos fijarnos en dónde se
 
 ## 4.1. Objetivo general
 
-El propósito de este proyecto es construir una arquitectura base que, siendo agnóstica al proveedor de infraestructura, permita la integración modular de modelos de Deep Learning y sus inferencias a una herramienta WEB GIS.
-
-Para validar empíricamente la viabilidad de este sistema, se presenta como caso de estudio la integración de una red neuronal U-Net específica para la detección de nubes sobre Cataluña. Esto demuestra la capacidad del pipeline para orquestar flujos de datos complejos e ilustra su escalabilidad futura para integrar otros modelos que resuelvan distintas problemáticas.
+Construir una arquitectura base que, siendo agnóstica al proveedor de infraestructura, permita la integración modular de modelos de Deep Learning y sus resultados en una herramienta WEB GIS.
+Caso de estudio:
+Integración de una red neuronal U-Net específica para la detección de nubes sobre Cataluña. 
 
 ## 4.2. Objetivos específicos
 
-El proyecto se divide en los siguientes 4 procesos:  
-
 1. **Construir una infraestructura de datos replicable (Pipeline ETL):** Desarrollar un flujo automatizado de extracción, transformación y carga (ETL) que abarque: la descarga de imagenes sentinel 2 L1C y la extracción de las máscaras de clasificación SCL generadas por Sen2Cor. Edición y clasificación manual de dichas máscaras para construir una Verdad Terrestre (Ground Truth) rigurosa, indispensable para el entrenamiento supervisado del modelo con datos de alta calidad.  
 
-2. **Entrenar y evaluar una arquitectura U-Net:** Diseñar, entrenar y validar una red neuronal convolucional orientada específicamente a la segmentación semántica de nubes en la región de Cataluña, acotando el espacio de trabajo a las órbitas relativas R008 y R051 del satélite Sentinel-2.
+2. **Entrenar y evaluar un modelo U-Net:** Diseñar, entrenar y evaluar una red neuronal convolucional orientada específicamente a la segmentación semántica de nubes en la región de Cataluña, acotando el espacio de trabajo a las órbitas R008 y R051 del satélite Sentinel-2.
 
-3. **Superar métricamente a Sen2Cor:** Mitigar las anomalías de clasificación diagnosticadas (ambigüedad espectral de la nieve, falsos positivos por sombras topográficas y errores de absorción en masas hídricas). Para ello, se realizará un análisis comparativo evaluando métricas técnicas rigurosas (como Recall e Intersection over Union - IoU) entre tres fuentes:
-**1**: Imágenes de clasificación de píxeles bajadas del servidor de la ESA y generadas por Sen2Cor.  
-**2**: Imágenes de clasificación de píxeles generadas por la U-Net tras el entrenamiento del modelo.  
-**3**: Imágenes de clasificación de píxeles editadas y clasificadas manualmente con GIMP.   
-El objetivo es demostrar la mejora del modelo entrenado frente al algoritmo oficial de la ESA.  
+3. **Analisis comparativo:** Métricas técnicas rigurosas (como Recall e Intersection over Union - IoU) entre tres fuentes:
+ 
 
-4. **Desarrollar la plataforma Web GIS:** Construir la infraestructura tecnológica web gis necesaria en un servidor web. Trabajar con librerías geoespaciales (MapLibre GL JS y Svelte) para la visualización fluida de cartografía bidimensional (2D), y servir las inferencias generadas por el modelo en formatos optimizados para la nube (como Cloud Optimized GeoTIFF o PMTiles), demostrando la viabilidad de su integración y consumo de datos en entornos web.
+4. **Desarrollar la plataforma Web GIS:** Construir la infraestructura tecnológica web gis necesaria en un servidor web. Trabajar con librerías geoespaciales (MapLibre GL JS y Svelte) para la visualización fluida de cartografía (2D), y servir las inferencias generadas por el modelo en formatos optimizados para la nube (como Cloud Optimized GeoTIFF o PMTiles), demostrando la viabilidad de su integración y consumo de datos en entornos web.
 
 
 <div style=\"page-break-after: always;\"></div>
 
 # 5. Marco teórico y conceptos clave para una arquitectura U-Net
 
-Para comprender la solución tecnológica propuesta, es necesario asentar brevemente los pilares científicos sobre los que se sustenta la arquitectura del proyecto para una arquitectura U-Net.
+Reflexiones y decisiones sobre la construcción del modelo y sus datos de entrada.
 
 ## 5.1. Datos espaciales: Sentinel-2 y el espectro electromagnético
 
 Para optimizar la capacidad de discriminación del modelo de inteligencia artificial, no se procesa una composición RGB tradicional, sino que se alimenta a la red con un tensor multiespectral estructurado en 7 canales simultáneos:
 
 - **Espectro visible (Bandas 2, 3 y 4):** Azul, verde y rojo. Capturan las texturas físicas, los verdaderos colores de las cubiertas terrestres y las sombras topográficas.  
-- **Infrarrojo Cercano o NIR (Banda 8):** Crítico para identificar la vegetación (caracterizada por una alta reflectancia en el NIR) y los cuerpos de agua (que absorben intensamente esta radiación, presentando firmas espectrales muy oscuras).  
+- **Infrarrojo Cercano o NIR (Banda 8):** Identifica la vegetación (caracterizada por una alta reflectancia en el NIR) y los cuerpos de agua (que absorben esta radiación, presentando firmas espectrales muy oscuras).  
 - **Infrarrojo de Onda Corta o SWIR (Bandas 11 y 12):** Fundamental para resolver la ambigüedad espectral de la nieve. Físicamente, las nubes presentan alta reflectancia en el SWIR, mientras que la nieve lo absorbe fuertemente, permitiendo su separación matemática.  
 - **NDSI (*Normalized Difference Snow Index*):** Un índice matemático derivado de las bandas Verde y SWIR. Funciona como un canal adicional que inyecta conocimiento físico explícito sobre el comportamiento de la nieve directamente a la red neuronal, facilitando la convergencia del modelo.  
 
@@ -192,9 +204,9 @@ Los algoritmos tradicionales evalúan el terreno píxel a píxel sin interpretar
 ### 5.2.1. Teoría de Funcionamiento
 La arquitectura U-Net (Ronneberger, Fischer y Brox, 2015) es uno de los modelos de Inteligencia Artificial más consolidados para la **segmentación semántica espacial**. Esto significa que la red no se conforma con decir "en esta imagen hay nubes", sino que analiza y decide a qué clase pertenece cada píxel de forma individual, dibujando sus contornos exactos. Su nombre proviene de su estructura matemática en forma de "U", la cual consta de tres mecanismos:     
 
-1. **El Encoder (Ruta de Compresión o Bajada):** A medida que la imagen satelital entra en la red, el modelo le aplica filtros matemáticos y va reduciendo su tamaño progresivamente, como si alejáramos la vista para ver el panorama general. En este proceso, la imagen pierde resolución, pero la red gana comprensión de los patrones generales y texturas. Conceptualmente, el Encoder aprende a identificar el **"QUÉ"** comprende las características abstractas que diferencian las nubes de las masas de nieve y de las sombras.  
+1. **El Encoder:** A medida que la imagen satelital entra en la red, el modelo le aplica filtros matemáticos y va reduciendo su tamaño progresivamente, como si alejáramos la vista para ver el panorama general. En este proceso, la imagen pierde resolución, pero la red gana comprensión de los patrones generales y texturas. El Encoder aprende a identificar el **"QUÉ"** comprende las características abstractas que diferencian las nubes de las masas de nieve y de las sombras.  
 
-2. **El Decoder (Ruta de Expansión o Subida):** Es la segunda mitad del proceso. Toma esa información abstracta y altamente comprimida, y la vuelve a ampliar progresivamente hasta recuperar el tamaño original de la imagen (por ejemplo, 512x512 píxeles). Su objetivo es proyectar lo aprendido de nuevo sobre el terreno real; es decir, el Decoder determina el **"DÓNDE"** la ubicación geográfica de esas nubes o nieve.  
+2. **El Decoder:** Es la segunda mitad del proceso. Toma esa información abstracta y altamente comprimida, y la vuelve a ampliar progresivamente hasta recuperar el tamaño original de la imagen (por ejemplo, 512x512 píxeles). Su objetivo es proyectar lo aprendido de nuevo sobre el terreno real; es decir, el Decoder determina el **"DÓNDE"** la ubicación geográfica de esas nubes o nieve.  
 
 3. **Las Skip Connections (Los puentes de detalle):** Existe un problema técnico: al comprimir tanto la imagen en el primer paso y luego expandirla, el resultado final tendería a ser borroso y los bordes quedarían imprecisos. Para evitarlo, la U-Net establece "puentes directos" que conectan las capas iniciales (antes de perder resolución) con las capas finales de reconstrucción. Estos puentes rescatan los detalles nítidos originales y los inyectan en la salida, logrando que la red dibuje las fronteras de los elementos con una precisión a nivel de píxel.  
 
@@ -218,7 +230,7 @@ Para asegurar el correcto aprendizaje de la red neuronal, se han establecido mec
 
 ## 5.3. Estrategia de Datos y Decisiones Arquitectónicas
 
-Este apartado centraliza y justifica las decisiones científicas tomadas en el procesamiento de datos satelitales para entrenar el modelo de segmentación semántica:
+Este apartado centraliza y justifica las decisiones tomadas en el procesamiento de datos satelitales para entrenar el modelo de segmentación semántica:
 
 ### 5.3.1. Nivel de Procesamiento: L1C frente a L2A
 **Decisión:** Utilizar imágenes crudas L1C (*Top of Atmosphere*).
@@ -255,7 +267,7 @@ Este apartado centraliza y justifica las decisiones científicas tomadas en el p
 
 <div style=\"page-break-after: always;\"></div>
 
-# 6. Metodología aplicada
+# 6. Metodología
 
 Para la consecución de los objetivos planteados, la metodología de este proyecto se ha estructurado en **cuatro fases estratégicas secuenciales**. Esta arquitectura abarca desde la adquisición automatizada del dato bruto satelital y creación de datos a partir de estos, la construcción manual de un conjunto de datos, el entrenamiento de la Inteligencia Artificial y el despliegue de los resultados en una aplicación Web GIS.
 
@@ -264,14 +276,15 @@ Trabajaremos con los datos obtenidos de la ESA y su API para la construcción de
 - **Adquisición programática:** Se automatiza la consulta y descarga sincronizada de productos Sentinel-2 (tanto el Nivel L1C para las reflectancias crudas, como el Nivel L2A para recuperar las máscaras de clasificación SCL oficiales generadas por Sen2Cor).
 - **Extracción de bandas:** El sistema aísla y apila matemáticamente las 6 bandas multiespectrales de interés (ópticas e infrarrojas), descartando la información redundante.
 - **Reducción de dimensionalidad de clases:** Sen2cor divide el terreno en 12 categorías, aportando ruido computacional e ineficiencia. Como pilar metodológico, el *pipeline* geoespacial desarrollado colapsa matemáticamente esas 12 clases originales en **[6 Clases Maestras](008_pixel_legend.md)**: No data, nube, sombra, nieve, vegetación/suelo, agua.  
-![Comparativa Leyenda ESA vs Modelo](img/leyenda_comparativa.svg)
-*Figura 1: Comparativa entre las 12 clases originales de Sen2Cor y la reducción a 6 clases para la red neuronal.*  
+![Comparativa Leyenda ESA vs Modelo](img/leyenda_comparativa.svg)  
+*Figura 2: Comparativa entre las 12 clases originales de Sen2Cor y la reducción a 6 clases para la red neuronal.*    
+
 - **Procesamiento Espacial (*Tiling*):** Un gránulo de Sentinel-2 mide más de 100x100 km, por lo que es imposible cargarlo entero en la memoria VRAM de una tarjeta gráfica. El *pipeline* recorta dinámicamente el territorio en cuadrículas (*tiles*) manejables de 512x512 píxeles, manteniendo intactas sus coordenadas geoespaciales.
 
 ### 6.2. Fase 2: Ingeniería de Datos y Verdad Terreno (*Ground Truth*)
 Ante la clasificación de fixeles erroneos se genero un conjunto de datos limpio y manualmente a partir de los ficheros SLC de la ESA:  
 
-1. **Edición y clasificación de la Verdad Terreno (*Ground Truth*):** Para ello, se extrajeron los datos en bruto y se aplicó un proceso de edición y clasificación manual de los píxeles conflictivos mediante el software de edición de imágenes GIMP, permitiendo el análisis manual de una manera cómoda con herramientas de edición de imagen raster como capas, pinceles y gomas para corregir a mano las clasificaciones erróneas basándose en el contexto orográfico real.  
+**Edición y clasificación de la Verdad Terreno (*Ground Truth*):** Para ello, se extrajeron los datos en bruto y se aplicó un proceso de edición y clasificación manual de los píxeles conflictivos mediante el software de edición de imágenes GIMP, permitiendo el análisis manual de una manera cómoda con herramientas de edición de imagen raster como capas, pinceles y gomas para corregir a mano las clasificaciones erróneas basándose en el contexto orográfico real.  
 
 ### 6.3. Fase 3: Entrenamiento y Evaluación del Modelo (*Deep Learning*)
 Se implementó la arquitectura convolucional U-Net desde cero en PyTorch, diseñando una topología específica para ingerir el tensor de 7 canales formado por las 6 bandas Sentinel más el índice NDSI. 
@@ -288,8 +301,8 @@ En la era del *Big Data*, el desarrollo de proyectos tecnológicos masivos exige
 
 ## 7.1. Temporalización e hitos
 
-![Diagrama de Gantt TFB](gantt.svg)
-*Figura 2: Diagrama de Gantt ilustrando el cronograma general del proyecto.*
+![Diagrama de Gantt TFB](gantt.svg)  
+*Figura 3: Diagrama de Gantt ilustrando el cronograma general del proyecto.*
 
 1. **Fase 1 - Fundamentación e Ingeniería de Datos:** Conceptualización del problema analítico, evaluación teórica de los sensores de la ESA, viabilidad técnica de los datos y primer planteamiento arquitectónico.
 2. **Fase 2 - Arquitectura MLOps y Modelado:** Programación y automatización del flujo de datos ETL masivo para extracción de gránulos vía API. Diseño y colapso de la matriz de características. Refinamiento e investigación del concepto *Ground Truth Humano*. Entrenamiento algorítmico de la red neuronal convolucional (U-Net) y justificación estadística de la pérdida paramétrica. Para garantizar la reproducibilidad científica y técnica, todo el código fuente de esta orquestación se encuentra versionado en un repositorio público de GitHub, estando cada *script* rigurosamente documentado mediante *Docstrings* bajo estándares de ingeniería de *software* profesional.
@@ -298,60 +311,62 @@ En la era del *Big Data*, el desarrollo de proyectos tecnológicos masivos exige
 
 ## 7.2. Alineación con los ODS y Códigos UNESCO
 
-Para el rigor académico y técnico de este Trabajo Final de Bàtxelor se enmarca dentro de las clasificaciones científicas internacionales y persigue un impacto directo en la sostenibilidad global.
+El trabajo se engloba dentro de los siguientes puntos de la agenda 2030.
 
 ### Códigos UNESCO
-La naturaleza de la investigación se clasifica bajo los siguientes códigos nomencladores:
+
 - **1207.94 (Aprendizaje automático):** Justificado por el entrenamiento de un modelo de *Deep Learning* (Redes Neuronales U-Net) para la segmentación semántica de imágenes satelitales.
-- **1203.93 (Cloud Computing):** Aplicado en el diseño y despliegue del entorno escalable (*pipeline* geoespacial) y la futura infraestructura de procesamiento *online*.
+- **1203.93 (Cloud Computing):** Aplicado en el diseño y despliegue del entorno escalable (*pipeline* geoespacial) y la futura infraestructura del modelo en el servidor web, para utilizarlo de forma automatica con cada imagen sentinel 2 publicada.
 - **1203.96 (Bases de Datos):** Requerido para la orquestación y estructuración de la arquitectura orientada a la nube mediante formatos geoespaciales optimizados (*Cloud Optimized GeoTIFF* y *PMTiles*).
 
 ### Objetivos de Desarrollo Sostenible (ODS)
-El impacto del análisis geográfico desarrollado está firmemente cimentado sobre el marco de los Objetivos de Desarrollo Sostenible de las Naciones Unidas:
-- **ODS 9 (Industria, Innovación e Infraestructura):** El proyecto construye una infraestructura tecnológica geoespacial innovadora que mejora sustancialmente las capacidades de procesamiento y análisis de datos de la industria satelital europea.
-- **ODS 13 (Acción por el clima):** La monitorización precisa de la superficie terrestre (diferenciando de forma empírica y fiable la nieve de la nubosidad) proporciona datos limpios y veraces, fundamentales para evaluar el impacto del cambio climático y facilitar la gestión estratégica de los recursos hídricos en el territorio de Cataluña.
+El trabajo esta directamente relacionado con los siguientes ods:
+
+- **ODS 9 (Industria, Innovación e Infraestructura):** El proyecto construye una infraestructura geoespacial modular y replicable basada en open source, que puede ser utilizada por cualquier organización para procesar y analizar datos satelitales.
+Mejorando el algoritmo de detección de nubes de Sen2Cor en la zona de Cataluña.
+- **ODS 13 (Acción por el clima):** El proyecto permite trabajar con modelos de machine learning dentro de un entorno geoespacil y mostrar los resultados en la web.  
+En el caso de uso se entrena un modelo para la detección de nubes en una zona en concreto "Cataluña".
 
 ## 7.3. Condicionantes ambientales, sociales y económicos
 
 ### Condicionantes Ambientales (*Green Computing*)
-El proceso de entrenamiento de grandes redes neuronales exige ciclos masivos de cómputo gráfico (GPU), los cuales requieren un gasto de energía eléctrica considerable y, por ende, generan una huella de carbono subyacente. Para transformar este proyecto en un desarrollo sostenible medioambientalmente:
-- Se ha diseñado una técnica algorítmica denominada **Tiling**, que fragmenta las imágenes satelitales y somete a evaluación matemática la riqueza de datos de cada cuadrante. Si un área geográfica contiene predominantemente datos nulos (ej. océano negro o franjas vacías), el parche no se procesa ni se envía a la tarjeta gráfica. Esta optimización algorítmica reduce el gasto energético del *hardware* drásticamente.
-- A nivel aplicativo, el modelo resultante facilitará a organismos como la **Agencia Catalana del Agua (ACA)** una herramienta computacional robusta para monitorizar el deshielo pirenaico y las cuencas fluviales, actuando como un escudo tecnológico en la prevención y gestión eficiente de la sequía. Asimismo, resultará de valor para el **Institut Cartogràfic i Geològic de Catalunya (ICGC)**, al permitir la generación automática de mosaicos territoriales ortofotográficos completamente limpios de nubosidad. Por extensión, esta tecnología democratiza el acceso a máscaras espaciales de alta fidelidad para cualquier universidad, institución o empresa privada que requiera imágenes nítidas para realizar estudios sobre el terreno, monitorización de masas forestales, control de plantaciones agrícolas o detección de construcciones ilegales. Además, su arquitectura altamente escalable permite la futura integración de nuevas constelaciones satelitales (como los datos de temperatura superficial de Sentinel-3 y los datos de radar SAR de Sentinel-1). Esta fusión multisensor posibilitará calcular el volumen y la estabilidad térmica de las masas de nieve en los Pirineos para predecir el riesgo de aludes, así como detectar corrimientos y movimientos de tierra con precisión milimétrica.
+El entrenamiento de redes neuronales requiere un uso intensivo de tarjetas gráficas (GPU), lo que conlleva un consumo eléctrico elevado. Para reducir este impacto energético durante el desarrollo del proyecto:
+- Se aplica la técnica de **Tiling**, que divide las imágenes satelitales en cuadrantes más pequeños. Antes de procesar cada cuadrante, se comprueba si contiene información útil. Si el parche está compuesto principalmente por datos nulos (por ejemplo, zonas de mar abierto o sin cobertura), se descarta y no se envía a la GPU. Esto reduce notablemente el tiempo de cómputo y la energía consumida por el hardware.
+- En cuanto a su aplicación práctica, contar con clasificaciones de píxeles fiables resulta de gran utilidad para las instituciones públicas. Por ejemplo, permite a la **Agencia Catalana del Agua (ACA)** realizar un seguimiento más preciso de la nieve en el Pirineo y de las cuencas fluviales en episodios de sequía. De la misma forma, el **Institut Cartogràfic i Geològic de Catalunya (ICGC)** puede generar ortofotos sin nubes con menor esfuerzo manual. Al tratarse de una arquitectura modular, el sistema puede adaptarse en el futuro para procesar datos de otras misiones, como Sentinel-1 o Sentinel-3, lo que abriría la puerta a estudios sobre riesgos de aludes o monitorización de movimientos del terreno.
 
 ### Condicionantes Sociales y Replicabilidad Científica (Open Source)
-Los mapas satelitales defectuosos generan decisiones tardías y perjudiciales. Al proporcionar a los profesionales del territorio (ej. agricultores del Delta del Ebro o responsables de parques naturales) máscaras geoespaciales, se promueve un ecosistema de información civil de calidad. La democratización de estos datos empíricos habilita respuestas gubernamentales mucho más ágiles en momentos críticos como sequías, inundaciones o grandes incendios forestales.
+Los errores en los mapas satelitales pueden provocar decisiones equivocadas o tardías en la gestión del territorio. Ofrecer clasificaciones precisas a profesionales, como agricultores o gestores de parques naturales, proporciona información fiable para su trabajo diario. Facilitar el acceso a estos datos permite, a su vez, una respuesta más rápida por parte de la administración pública ante episodios como sequías o incendios forestales.
 
-Bajo la premisa innegociable de la **Replicabilidad Científica**, tanto los datos satelitales de la ESA como la totalidad de la arquitectura de código subyacente de este proyecto son de dominio público y código abierto (*Open Source*). El *pipeline* completo de ingeniería se encuentra alojado y versionado en el repositorio de **GitHub**. Para asegurar que la investigación académica pueda ser auditada, heredada y ejecutada por cualquier entidad científica del mundo, todo el ecosistema de *scripts* (desde la extracción en red OData hasta el orquestador de inferencia PyTorch) ha sido programado de forma modular y está exhaustivamente documentado internamente mediante *Docstrings* técnicos. Esto permite que cualquier usuario o investigador, con independencia de su presupuesto informático, pueda clonar el repositorio, comprender línea a línea el flujo de tensores, reproducir exactamente los mismos modelos matemáticos y utilizar este trabajo como núcleo tecnológico para desplegar nuevos sistemas GIS a escala global.
+Para asegurar la **replicabilidad científica**, tanto los datos de la ESA como el código desarrollado en este proyecto son de dominio público (*Open Source*). El proyecto completo está versionado en un repositorio de **GitHub**. Para que la investigación pueda ser revisada y utilizada por otras personas, el código se ha estructurado de forma modular y documentado mediante *Docstrings*. De este modo, cualquier investigador puede clonar el repositorio, entender el funcionamiento del código y reproducir los resultados obtenidos sin coste alguno.
 
 ### Condicionantes Económicos
-Para garantizar que la metodología pueda ser heredada sin restricciones financieras, toda la orquestación del proyecto esta construida con software libre
-- Se ha empleado íntegramente código abierto (lenguaje Python, librerías geoespaciales y el *framework* PyTorch).
-- Para el crítico proceso de edición y clasificación manual de píxeles (forja del *Ground Truth*), se ha utilizado GIMP, una alternativa libre y gratuita que democratiza el acceso a la edición cartográfica de alto nivel.
-- Las fuentes de datos provienen del catálogo abierto de la Unión Europea a través de la API OData de Copernicus.
-- A largo plazo, el despliegue del *software* mediante estándares geoespaciales modernos permite operar en un entorno web *Serverless* de ínfimo coste en la nube, eliminando la dependencia de servidores dedicados costosos.
+Con el objetivo de que este proyecto pueda ser utilizado sin costes de licencia, el desarrollo se basa completamente en *software* libre:
+- Se han utilizado herramientas y lenguajes de código abierto (Python, librerías geoespaciales y el *framework* PyTorch).
+- Para la edición manual de las imágenes (creación del *Ground Truth*), se ha empleado GIMP, un programa de edición gráfica libre y gratuito.
+- Los datos base se obtienen de forma gratuita a través de la API OData de Copernicus, proporcionada por la Unión Europea.
+- El uso del formato PMTiles permite alojar la cartografía resultante en un servidor web estático de bajo coste, reduciendo la necesidad de mantener servidores GIS dedicados y costosos.
 
 <div style=\"page-break-after: always;\"></div>
 
 # 8. Proceso y resultados
 
-Este apartado se detalla el trabajo cronologicamente del proyecto y se muestran  los resultados del modelo entrenado frente al algoritmo estándar Sen2Cor.
+Este apartado detalla el trabajo cronologicamente del proyecto y se muestran  los resultados del modelo entrenado frente al algoritmo estándar Sen2Cor.
 
 ## 8.1. Pivotes Arquitectónicos
-El desarrollo de este proyecto no fue un camino recto de principio a fin, sino un proceso de prueba y error. Para su organización, se utilizaron metodologías ágiles de trabajo (similares a *Scrum*). Trabajar de esta manera permite una gran flexibilidad: en lugar de seguir un plan rígido inamovible, el enfoque consistió en ir probando, detectar los fallos rápido y corregirlos sobre la marcha. A lo largo del desarrollo surgieron varios problemas técnicos que obligaron a detener el avance, evaluar la situación y realizar varios cambios de rumbo importantes en la estructura del proyecto:
+El desarrollo de este proyecto se utilizaron metodologías ágiles de trabajo (similares a *Scrum*). Trabajar de esta manera permite una gran flexibilidad: en lugar de seguir un plan rígido inamovible, el enfoque consistió en ir probando, detectar los fallos rápido y corregirlos sobre la marcha. A lo largo del desarrollo surgieron varios problemas técnicos que obligaron a detener el avance, evaluar la situación y realizar varios cambios de rumbo importantes en la estructura del proyecto:
 
-- **Paso 1. El Estándar (Sen2Cor):** Partiendo de la experiencia profesional previa, se tenía conocimiento empírico de que la máscara oficial de la ESA presentaba severas anomalías de clasificación en áreas geográficas concretas (clasificando las masas de agua profundas del Delta del Ebro como *No Data* o sombras, y confundiendo los suelos húmedos con agua). Al extender la auditoría visual al relieve de los Pirineos, se constató un error algorítmico aún mayor: la total incapacidad de Sen2Cor para separar la nieve de la nube gruesa. **Decisión:** Se creo manualmente la clasificación de los pixeles para no heredar errores de los ficheros SCLl de la ESA.  
+- **Paso 1. El Estándar (Sen2Cor):** Partiendo de mi experiencia profesional, se tiene conocimiento empírico de que la clasificación de Sen2Cor presenta anomalías de clasificación en áreas geográficas concretas de Cataluña.
+Ejemplos:Masas de agua profundas, sombras de relieve, zonas inundadas etc.. .  **Decisión:** Se creo manualmente la clasificación de los pixeles para no heredar errores de los ficheros SCLl de la ESA.  
 
-- **Pivote 2. El Dilema Topográfico:** Para diferenciar las nubes densas de la nieve, la arquitectura inicial contempló inyectar el Modelo Digital de Elevaciones (DEM) de Cataluña. Por criterios de simplicidad arquitectónica, se descartó su integración para apostar exclusivamente por la física espectral (bandas SWIR y NDSI). Esto agilizó inmensamente el cómputo pero provocó que el modelo presente debilidades algorítmicas frente a las sombras orográficas oscuras en laderas escarpadas, estableciendo una clara línea de investigación futura.  
+- **Pivote 2. El Dilema Topográfico:** Para diferenciar las nubes densas de la nieve, en principio se usaria el Modelo Digital de Elevaciones (DEM) de Cataluña. Se descartó su utilización al demostrar el estudio de publicaciones científicas para apostar exclusivamente por la física espectral (bandas SWIR y NDSI). Esto facilito mucho el trabajo pero provocó que el modelo presente debilidades algorítmicas frente a las sombras de las montañas, estableciendo una clara línea de investigación futura.  
 
-- **Pivote 3. El colapso del Delta del Ebro (Clase Masas de Agua):** Durante las primeras épocas de entrenamiento con 5 clases, las inferencias sobre el Mediterráneo y los arrozales del Delta del Ebro colapsaron. El sol, al reflejarse especularmente en el mar (*Sun Glint*), cegaba a la red neuronal, haciéndole predecir inmensos bancos de nubes inexistentes. El problema se solucionó paralizando el entrenamiento, rediseñando el espacio latente matemático y aislando una sexta Clase Maestra específica para las Masas de Agua.
+- **Pivote 3. El colapso del Delta del Ebro (Clase Masas de Agua):** Durante las primeras épocas de entrenamiento con 5 clases, las inferencias sobre el Mediterráneo y los arrozales del Delta del Ebro clasificaban los pixeles de forma erronea. El sol, al reflejarse especularmente en el mar (*Sun Glint*), cegaba a la red neuronal, haciéndole predecir inmensos bancos de nubes inexistentes y las zonas inundadas se confunden con agua. Se decidio crear una sexta Clase para las Masas de Agua.
 
-- **Pivote 4. API STAC vs API OData:** Durante la fase de diseño de la orquestación de datos, la Agencia Espacial Europea transicionó su histórico portal *SciHub* hacia el nuevo ecosistema *Copernicus Data Space Ecosystem (CDSE)*. Se investigaron en profundidad dos protocolos analíticos de acceso a la infraestructura europea:
-- **API STAC (*SpatioTemporal Asset Catalog*):** Aunque es el estándar actual más ágil para búsquedas espaciales, presentaba un bloqueo técnico insalvable para este caso de uso. STAC requiere que la geometría de la búsqueda espacial intersecte obligatoriamente con el polígono dinámico de captura del satélite. Dado que el catálogo europeo indexa mediante polígonos irregulares que sufren distorsiones en los bordes orbitales, esto provocaba que una simple petición STAC para el Pirineo devolviera en ocasiones gránulos fragmentados o capturas topológicamente incompletas.
-- **API OData (*Open Data Protocol*):** Al ser un protocolo de consulta de nivel más bajo, nos permitió interrogar directamente la base de datos relacional de la ESA filtrando explícitamente por el código alfanumérico exacto de la baldosa geográfica (*Tile ID*, ej. T31TCH) ignorando de facto las colisiones poligonales defectuosas del catálogo.
+- **Pivote 4. API STAC vs API OData:** La ESA cambió hace un par de años su interfaz de acceso a datos hacia el nuevo entorno *Copernicus Data Space Ecosystem (CDSE)*. En principio se iba a usar el protocolo STAC, pero debido a diversos problemas técnicos, se optó finalmente por utilizar la API OData. 
+- **API OData (*Open Data Protocol*):** Esta API de mas bajo nivel, permite acceder a la base de datos de la ESA filtrando la búsqueda por el código exacto de la cuadrícula geográfica (*Tile ID*, ej. T31TCH). De este modo, se evitan los problemas de recortes irregulares e intersecciones defectuosas que ocurren al buscar por polígonos en el catálogo.
 
 
 ## 8.2. Proyecto paso a paso:
-Para asegurar un flujo ininterrumpido y matemáticamente perfecto de escenas cuadradas completas de 10980x10980 píxeles, se tomó la decisión de programar la automatización utilizando la API OData.
 
 ### 8.2.1. Fuentes de datos y recopilación
 A través de los *scripts* [`001_download_training.py`](../scripts/001_download_training.py) y [`002_download_test.py`](../scripts/002_download_test.py), el sistema lee los listados de metadatos curados provistos en los ficheros [`training_granules.csv`](../scripts/training_granules.csv) y [`test_granules.csv`](../scripts/test_granules.csv), y ejecuta de forma iterativa y autónoma:
@@ -377,7 +392,7 @@ Por cada imagen descargada, el sistema crea automáticamente unas carpetas orden
 
 <div align="center" style="margin: 20px 0;">
   <img src="img/data_download_and_gimp_files.png" alt="Estructura de archivos L1C y SCL generada por los scripts" width="80%">
-  <br><em>Figura: Estructura de archivos resultante tras la orquestación de descargas automatizadas.</em>
+  <br><em>Figura 3: Estructura de archivos resultante tras la orquestación de descargas automatizadas.</em>
 </div>
 
 ### 8.2.2. Exploración y preparación
@@ -396,7 +411,7 @@ De este modo, se orquesta una Verdad Terreno de altísima pureza, libre del sesg
 
 <div align="center" style="margin: 20px 0;">
   <img src="img/edit_clas_gimp.png" alt="Proceso de edición manual de píxeles en GIMP" width="90%">
-  <br><em>Figura: Proceso de clasificación manual y purificación de píxeles utilizando el editor GIMP.</em>
+  <br><em>Figura 4: Proceso de clasificación manual y purificación de píxeles utilizando el editor GIMP.</em>
 </div>
 
 
@@ -457,16 +472,25 @@ La clase "Sombra Nube" obtiene un IoU más moderado (46.96%). Este resultado es 
 #### Matriz de Confusión Global
 
 
-![Matriz de Confusión Global Test](img/confusion_matrix.png)
-*Figura 3: Matriz de confusión global acumulando más de 1.100 millones de inferencias sobre el conjunto de test ciego.*
+![Matriz de Confusión Global Test](img/confusion_matrix.png)  
+*Figura 4: Matriz de confusión global acumulando más de 1.100 millones de inferencias sobre el conjunto de test ciego.*
 
 Como se puede observar en la matriz, la diagonal principal contiene los valores más altos (las celdas más oscuras). Esto significa que en la gran mayoría de los casos, la predicción del modelo coincide perfectamente con la realidad. Los errores, representados por las celdas más claras fuera de la diagonal, mantienen porcentajes muy bajos. El único cruce donde se observa una dispersión mayor (mayor confusión) corresponde a la clase de "Sombra Nube", que tiende a mezclarse con el suelo oscuro. Como se ha explicado anteriormente, esta dificultad es previsible al no disponer de datos de altitud tridimensionales. En definitiva, a pesar de este detalle, la gráfica confirma visualmente que el modelo es muy fiable detectando la nieve y que ha aprendido a no confundirse con los reflejos del agua o las nubes.
 
 ### 8.2.5. Visualización
 
-Habiendo validado matemáticamente la robustez de la red neuronal frente al algoritmo estándar, el proyecto culmina poniendo en valor el modelo entrenado. Para que la inferencia tenga una aplicación técnica real y escalable, se ha desarrollado el *script* final [`009_cloud_model_catalonia_pmtiles.py`](../scripts/009_cloud_model_catalonia_pmtiles.py).
+Una vez entrenado el modelo, se ha creado el *script* [`009_cloud_model_catalonia_pmtiles.py`](../scripts/009_cloud_model_catalonia_pmtiles.py) para poder utilizarlo y generar los datos geoespaciales necesarios que se mostrarán en la herramienta web.
 
-Este módulo se encarga de ejecutar de forma totalmente automática todo el proceso final:
+```bash
+cd scripts/
+python3 009_cloud_model_catalonia_pmtiles.py
+
+=== Pipeline Serverless CDSE ===
+Introduce la fecha de inicio (YYYY-MM-DD): 2026-01-01
+Introduce la fecha de fin (YYYY-MM-DD): 2026-01-30
+```
+
+**Proceso del script:**
 1. **Conexión al catálogo:** El *script* se conecta automáticamente a los servidores de Copernicus (CDSE) para buscar las imágenes de satélite disponibles, encargándose él mismo de gestionar de forma automática la renovación de los *tokens* de acceso de la API cuando estos caducan durante el proceso.
 2. **Procesamiento de los datos:** Descarga los archivos L1C originales, pasa estas imágenes por el modelo entrenado (`baseline_model.pth`) y genera el mapa de predicciones.
 3. **Preparación para la web:** Para que los resultados se puedan analizar en internet, se usa la herramienta GDAL para darle color a la máscara de predicción (pintando las nubes de color rojo y haciendo el resto del terreno transparente).
@@ -477,7 +501,7 @@ Al terminar el proceso, en la carpeta `visualizations/SCL_UNET_catalonia/` solo 
 
 <div align="center" style="margin: 20px 0;">
   <img src="img/files_script_009_cloud_model_catalonia_pmtiles.png" alt="Estructura de archivos resultantes tras la inferencia Serverless" width="80%">
-  <br><em>Figura 4: Estructura de archivos generados en producción tras la inferencia de la red neuronal.</em>
+  <br><em>Figura 6: Estructura de archivos generados en producción tras la inferencia de la red neuronal.</em>
 </div>
 
 **Productos Ópticos de Referencia (Color Real y Falso Color):**
@@ -508,7 +532,7 @@ Para lograrlo, se ha realizado un trabajo completo en varias áreas (*Full-Stack
 
 <div align="center" style="margin: 20px 0;">
   <img src="img/Screenshot_2026-08-29_20-18-02.png" alt="Interfaz interactiva del Visor Web GIS" width="100%">
-  <br><em>Figura 5: Interfaz interactiva del Visor Cartográfico (Frontend Svelte + MapLibre GL JS) exponiendo las predicciones del modelo en producción.</em>
+  <br><em>Figura 7: Interfaz interactiva del Visor Cartográfico (Frontend Svelte + MapLibre GL JS) exponiendo las predicciones del modelo en producción.</em>
 </div>  
 
 <div style=\"page-break-after: always;\"></div>
@@ -531,25 +555,25 @@ El desarrollo de este Trabajo Final de Bàtxelor ha demostrado que es posible cr
 # 10. Conclusiones y Futuras Líneas de Investigación
 
 
-1. **Uso de datos topográficos (Modelos de Elevación):**
-   Una de las mejoras clave para el futuro del proyecto es incluir datos de altitud (como el Modelo de Elevaciones del ICGC) como una entrada más para la red neuronal. La intención es proporcionar a la Inteligencia Artificial el contexto del relieve del terreno. Con esta línea de investigación, se espera que el modelo aprenda a distinguir la orografía y se consiga reducir drásticamente la confusión actual con las sombras en zonas de montaña.
-2. **Mejora del servidor con lenguaje Rust:**
-   En esta primera versión del proyecto, el sistema procesa las imágenes y las guarda físicamente en el disco duro antes de mostrarlas. Para conseguir una página web mucho más rápida e interactiva en el futuro, sería muy interesante reescribir la parte del servidor (el *backend*) utilizando el lenguaje de programación **Rust**. Gracias a la rapidez de este lenguaje, el servidor podría procesar los mapas satelitales en el mismo momento en el que el usuario los solicita, sin necesidad de guardar archivos tan pesados, enviando los resultados a la pantalla del usuario de forma casi instantánea.
-3. **Uso de Inteligencia Artificial para la corrección de errores:**
-   Para solucionar el problema de tener que editar mapas a mano durante tantas horas, la idea de cara al futuro es utilizar modelos visuales avanzados, como *PaliGemma* o *LLaVA*. El objetivo es que estos modelos revisen las imágenes generadas por el programa, detecten automáticamente los fallos evidentes y avisen a la persona encargada solo en aquellas zonas donde haya dudas reales. De esta manera, el sistema mejoraría continuamente por sí solo y la revisión manual se reduciría al mínimo imprescindible.
-4. **Ampliación de Clases Semánticas Operativas:**
-   Escalar la capacidad de segmentación para monitorizar cicatrices de incendios forestales, estrés hídrico en viñedos o la fluctuación volumétrica de pantanos.  
+1. **Usar el modelo de elevación del terreno de Cataluña:**
+   Se ha comprobado que el modelo tiene problemas al distinguir las sombras de los terrenos escarpados de las sombras de nubes. Como solución, se usará el DEM de Cataluña como una capa más en el modelo, y también se puede utilizar la fecha horaria para calcular en qué momento hay sombras en el terreno debido a la posición del sol.  
 
-5. **Nuevas funciones para la página web:**
+2. **Reescritura del servidor en Rust:**
+   Actualmente, el sistema procesa las predicciones y las almacena de forma estática en el disco duro antes de servirlas en la web. Como mejora futura, se propone reescribir el backend utilizando **Rust**. Dado el alto rendimiento y bajo consumo de memoria de este lenguaje, permitiría ejecutar las inferencias del modelo bajo demanda. Es decir, se procesarían los datos satelitales en tiempo real según la zona que consulte el usuario, evitando así el almacenamiento masivo de cartografía.  
+
+3. **Uso de modelos para la clasificación de píxeles:**
+   El trabajo más pesado del proyecto es editar y clasificar los píxeles del terreno manualmente para poder entrenar al modelo con una verdad del terreno correcta. La intención es que un modelo local preentrenado asuma esta tarea. Actualmente se están haciendo pruebas con *PaliGemma* para este fin y los resultados son prometedores.
+
+4. **Nuevas funciones para la página web:**
    Para que la plataforma actual deje de ser solo un prototipo y se convierta en una herramienta realmente útil para los investigadores, sería muy interesante añadir las siguientes funciones:
-   - **Descarga de mapas a medida:** Añadir una opción para que el usuario pueda dibujar un cuadrado en la pantalla sobre la zona que le interesa y descargar únicamente esa parte de la imagen satelital junto con su predicción. De esta forma, podría llevarse esos datos para analizarlos en su propio ordenador.
-   - **Estadísticas al instante:** Crear herramientas visuales para que, al seleccionar una comarca o un parque natural en el mapa, la web calcule automáticamente qué porcentaje del terreno está nublado o muestre una gráfica con la cantidad de nieve que ha caído en los últimos meses.
+   - **Descarga de mapas a medida:** Añadir una opción para que el usuario pueda dibujar un cuadrado en la pantalla sobre la zona que le interesa y descargar únicamente esa parte de la imagen satelital RGB junto con la máscara de nubes.
+   - **Estadísticas al instante:** Crear herramientas visuales para que, al seleccionar una comarca o un parque natural en el mapa, la web calcule automáticamente qué porcentaje del terreno está nublado.
    - **Correcciones de los usuarios:** Incluir una herramienta para que otros meteorólogos o expertos puedan corregir directamente desde la web los errores que cometa la Inteligencia Artificial. Estas correcciones manuales se guardarían en el servidor y se utilizarían para enseñar y mejorar el modelo de cara al futuro, logrando que sea cada vez más preciso.
 
-6. **Mejoras en la programación de la Inteligencia Artificial:**  
-Para hacer que el modelo sea más inteligente en el futuro y supere sus limitaciones actuales, se podrían aplicar varias mejoras técnicas en su diseño interno:
+5. **Mejoras en la programación de la Inteligencia Artificial:**  
+Utilizar otro tipo de redes neuronales más avanzadas:
 
-- **Redes más grandes (ResUNet):** Actualmente, si intentamos hacer la red neuronal más grande para que aprenda patrones más complejos, el entrenamiento falla porque la información matemática se va perdiendo por el camino (un problema conocido como *desvanecimiento del gradiente*). Utilizar una estructura técnica llamada "bloques residuales" permitiría crear una red mucho más profunda, capaz de entender detalles más sutiles sin que el aprendizaje se estanque.
+- **Redes más grandes (ResUNet):** Utilizar estas arquitecturas permite al modelo no perder información matemática cuando la red es muy profunda. Esto se logra mediante los llamados "bloques residuales", que crean "atajos" entre las capas para asegurar que el aprendizaje no se estanque.
 
 - **Mecanismos de Atención (Attention U-Net):** Esta mejora consiste en enseñarle a la red en qué partes concretas de la imagen debe fijarse más y cuáles debe ignorar (como el fondo que no aporta información). Esto ayudaría muchísimo en las zonas donde es muy difícil distinguir qué se está observando, como por ejemplo en los bordes borrosos donde una nube densa se mezcla con la nieve de las cumbres.
 

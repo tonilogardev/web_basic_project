@@ -376,7 +376,13 @@ def process_pipeline(start_date_str, end_date_str):
         end_date_str (str): Límite temporal superior (YYYY-MM-DD).
     """
     base_path = Path(__file__).parent
-    out_dir = base_path.parent / "visualizations" / "SCL_UNET_catalonia"
+    # Permite especificar el directorio de salida via variable de entorno (ej: disco externo)
+    out_dir_env = os.getenv("OUTPUT_DIR")
+    if out_dir_env:
+        out_dir = Path(out_dir_env)
+    else:
+        out_dir = base_path.parent / "visualizations" / "SCL_UNET_catalonia"
+        
     out_dir.mkdir(parents=True, exist_ok=True)
 
     granules = get_granules_in_range(start_date_str, end_date_str)
