@@ -54,7 +54,7 @@ La reflectancia de infraestructuras urbanas actúa como sumidero de falsos posit
     *   **6 Gránulos (Contraste Litoral):** Nubosidad advectiva (30%-70%) transitando entre el dominio marítimo y el entorno antropogénico, forzando la evaluación de bordes bajo fondos de alta varianza (ciudad) frente a fondos homogéneos de baja reflectancia (mar).
 
 ### Caso D: Fenología Agrícola y Zonas de Inundación (Sur)
-El objetivo radica en evaluar el comportamiento frente a láminas de agua antropogénicas (arrozales) y coberturas edáficas de alta albedo (secanos extremos).
+El objetivo radica en evaluar el comportamiento frente a láminas de agua (arrozales) y coberturas edáficas de alta albedo (secanos extremos).
 *   **Cantidad:** 6 Gránulos
 *   **Identificadores Estratégicos:** `T31TCE` (Delta del Ebro), `T31TCF` (Llanuras de secano).
 *   **Criterios de Inspección Visual:**
@@ -73,13 +73,13 @@ Este conjunto se reserva estrictamente para la fase de validación inferencial. 
 *   **Verano/Transición (5 Gránulos):**
     *   2 × `T31TDG` (Abril/Mayo): Zonas de transición fenológica y deshielo parcial.
     *   2 × `T31TDF` (Agosto): Desarrollos tormentosos estivales y frentes marítimos.
-    *   1 × `T31TCE` (Julio): Zona deltaica parcialmente cubierta.
+    *   1 × `T31TCE` (Julio): Zona delta Ebre parcialmente cubierta.
 
 ---
 
 ## 3. Filosofía de Evaluación: La "Clasificación Manual de Píxeles" (Verdad Terreno)
 
-Se establece un protocolo analítico estricto para la evaluación del modelo: **Bajo ninguna circunstancia se calcularán métricas de rendimiento contra la máscara SCL original de Sen2Cor en el conjunto de Test.**
+**Bajo ninguna circunstancia se calcularán métricas de rendimiento contra la máscara SCL original de Sen2Cor en el conjunto de Test.**
 
 Dado que la literatura científica (e.g., *Baetens, Desjardins & Hagolle, 2019*) demuestra que algoritmos tradicionales como Sen2Cor incurren en sesgos sistemáticos frente a la nieve y cuerpos de agua, su uso como "verdad absoluta" generaría una distorsión métrica: el sistema penalizaría estadísticamente a la red U-Net precisamente en los escenarios donde acierta al subsanar un falso positivo heredado de la ESA.
 

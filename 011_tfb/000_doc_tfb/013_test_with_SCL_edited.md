@@ -11,7 +11,7 @@ Este documento detalla el procedimiento metodológico y estadístico mediante el
 
 ## 1. La Paradoja Algorítmica y la Necesidad de la Verdad Terreno
 
-La hipótesis fundamental de este TFB es que el algoritmo estándar de la Agencia Espacial Europea (Sen2Cor) presenta deficiencias severas a la hora de clasificar sombras complejas y diferenciar la nieve de las nubes gruesas.
+El algoritmo estándar de la Agencia Espacial Europea (Sen2Cor) presenta deficiencias severas a la hora de clasificar sombras complejas y diferenciar la nieve de las nubes gruesas.
 
 Si al finalizar el entrenamiento evaluáramos la red neuronal U-Net comparando sus predicciones contra los archivos originales `.SCL` de Sen2Cor, incurriríamos en una **paradoja estadística inaceptable**:
 * Si la U-Net ha aprendido correctamente a detectar nieve allí donde Sen2Cor se equivocó y marcó "Nube", el script de validación registraría una discrepancia entre ambos.
@@ -36,17 +36,18 @@ El proceso de inferencia y cálculo de métricas para el Conjunto de Test sigue 
 
 ## 3. Las Métricas de Evaluación
 
-Dada la naturaleza enormemente desbalanceada de las imágenes de satélite (donde el "Suelo Útil" o cielo despejado puede suponer fácilmente el 90% de la imagen), se ha descartado el uso de la *Overall Accuracy* (Precisión Global) como métrica principal, ya que premiaría modelos sesgados que predigan "Suelo" constantemente. 
+En las imágenes de satélite es muy común que el 90% de la foto sea simplemente suelo despejado (esto se llama clases desbalanceadas). Por este motivo, **no podemos usar la Precisión Global (*Overall Accuracy*) para evaluar al modelo**. Si la usáramos, una IA "vaga" que siempre respondiera "Suelo" sacaría un 90% de acierto a pesar de no haber detectado ni una sola nube o parche de nieve, engañándonos con una nota alta inmerecida.
 
-La evaluación estadística del modelo y su consiguiente fundamentación metodológica se basan en dos herramientas analíticas críticas:
+Para evitar esta trampa estadística, evaluamos al modelo utilizando dos herramientas mucho más estrictas:
 
 ### 3.1. Intersection over Union (IoU / Índice Jaccard)
-El IoU se calcula de forma **independiente por clase** (focalizándose estadísticamente en el IoU de Nube y el IoU de Nieve). Esta métrica mide geométricamente la proporción de solapamiento exacto entre la extensión segmentada por el modelo (IA) y la delimitación real establecida en la Verdad Terreno.
-* Penaliza de forma rigurosa el **sub-mapeo** (Falsos Negativos): Casuística en la que el modelo no detecta cobertura nívea existente.
-* Penaliza de forma rigurosa el **sobre-mapeo** (Falsos Positivos): Casuística en la que el modelo infiere presencia de nieve sobre coberturas terrestres discordantes o masas nubosas.
+El IoU es la nota principal del modelo y se calcula **clase por clase** (por ejemplo, le damos una nota a la "Nieve" y otra distinta a la "Nube"). Mide exactamente cuánto coincide el contorno dibujado por el modelo con el contorno real de la Verdad Terreno.
+Es una métrica muy estricta que penaliza enormemente al modelo en dos casos:
+* Si el modelo pinta de menos (Falsos Negativos): Se deja nieve real sin detectar.
+* Si el modelo pinta de más (Falsos Positivos): Se inventa que hay nieve donde en realidad hay nubes o suelo.
 
-### 3.2. Matriz de Confusión Agregada (Confusion Matrix)
-La acumulación matricial de las inferencias sobre los 10 gránulos de validación permite generar una matriz de confusión agregada. Este instrumento analítico consolida la auditoría técnica aportando máxima transparencia sobre la transferencia de errores entre categorías. Concretamente, permite cuantificar:
-* La cantidad total de píxeles clasificados como "Nieve" en el *Ground Truth* que la red neuronal categorizó erróneamente como "Nube" (cuantificando así la mejora respecto al fallo histórico de Sen2Cor).
-* La proporción de píxeles de "Nube" que fueron clasificados como "Suelo" (falsos negativos de nubosidad).
-* La incidencia de "Sombras Topográficas" reales que el modelo identificó erróneamente como "Sombras de Nubes".
+### 3.2. Matriz de Confusión (Confusion Matrix)
+Es una tabla resumen que agrupa los resultados de todas las imágenes de validación para ver **exactamente cómo y con qué se confunde el modelo**. En lugar de darnos solo una nota numérica, nos cuenta la historia de los errores. Por ejemplo, permite ver directamente:
+* Cuántos píxeles que eran realmente "Nieve" (Verdad Terreno), el modelo los confundió diciendo que eran "Nube". Esto es clave para ver si hemos conseguido solucionar el problema histórico del algoritmo de la ESA (Sen2Cor).
+* Cuántas "Nubes" reales se le escaparon al modelo porque las clasificó como "Suelo".
+* Cuántas veces el modelo se lió al ver la sombra de una montaña (Sombra Topográfica) y la clasificó como la sombra de una nube.

@@ -6,7 +6,7 @@ El presente documento constituye el índice principal del desarrollo del modelo 
 
 ## Paso 1: Definición y Elección de los Gránulos (Dataset)
 
-La fase inicial del proyecto consistió en la definición de los datos de entrada para la red neuronal. Frente a una descarga masiva e indiscriminada, se optó por una estrategia de curación de datos ("Smart Data"), enfocada en seleccionar aquellas regiones geográficas donde el algoritmo original de la ESA presenta mayores tasas de error.
+La fase inicial del proyecto consistió en la definición de los datos de entrada para la red neuronal. Frente a una descarga masiva e indiscriminada, se optó por, enfocada en seleccionar aquellas regiones geográficas donde el algoritmo original de la ESA presenta mayores tasas de error.
 
 **Hitos y documentación asociada:**
 
@@ -15,7 +15,12 @@ La fase inicial del proyecto consistió en la definición de los datos de entrad
    - *Documentación:* [002_data_set_sentinel_2.md](002_data_set_sentinel_2.md)
 
 2. **Criterios de Selección y Filosofía de Evaluación:**
-   La selección se ha estratificado en 4 escenarios críticos (Caso A: Nieve, Caso B: Niebla/Cirros, Caso C: Costa/Ciudad, Caso D: Secano). Como principio metodológico, la evaluación del modelo no se realiza contra la máscara SCL original de Sen2Cor, sino que esta se utiliza exclusivamente como base para generar la "Edición y Clasificación Manual de Píxeles".
+   La selección se enfoca en 4 escenarios:  
+   Caso A: Nieve  
+   Caso B: Niebla/Cirros   
+   Caso C: Costa/Ciudad  
+   Caso D: Secano  
+   La evaluación del modelo no se realiza contra la máscara SCL original de Sen2Cor, sino que esta se utiliza exclusivamente como base para generar la "Edición y Clasificación Manual de Píxeles".
    - *Documentación:* [003_type_granule.md](003_type_granule.md)
 
 3. **Arquitectura de Descargas Automatizadas:**
@@ -28,10 +33,10 @@ La fase inicial del proyecto consistió en la definición de los datos de entrad
    - **Set de Test (10 gránulos):** Dado que este conjunto constituye la base de evaluación del modelo, se ha realizado una edición exhaustiva de los píxeles conflictivos (transiciones nieve/nube, sombras/agua). El pipeline prioriza automáticamente la lectura del archivo `SCL_edited.tif` en caso de estar disponible.
 
 5. **Diseño Arquitectónico de la Red Neuronal (U-Net):**
-   Se ha optado por implementar una arquitectura U-Net nativa en PyTorch, diseñada para procesar tensores espaciales de 7 canales (6 bandas ópticas + índice NDSI) y retornar 5 mapas de probabilidad (Softmax). El enmascarado espacial (zonas sin datos o marítimas) se gestiona mediante el parámetro `ignore_index=0` en la función de pérdida (Cross Entropy Loss).
+   Se ha optado por implementar una arquitectura U-Net nativa en PyTorch, diseñada para procesar tensores espaciales de 7 canales (6 bandas ópticas + índice NDSI) y retornar 5 mapas de probabilidad. El enmascarado espacial (zonas sin datos o marítimas) se gestiona mediante el parámetro `ignore_index=0` en la función de pérdida (Cross Entropy Loss).
    - *Documentación:* [009_unet_architecture.md](009_unet_architecture.md)
 
-6. **Desarrollo del Pipeline de Entrenamiento (Baseline):**
+6. **Desarrollo del Pipeline de Entrenamiento:**
    Se han programado módulos en PyTorch ([`dataset.py`](../scripts/dataset.py), [`model.py`](../scripts/model.py) y [`005_train.py`](../scripts/005_train.py)) para la ingesta de matrices espaciales. Para validar la infraestructura, se ejecutó un "Baseline Model" con datos sin curar, asegurando la correcta gestión de tensores y memoria en GPU de forma previa a la edición manual de píxeles.
    - *Documentación:* [010_training_pipeline.md](010_training_pipeline.md)
 
@@ -40,7 +45,7 @@ La fase inicial del proyecto consistió en la definición de los datos de entrad
    - *Documentación:* [012_edit_gimp.md](012_edit_gimp.md)
 
 8. **Inferencia y Clasificación Manual de Píxeles:**
-   Se procedió a aplicar el "Baseline Model" sobre el conjunto de Test para generar predicciones iniciales. A través del "GIMP Bridge", estas máscaras fueron editadas y corregidas manualmente hasta obtener la Verdad Terreno definitiva, requisito previo para la evaluación matemática del modelo.
+   Edición y clasificación manualmente de la máscara SCL hasta obtener la Verdad Terreno definitiva, requisito previo para la evaluación matemática del modelo.
 
 9. **Evaluación Final y Métricas Estadísticas:**
    Se ha definido la metodología para contrastar matemáticamente las inferencias del modelo U-Net frente a la Verdad Terreno curada. Se prioriza la métrica IoU (Intersección sobre Unión) por clase para mitigar el sesgo estadístico derivado del desbalanceo espacial de los datos.

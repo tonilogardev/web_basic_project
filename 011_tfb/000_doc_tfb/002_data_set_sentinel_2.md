@@ -1,6 +1,6 @@
 # Definición del Dataset (Copernicus Sentinel-2 L1C)
 
-Este documento establece la volumetría y los criterios de selección para el conjunto de datos referencial utilizado para entrenar y evaluar la arquitectura de red neuronal U-Net.
+Este documento establece los criterios de selección para el conjunto de datos utilizados para entrenar y evaluar la red U-Net.
 
 ## Índice
 - [1. Volumetría Global (Enfoque Metodológico)](#1-volumetría-global-enfoque-metodológico)
@@ -12,7 +12,7 @@ Este documento establece la volumetría y los criterios de selección para el co
 ## 1. Volumetría Global (Enfoque Metodológico)
 Se desestima el uso de técnicas de descarga masiva e indiscriminada de imágenes. El diseño y entrenamiento de arquitecturas de segmentación profunda (Deep Learning) se beneficia en mayor medida del uso de conjuntos de datos de dimensiones reducidas pero con alta representatividad estadística y curación analítica (priorizando escenarios geográficos y atmosféricos complejos), evitando la redundancia observacional.
 
-**Volumetría Acotada:** **40 Gránulos** en total (aproximadamente 40 GB de datos satelitales L1C).
+**40 Gránulos** en total (aproximadamente 40 GB de datos satelitales L1C).
 
 ## 2. Partición del Dataset (Train vs Test)
 
@@ -26,7 +26,7 @@ El ajuste paramétrico de los pesos de la red neuronal se basa en este bloque de
 
 ### 2.2. Conjunto de Test (Blind Test) - 10 Gránulos
 El bloque de evaluación se mantiene en estricto aislamiento durante la totalidad del ciclo de entrenamiento, impidiendo el cruce de datos (*Data Leakage*).
-Estos datos se reservan exclusivamente para la etapa de inferencia final, permitiendo obtener el cálculo de las métricas de rendimiento (IoU, F1-Score). Este aislamiento garantiza empíricamente que la red posee capacidad de generalización sobre morfologías geográficas no analizadas previamente.
+Estos datos se reservan exclusivamente para la etapa de inferencia final, permitiendo obtener el cálculo de las métricas de rendimiento (IoU, F1-Score). Este aislamiento garantiza que la red posee capacidad de generalización sobre morfologías geográficas no analizadas previamente.
 - 5 gránulos de invierno (Nieve extrema).
 - 5 gránulos de verano.
 
@@ -37,8 +37,8 @@ Las dimensiones originales de las capturas (10980x10980 píxeles a 10m de resolu
 2. **Volumen Bruto Estimado:** 40 gránulos × 441 parches = ~17.640 celdas totales.
 3. **Filtrado Analítico (Hard Negative Mining):** Dada la alta presencia de datos sin valor probabilístico, se descartan de forma automatizada:
    - Celdas que presentan cobertura total de mar despejado.
-   - Celdas que presentan nucleos convectivos 100% densos (su ausencia de bordes induce un sesgo estadístico que compromete el aprendizaje del algoritmo).
-   Se retienen de forma exclusiva aquellos cuadrantes sujetos a la metodología de *Hard Negative Mining*: parches que evidencian bordes nubosos difusos, interacciones complejas nube/nieve/sombras, sombras orográficas prominentes y áreas urbanas altamente reflectantes.
+   - Celdas que presentan nubosidad 100% (su ausencia de bordes induce un sesgo estadístico que compromete el aprendizaje del algoritmo).
+   Se utilizan aquellos cuadrantes sujetos a la metodología de *Hard Negative Mining*: parches que evidencian bordes nubosos difusos, interacciones complejas nube/nieve/sombras, sombras orográficas prominentes y áreas urbanas altamente reflectantes.
 4. **Volumen Neto (Input de Entrenamiento):** Se estima una reducción del conjunto bruto hasta obtener un volumen final operativo situado entre **2.500 y 3.500 parches de 512x512 píxeles**.
 
 **Conclusión:** El volumen operativo de aproximadamente 3.000 tensores de 512x512 (con 7 canales espectrales de profundidad) representa un estado de equilibrio óptimo metodológico para entrenar la red U-Net. Esta volumetría previene riesgos de sobreajuste masivo (*overfitting*), permite la ejecución de ciclos iterativos de entrenamiento en periodos de tiempo razonables y es eficiente en términos de infraestructura de almacenamiento.

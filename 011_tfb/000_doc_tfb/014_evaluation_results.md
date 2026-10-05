@@ -1,9 +1,9 @@
 # Resultados Finales de la Evaluación (Test Set)
 
-Se ha finalizado la evaluación estadística de la red neuronal **U-Net** diseñada ad-hoc, validándola matemáticamente frente a la Edición y Clasificación Manual de Píxeles (la Verdad Terreno extraída de los 10 gránulos de Test curados metodológicamente con la arquitectura GIMP Bridge).
+Hemos terminado de evaluar las notas finales de nuestra red neuronal **U-Net**. Para ello, hemos comparado matemáticamente lo que ha dibujado el modelo frente a la Verdad Terreno perfecta (las 10 imágenes de Test que corregimos a mano píxel a píxel).
 
 > [!TIP]
-> **Optimización Técnica Implementada**: El motor estadístico de validación (`007_evaluate.py`) requirió una refactorización estructural. Dado el volumen de datos a procesar y la discrepancia de resoluciones espaciales (Sen2Cor nativo a 20m vs Predicciones a 10m), se implementó un remuestreo matricial por *Nearest Neighbor* acoplado a una función de agregación algorítmica iterativa (`np.bincount`). Este enfoque permitió el procesamiento integral de la cartografía de validación sin incurrir en desbordamientos de memoria RAM.
+> **Optimización Técnica en el Código**: El script que calcula las notas (`007_evaluate.py`) tuvo que programarse de forma especial. Estábamos comparando las imágenes originales de la ESA (que tienen píxeles de 20 metros) contra las imágenes de nuestro modelo (con píxeles más detallados de 10 metros). Como al igualar los tamaños la cantidad de datos era gigantesca, tuvimos que usar un truco matemático (`np.bincount`) para ir sumando los aciertos y fallos poco a poco, evitando así colapsar la memoria RAM del ordenador.
 
 ## 1. Métricas Agregadas por Clase
 

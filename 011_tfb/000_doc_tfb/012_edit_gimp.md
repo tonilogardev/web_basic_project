@@ -25,14 +25,13 @@ Si se intenta visualizar la imagen utilizando herramientas de contraste, niveles
 
 ## 2. La Solución: Arquitectura Multicapa (Lienzo Único)
 
-Para superar estas limitaciones sin forzar al analista a utilizar herramientas GIS complejas para tareas de pintura, se ha diseñado una arquitectura puente basada en un **TIFF Multicapa**.
 
-1. **Fase de Empaquetado (Multicapa)**: El descargador automático intercepta las bandas ópticas y la máscara SCL matemática. Utilizando la librería Pillow, ensambla un único archivo `[ID]_SCL_GIMP.tif` que contiene 3 capas (páginas) apiladas a 20 metros de resolución:
+1. **Fase de Empaquetado (Multicapa)**: Utilizando la librería Pillow, ensambla un único archivo `[ID]_SCL_GIMP.tif` que contiene 3 capas (páginas) apiladas a 20 metros de resolución:
    - **Capa Base**: Color Real.
    - **Capa Intermedia**: Falso Color (Nieve).
    - **Capa Superior**: Máscara SCL a color (Verde, Blanco, Gris, Cyan).
-2. **Edición Ergonómica**: El analista opera sobre un único archivo en GIMP, con capacidad para alternar la visibilidad de las capas de satélite subyacentes, procediendo a clasificar exclusivamente sobre la capa superior. Se prescinde de formatos propietarios (`.xcf`), manteniendo el estándar abierto GeoTIFF.
-3. **Fase de Decodificación (Resiliencia Geográfica)**: Debido a que los editores fotográficos truncan los metadatos geográficos (GeoTIFF tags), el script `003_decode_gimp_edits.py` extrae únicamente la máscara editada, mapea los colores de vuelta a los valores matemáticos (0-4), y extrae las coordenadas geográficas inalterables del archivo `.vrt` original, restituyéndolas de forma automatizada en el archivo final (`[ID]_SCL_edited.tif`).
+2. **Edición Ergonómica**: El analista opera sobre un único archivo en GIMP, con capacidad para alternar la visibilidad de las capas de satélite subyacentes, procediendo a clasificar exclusivamente sobre la capa superior. Se prescinde del formato (`.xcf`), manteniendo el estándar abierto GeoTIFF.
+3. **Fase de Decodificación**: Debido a que los editores fotográficos truncan los metadatos geográficos (GeoTIFF tags), el script `003_decode_gimp_edits.py` extrae únicamente la máscara editada, mapea los colores de vuelta a los valores matemáticos (0-4), y extrae las coordenadas geográficas inalterables del archivo `.vrt` original, restituyéndolas de forma automatizada en el archivo final (`[ID]_SCL_edited.tif`).
 
 ---
 

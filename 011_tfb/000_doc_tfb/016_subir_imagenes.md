@@ -27,6 +27,4 @@
 
 [←Index](#index)
 
-## 3 Next steps
 
-- [000_entrega_03_antonio_lopez_015.md](./000_entrega_03_antonio_lopez_015.md)
