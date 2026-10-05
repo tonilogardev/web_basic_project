@@ -1,56 +1,56 @@
 # Master Roadmap: Desarrollo del Modelo de Machine Learning
 
-Este documento funciona como el **índice maestro** o "diario de desarrollo" que resume, paso a paso, todas las decisiones y acciones que se han ido tomando para construir la inteligencia artificial. Sirve como guía de lectura y conecta de forma ordenada con el resto de la documentación técnica del proyecto.
+El presente documento constituye el índice principal del desarrollo del modelo de Machine Learning. En él se detallan cronológicamente las decisiones arquitectónicas y metodológicas adoptadas, sirviendo como guía estructural para la documentación técnica anexa.
 
 ---
 
 ## Paso 1: Definición y Elección de los Gránulos (Dataset)
 
-El primer paso y el cimiento del proyecto ha sido definir con precisión qué datos se le van a entregar a la red neuronal. En lugar de usar la fuerza bruta descargando miles de imágenes, se ha diseñado una estrategia de edición y clasificación manual ("Smart Data") para buscar específicamente las zonas de Cataluña y España que más confunden al algoritmo de la ESA.
+La fase inicial del proyecto consistió en la definición de los datos de entrada para la red neuronal. Frente a una descarga masiva e indiscriminada, se optó por una estrategia de curación de datos ("Smart Data"), enfocada en seleccionar aquellas regiones geográficas donde el algoritmo original de la ESA presenta mayores tasas de error.
 
-**Resumen de hitos y documentación en este paso:**
+**Hitos y documentación asociada:**
 
 1. **Volumetría y Partición:** 
-   Se ha decidido acotar el proyecto a **40 gránulos** en total, separados de forma estricta en dos bloques herméticos: 30 gránulos para la fase de Entrenamiento/Validación y 10 gránulos totalmente ocultos para la fase de Test (para evitar el *Data Leakage*).
-   - *Documentación profunda:* [002_data_set_sentinel_2.md](002_data_set_sentinel_2.md)
+   Se ha delimitado el alcance a un total de **40 gránulos**, separados estrictamente en dos conjuntos aislados: 30 gránulos para la fase de Entrenamiento/Validación y 10 gránulos para la fase de Test, con el objetivo de prevenir la filtración de datos (*Data Leakage*).
+   - *Documentación:* [002_data_set_sentinel_2.md](002_data_set_sentinel_2.md)
 
 2. **Criterios de Selección y Filosofía de Evaluación:**
-   Se ha dividido la búsqueda en 4 escenarios críticos (Caso A: Nieve, Caso B: Niebla/Cirros, Caso C: Costa/Ciudad, Caso D: Secano). Además, se ha establecido la regla de oro de la evaluación: nunca se testeará el modelo contra el SCL crudo de Sen2Cor, sino que este servirá como plantilla para crear la "Edición y Clasificación Manual de Píxeles".
-   - *Documentación profunda:* [003_type_granule.md](003_type_granule.md)
+   La selección se ha estratificado en 4 escenarios críticos (Caso A: Nieve, Caso B: Niebla/Cirros, Caso C: Costa/Ciudad, Caso D: Secano). Como principio metodológico, la evaluación del modelo no se realiza contra la máscara SCL original de Sen2Cor, sino que esta se utiliza exclusivamente como base para generar la "Edición y Clasificación Manual de Píxeles".
+   - *Documentación:* [003_type_granule.md](003_type_granule.md)
 
 3. **Arquitectura de Descargas Automatizadas:**
-   Se ha desarrollado una librería modular ([`sentinel_downloader.py`](../scripts/sentinel_downloader.py)) y dos scripts independientes ([`001_download_training.py`](../scripts/001_download_training.py) y [`002_download_test.py`](../scripts/002_download_test.py)) que se conectan al OData de Copernicus, descargan decenas de GB, extraen las bandas físicas, colapsan dinámicamente las 12 clases de la máscara SCL original en las 6 Clases Maestras y generan automáticamente miniaturas de previsualización (PNG) para auditoría visual.
-   - *Documentación profunda:* [005_execute_download_sentinel.md](005_execute_download_sentinel.md)
+   Se ha programado una librería modular ([`sentinel_downloader.py`](../scripts/sentinel_downloader.py)) y scripts de ejecución ([`001_download_training.py`](../scripts/001_download_training.py) y [`002_download_test.py`](../scripts/002_download_test.py)) que interactúan con la API OData de Copernicus. Estos módulos automatizan la descarga de datos, la extracción de bandas físicas, la agrupación de las 12 clases originales en 6 Clases Maestras y la generación de miniaturas para auditoría visual.
+   - *Documentación:* [005_execute_download_sentinel.md](005_execute_download_sentinel.md)
 
 4. **Edición y Clasificación Manual de Píxeles (SCL):**
-   Se ha definido la estrategia de esfuerzo para la auditoría visual de los datos frente a los errores del algoritmo original de Sen2Cor:
-   - **Set de Entrenamiento (30 gránulos):** Revisión rápida. Las redes neuronales son robustas al ruido estadístico. Solo abrimos QGIS para corregir manualmente errores catastróficos muy evidentes.
-   - **Set de Test (10 gránulos):** Edición y clasificación quirúrgica. Como el Test es el examen final inamovible, aquí sí editamos a mano los píxeles confusos (nieve/nube, sombras/agua) para generar una verdadera "Edición y Clasificación Manual de Píxeles". El script de creación de dataset está preparado para leer `SCL_edited.tif` de forma preferente si detecta que existe.
+   Se ha definido una estrategia escalonada para la auditoría de los datos:
+   - **Set de Entrenamiento (30 gránulos):** Dado que las redes neuronales presentan cierta tolerancia al ruido estadístico, la revisión visual mediante software SIG (QGIS) se ha limitado a la corrección de errores de clasificación severos.
+   - **Set de Test (10 gránulos):** Dado que este conjunto constituye la base de evaluación del modelo, se ha realizado una edición exhaustiva de los píxeles conflictivos (transiciones nieve/nube, sombras/agua). El pipeline prioriza automáticamente la lectura del archivo `SCL_edited.tif` en caso de estar disponible.
 
 5. **Diseño Arquitectónico de la Red Neuronal (U-Net):**
-   Se ha establecido la base teórica del modelo de Deep Learning. Se ha decidido construir una U-Net nativa desde cero (from scratch) usando PyTorch, capaz de ingerir tensores espaciales de 7 canales (6 bandas físicas + NDSI) y devolver 5 mapas de probabilidad (Softmax). Se ha resuelto el problema del enmascarado geográfico (NoData/Mar) utilizando `ignore_index=0` en la función de pérdida (Cross Entropy Loss).
-   - *Documentación profunda:* [009_unet_architecture.md](009_unet_architecture.md)
+   Se ha optado por implementar una arquitectura U-Net nativa en PyTorch, diseñada para procesar tensores espaciales de 7 canales (6 bandas ópticas + índice NDSI) y retornar 5 mapas de probabilidad (Softmax). El enmascarado espacial (zonas sin datos o marítimas) se gestiona mediante el parámetro `ignore_index=0` en la función de pérdida (Cross Entropy Loss).
+   - *Documentación:* [009_unet_architecture.md](009_unet_architecture.md)
 
 6. **Desarrollo del Pipeline de Entrenamiento (Baseline):**
-   Se han programado los scripts modulares en PyTorch ([`dataset.py`](../scripts/dataset.py), [`model.py`](../scripts/model.py) y [`005_train.py`](../scripts/005_train.py)) para ingestar las matrices espaciales y entrenar la U-Net. Para aislar fallos de programación del ruido en los datos, se ha decidido lanzar un "Baseline Model" entrenando la red con la máscara SCL original (sin curar). Esto asegura que la infraestructura matemática, las funciones de pérdida (`ignore_index`) y la gestión de memoria en GPU funcionen correctamente antes de invertir horas de esfuerzo humano en la edición de píxeles.
-   - *Documentación profunda:* [010_training_pipeline.md](010_training_pipeline.md)
+   Se han programado módulos en PyTorch ([`dataset.py`](../scripts/dataset.py), [`model.py`](../scripts/model.py) y [`005_train.py`](../scripts/005_train.py)) para la ingesta de matrices espaciales. Para validar la infraestructura, se ejecutó un "Baseline Model" con datos sin curar, asegurando la correcta gestión de tensores y memoria en GPU de forma previa a la edición manual de píxeles.
+   - *Documentación:* [010_training_pipeline.md](010_training_pipeline.md)
 
 7. **Arquitectura Encode/Decode (GIMP Bridge):**
-   Dado que las máscaras matemáticas de 1 banda (0-4) aparecen como negro puro en editores fotográficos tradicionales (GIMP, Photoshop), se ha desarrollado una arquitectura puente. Un script inyecta color RGB a las matrices permitiendo al ojo humano reparar los fallos algorítmicos fácilmente (pintando a color). Posteriormente, el decodificador inverso escanea los colores y restituye el archivo matemático original salvaguardando sus metadatos espaciales (`_SCL_edited.tif`).
-   - *Documentación profunda:* [012_edit_gimp.md](012_edit_gimp.md)
+   Para permitir la edición visual de matrices matemáticas monocanal (valores 0-4) que resultan invisibles en editores convencionales, se desarrolló una arquitectura puente. Este sistema inyecta color RGB a las matrices, permitiendo su edición manual, y posteriormente decodifica los colores para restituir el archivo raster original (`_SCL_edited.tif`) preservando sus metadatos espaciales.
+   - *Documentación:* [012_edit_gimp.md](012_edit_gimp.md)
 
 8. **Inferencia y Clasificación Manual de Píxeles:**
-   Se ha aplicado el "Baseline Model" a las 10 imágenes de Test, guardando las predicciones puras de la IA. Posteriormente, mediante el GIMP Bridge, se han curado y corregido estas máscaras hasta generar el archivo de **Edición y Clasificación Manual de Píxeles** definitivo. Este hito marca el cierre de la preparación de datos y da paso inminente a la evaluación matemática (IoU, Matriz de Confusión) del modelo.
+   Se procedió a aplicar el "Baseline Model" sobre el conjunto de Test para generar predicciones iniciales. A través del "GIMP Bridge", estas máscaras fueron editadas y corregidas manualmente hasta obtener la Verdad Terreno definitiva, requisito previo para la evaluación matemática del modelo.
 
 9. **Evaluación Final y Métricas Estadísticas:**
-   Se ha definido el flujo metodológico para contrastar matemáticamente las predicciones de la U-Net contra la *Verdad Terreno* curada manualmente, justificando (apoyados en literatura científica) el descarte de las máscaras de Sen2Cor para evitar la paradoja de los falsos positivos. Se prioriza el uso de métricas espaciales estrictas (IoU por clase) para aislar los sesgos de desbalanceo.
-   - *Documentación profunda:* [013_test_with_SCL_edited.md](013_test_with_SCL_edited.md)
+   Se ha definido la metodología para contrastar matemáticamente las inferencias del modelo U-Net frente a la Verdad Terreno curada. Se prioriza la métrica IoU (Intersección sobre Unión) por clase para mitigar el sesgo estadístico derivado del desbalanceo espacial de los datos.
+   - *Documentación:* [013_test_with_SCL_edited.md](013_test_with_SCL_edited.md)
 
-49: ---
-50: 
-51: 10. **Resultados de la Evaluación (Test Set):**
-52:     Se ha ejecutado el motor estadístico `007_evaluate.py` cruzando las inferencias contra la verdad absoluta (más de 600 millones de píxeles evaluados). Los resultados demuestran el cumplimiento total de los objetivos del TFB, alcanzando un IoU del 99.99% en detección de nieve y solucionando matemáticamente la confusión histórica de Sen2Cor. Se han documentado las métricas estratosféricas (IoU, Recall, Precisión) y generado la gran matriz de confusión agregada térmica.
-53:     - *Documentación profunda:* [014_evaluation_results.md](014_evaluation_results.md)
-54: 
-55: ---
-56: *(Los siguientes pasos se documentarán a medida que se ejecuten).*
+---
+
+10. **Resultados de la Evaluación (Test Set):**
+    Mediante el script estadístico `007_evaluate.py`, se contrastaron las inferencias contra la verdad terreno (procesando más de 600 millones de píxeles). Los resultados verifican el cumplimiento de los objetivos planteados, logrando mitigar la confusión algorítmica presente en Sen2Cor. Las métricas finales (IoU, Recall, Precisión) se detallan junto a la matriz de confusión agregada.
+    - *Documentación:* [014_evaluation_results.md](014_evaluation_results.md)
+
+---
+*(Los siguientes pasos se documentarán a medida que se ejecuten).*

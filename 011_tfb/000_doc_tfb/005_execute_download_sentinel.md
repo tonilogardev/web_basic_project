@@ -1,78 +1,80 @@
-# Ejecución Descarga Sentinel-2
+# Flujo de Ejecución: Descarga Sentinel-2
 
-## Index
+## Índice
 
 1. [Prerrequisitos](#1-prerrequisitos)
-2. [Preparar Listados CSV](#2-preparar-listados-csv)
-3. [Configurar Entorno Virtual](#3-configurar-entorno-virtual)
-4. [Ejecutar Descarga](#4-ejecutar-descarga)
+2. [Configuración de Datasets CSV](#2-configuración-de-datasets-csv)
+3. [Despliegue del Entorno Virtual](#3-despliegue-del-entorno-virtual)
+4. [Ejecución de las Rutinas de Descarga](#4-ejecución-de-las-rutinas-de-descarga)
 
 ---
 
 ## 1 Prerrequisitos
 
-- **Abre** o crea el archivo [../scripts/.env](../scripts/.env).
-- **Añade** las credenciales de Copernicus Data Space Ecosystem (CDSE):
+- **Apertura o creación** del archivo de configuración de variables de entorno [../scripts/.env](../scripts/.env).
+- **Asignación** de las credenciales de autenticación correspondientes al Copernicus Data Space Ecosystem (CDSE):
   ```env
-  CDSE_USERNAME="tu_correo@ejemplo.com"
-  CDSE_PASSWORD="tu_contraseña_secreta"
+  CDSE_USERNAME="usuario@ejemplo.com"
+  CDSE_PASSWORD="contraseña_segura"
   ```
 
-[←Index](#index)
+[←Índice](#índice)
 
-## 2 Preparar Listados CSV
+## 2 Configuración de Datasets CSV
 
-- **Abre** los listados de búsqueda:
+- **Apertura** de los archivos de registro de cuadrículas:
   - [training_granules_sentinel_browser..csv](../scripts/training_granules_sentinel_browser..csv)
   - [test_granules_sentinel_browser.csv](../scripts/test_granules_sentinel_browser.csv)
-- **Busca** los gránulos idóneos en el [Copernicus Browser](https://browser.dataspace.copernicus.eu/).
-- **Sustituye** `YYYY-MM-DD` por la fecha real de la imagen.
+- **Selección e identificación** de gránulos estratégicos mediante la interfaz [Copernicus Browser](https://browser.dataspace.copernicus.eu/).
+- **Sustitución** del campo `YYYY-MM-DD` por la ventana temporal (fecha) efectiva de la captura.
 
-[←Index](#index)
+[←Índice](#índice)
 
-## 3 Configurar Entorno Virtual
+## 3 Despliegue del Entorno Virtual
 
-- **Abre** la terminal en la carpeta [../scripts](../scripts).
-- **Crea** el entorno virtual:
+- **Apertura** de la interfaz de línea de comandos (CLI) en el directorio [../scripts](../scripts).
+- **Creación** del entorno virtual de Python:
   ```bash
   python3 -m venv venv
   ```
-- **Actívalo**:
+- **Activación** del entorno de ejecución:
   ```bash
   source venv/bin/activate
   ```
-- **Instala** las dependencias definidas en [requirements.txt](../scripts/requirements.txt):
+- **Instalación** de las dependencias documentadas en [requirements.txt](../scripts/requirements.txt):
   ```bash
   pip install -r requirements.txt
   ```
 
-[←Index](#index)
+[←Índice](#índice)
 
-### Paso 4: Ejecutar la Descarga
+### 4 Ejecución de las Rutinas de Descarga
 
-Abrir terminal y lanzar el script correspondiente según la fase entrenamiento o test:
+Desde el entorno virtual activo, se procederá a ejecutar el módulo de procesamiento asociado al bloque de datos objetivo:
 
-Para descargar el **Conjunto de Entrenamiento**:
+Para iniciar la ingesta del **Conjunto de Entrenamiento**:
 ```bash
 python scripts/001_download_training.py
 ```
 
-Para descargar el **Conjunto de Test**:
+Para iniciar la ingesta del **Conjunto de Test**:
 ```bash
 python scripts/002_download_test.py
 ```
 
-Este script es un "todo en uno" (basado en la librería [`sentinel_downloader.py`](../scripts/sentinel_downloader.py)):
-- *El script leerá los CSVs y realizará **cinco** acciones automáticas:*
-  1. *Obtendrá el L1C (Bandas Físicas) a 10m y 20m.*
-  2. *Descargará la máscara SCL (L2A), la colapsará físicamente de 12 a **6 Clases Maestras** (incluyendo el mar) y la guardará como `[ID]_SCL.tif`.*
-  3. *Generará vistas virtuales (VRT) y archivos físicos temporales escalados estrictamente a **20 metros de resolución** para el **Color Real** y el **Falso Color Nieve**.*
-  4. *Empaquetará automáticamente estas vistas junto con la máscara SCL en un único archivo TIFF multicapa (`[ID]_SCL_GIMP.tif`). Este lienzo unificado contiene 3 páginas (Color Real, Nieve y Máscara) listas para ser abiertas y editadas cómodamente en GIMP, eliminando luego los archivos visuales temporales para ahorrar gigabytes de espacio.*
-  5. *Extraerá y procesará una miniatura `.png` de 1024x1024 píxeles de Color Real (`[ID]_preview.png`) para facilitar la inspección visual rápida de los gránulos.*
-- *Los resultados se guardarán limpios en `../download/training` y `../download/test`, conservando los `.jp2`, `.vrt` y el multicapa definitivo.*
-- **Desactiva** el entorno al terminar:
+El algoritmo central se encuentra implementado en el submódulo [`sentinel_downloader.py`](../scripts/sentinel_downloader.py), el cual procesa las listas CSV y orquesta **cinco tareas simultáneas de preprocesamiento:**
+
+1.  **Descarga Cruda:** Obtención paramétrica de los datos físicos L1C (Bandas Físicas) a resoluciones espaciales de 10m y 20m.
+2.  **Conversión SCL:** Ingesta de la máscara SCL original (Nivel L2A) y su colapso dimensional mediante reclasificación de 12 clases iniciales a las **6 Clases Maestras** de predicción (incorporando la segmentación del agua), almacenándose como `[ID]_SCL.tif`.
+3.  **Rasterización Visual:** Generación analítica de Vistas Virtuales (VRT) y rasters físicos limitados a **20 metros de resolución espacial**. Se ensamblan específicamente composiciones espectrales de **Color Real** y **Falso Color Infrarrojo (Nieve)**.
+4.  **Codificación "GIMP Bridge":** Ensamblaje automatizado de las vistas visuales previas junto a la máscara SCL matemática en un tensor apilado (archivo TIFF multicapa: `[ID]_SCL_GIMP.tif`). Esta estructura de 3 niveles conforma un marco compatible para sistemas de edición manual avanzada. A la conclusión del empaquetado, el sistema ejecuta rutinas de depuración (eliminación de rasters temporales) para optimizar los recursos de almacenamiento físico.
+5.  **Extracción de Metadatos Visuales:** Generación de una matriz PNG reducida a 1024x1024 píxeles (`[ID]_preview.png`) sobre espectro Color Real, orientada a rutinas de auditoría e inspección rápida.
+
+Al finalizar la secuencia, los paquetes consolidados (`.jp2`, `.vrt` y compilaciones TIFF) quedan depositados en `../download/training` o `../download/test`.
+
+- **Desactivación** del entorno a la conclusión de los procesos:
   ```bash
   deactivate
   ```
 
-[←Index](#index)
+[←Índice](#índice)

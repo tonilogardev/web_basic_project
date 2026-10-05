@@ -1,25 +1,25 @@
 # Inferencia "Serverless" y Procesamiento Efímero (Cloud-Native)
 
 ## 1. El Desafío del Almacenamiento Local
-Durante la fase de **Entrenamiento y Validación** del modelo (Data Engineering), fue estrictamente necesario descargar y almacenar de forma persistente docenas de gránulos de Sentinel-2 (L1C y L2A) en nuestro disco duro local. Esto se debe a que una red neuronal, durante su entrenamiento (backpropagation), necesita iterar sobre las mismas imágenes (épocas) miles de veces. Descargar una imagen desde la nube en cada iteración habría colapsado el ancho de banda y multiplicado los tiempos de entrenamiento por mil.
+Durante la fase de **Entrenamiento y Validación** del modelo (Data Engineering), fue estrictamente necesario el almacenamiento de forma persistente de docenas de gránulos de Sentinel-2 (L1C y L2A) en infraestructura de disco duro local. Esto se debe a que una red neuronal, durante su optimización (backpropagation), requiere iterar sobre las mismas matrices topológicas (épocas) de forma exhaustiva. La descarga iterativa desde la nube en cada iteración habría saturado el ancho de banda y degradado el rendimiento computacional drásticamente.
 
-Sin embargo, en la fase de **Producción/Inferencia**, el paradigma cambia radicalmente. El modelo ya está entrenado (`baseline_model.pth`). Solo necesita ver cada imagen nueva **una sola vez** para emitir su predicción (máscara de clases). 
+Sin embargo, en la fase de **Producción/Inferencia**, el paradigma arquitectónico muta. El modelo entrenado (`baseline_model.pth`) únicamente requiere ingerir la nueva matriz radiométrica **una sola vez** para emitir su inferencia. 
 
-Descargar y guardar localmente todas las imágenes de Cataluña de un mes completo (aprox. 90 gránulos, que suponen cerca de 100 GB) simplemente para inferir una máscara de 3 MB, resulta una aproximación anticuada e insostenible a nivel de costes y hardware.
+La descarga y persistencia local de todas las adquisiciones sobre Cataluña correspondientes a un mes completo (aprox. 90 gránulos equivalentes a 100 GB) con el único objetivo de inferir una máscara de 3 MB, resulta una aproximación anticuada e insostenible a nivel de eficiencia y escalabilidad.
 
 ## 2. La Solución: Procesamiento Efímero (Serverless)
-Para transicionar hacia una arquitectura Cloud-Native, hemos implementado el script `cloud_model_catalonia.py`. Este script opera bajo el concepto de **Procesamiento Efímero**, emulando el comportamiento de las funciones Serverless (como AWS Lambda) en nuestra estación de trabajo.
+Para consolidar la transición hacia una arquitectura Cloud-Native, se ha implementado el script `cloud_model_catalonia.py`. Dicho script opera bajo el paradigma de **Procesamiento Efímero**, emulando el ciclo de vida de arquitecturas Serverless (e.g. AWS Lambda) dentro de una estación de computación.
 
 El flujo de vida de los datos es estrictamente transaccional:
 
-1. **Búsqueda Dinámica API**: El usuario introduce por consola un rango de fechas (ej. `2026-06-01` a `2026-06-30`). El script se conecta al API de OData de Copernicus Data Space Ecosystem (CDSE) y descubre dinámicamente qué gránulos cubren la extensión de Cataluña en esos días.
-2. **Entorno Desechable**: Para cada gránulo encontrado, el script abre un directorio temporal (`/tmp`) directamente gestionado por la memoria del sistema operativo.
-3. **Descarga y Extracción Quirúrgica**: Utilizando el sistema de tokens JWT (con autorrefresco), el script descarga el empaquetado `.zip` al entorno temporal y extrae *únicamente* las 6 bandas necesarias (`B02, B03, B04, B08, B11, SCL`).
-4. **Inferencia en Paralelo**: Las bandas se cargan en la RAM/VRAM en tensores y la red U-Net realiza la inferencia mediante ventanas deslizantes (parches de 512x512).
-5. **Persistencia Mínima**: Las predicciones resultantes (`_SCL_UNET.tif` y la versión visual `_SCL_UNET_GIMP.tif`) se guardan en el disco duro definitivo (`visualizations/SCL_UNET_catalonia/`).
-6. **Destrucción Total**: Finalizada la predicción, el directorio temporal completo (con sus pesadas bandas de entrada y ZIPs) es destruido de la memoria.
+1. **Búsqueda Dinámica API**: Se introduce mediante consola un rango de fechas de interés. El sistema establece comunicación con la API OData de Copernicus Data Space Ecosystem (CDSE) resolviendo dinámicamente las huellas de gránulos que cubren la geometría de Cataluña.
+2. **Entorno Desechable**: Por cada escena detectada, se instancian directorios temporales (`/tmp`) alojados y gestionados directamente por la volatilidad de la memoria RAM del sistema operativo.
+3. **Descarga y Extracción Quirúrgica**: Mediante el uso de esquemas JWT con autorrefresco, el protocolo descarga los contenedores `.zip` al entorno efímero y extrae *únicamente* los 6 tensores ópticos requeridos (`B02, B03, B04, B08, B11, SCL`).
+4. **Inferencia en Paralelo**: Las matrices se transcodifican en memoria RAM/VRAM en tensores espaciales, aplicándose inferencia deslizante por ventanas (parches de 512x512) mediante la red U-Net.
+5. **Persistencia Mínima**: Las matrices de clasificación resultantes (`_SCL_UNET.tif` y el visualizador `_SCL_UNET_GIMP.tif`) se almacenan en disco duro definitivo (`visualizations/SCL_UNET_catalonia/`).
+6. **Destrucción Total**: Finalizada la predicción, el sistema de ficheros efímero es completamente truncado, liberando la memoria.
 
 ## 3. Beneficios Arquitectónicos
-* **Escalabilidad Infinita**: Dado que la huella de almacenamiento se mantiene en ~0 GB para las entradas, el límite de gránulos procesables solo depende del tiempo de ejecución, no del disco duro.
-* **Costes 0**: Prepara el código para ser desplegado en el futuro en contenedores efímeros de la nube, sin necesidad de aprovisionar y pagar por costosos volúmenes de almacenamiento (EBS).
-* **Usabilidad Interactiva**: La CLI (Command Line Interface) cuenta con validaciones estrictas de cronología (evitando fechas previas al lanzamiento de Sentinel-2) y un sistema de importaciones diferidas que garantiza que la consola arranque y responda instantáneamente al operador humano.
+* **Escalabilidad Infinita**: Dado que la huella de almacenamiento se mantiene en ~0 GB para las entradas, el límite de gránulos procesables se vincula exclusivamente al tiempo de ejecución, abstraído del hardware de almacenamiento.
+* **Reducción de Costes**: La arquitectura queda preparada para un despliegue en contenedores efímeros Cloud, sin requerir el aprovisionamiento de costosos volúmenes de almacenamiento (EBS).
+* **Usabilidad Interactiva**: La CLI (Command Line Interface) incorpora validaciones estrictas y carga diferida (lazy-loading) garantizando que el punto de entrada (entrypoint) responda instantáneamente al despliegue.

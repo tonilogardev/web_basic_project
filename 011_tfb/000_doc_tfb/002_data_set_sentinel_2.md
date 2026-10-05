@@ -1,44 +1,44 @@
 # Definición del Dataset (Copernicus Sentinel-2 L1C)
 
-Este documento establece la volumetría y los criterios de selección para el "Golden Dataset" que se utilizará para entrenar y evaluar la red neuronal U-Net.
+Este documento establece la volumetría y los criterios de selección para el conjunto de datos referencial utilizado para entrenar y evaluar la arquitectura de red neuronal U-Net.
 
 ## Índice
-- [1. Volumetría Global (El Mito del Big Data)](#1-volumetría-global-el-mito-del-big-data)
+- [1. Volumetría Global (Enfoque Metodológico)](#1-volumetría-global-enfoque-metodológico)
 - [2. Partición del Dataset (Train vs Test)](#2-partición-del-dataset-train-vs-test)
   - [2.1. Conjunto de Entrenamiento y Validación (Train/Val) - 30 Gránulos](#21-conjunto-de-entrenamiento-y-validación-trainval---30-gránulos)
   - [2.2. Conjunto de Test (Blind Test) - 10 Gránulos](#22-conjunto-de-test-blind-test---10-gránulos)
-- [3. Del Gránulo al Parche (Tiling)](#3-del-gránulo-al-parche-tiling)
+- [3. Particionado Espacial (Tiling)](#3-particionado-espacial-tiling)
 
-## 1. Volumetría Global (El Mito del Big Data)
-No es necesario ni recomendable descargar miles de imágenes. Las arquitecturas de segmentación profunda (Deep Learning) aprenden mejor de un conjunto de datos pequeño pero altamente curado, diverso y representativo (los "casos difíciles") que de un conjunto masivo pero redundante.
+## 1. Volumetría Global (Enfoque Metodológico)
+Se desestima el uso de técnicas de descarga masiva e indiscriminada de imágenes. El diseño y entrenamiento de arquitecturas de segmentación profunda (Deep Learning) se beneficia en mayor medida del uso de conjuntos de datos de dimensiones reducidas pero con alta representatividad estadística y curación analítica (priorizando escenarios geográficos y atmosféricos complejos), evitando la redundancia observacional.
 
-**Total de Gránulos a Descargar:** **40 Gránulos** (aprox. 40 GB de datos L1C en bruto).
+**Volumetría Acotada:** **40 Gránulos** en total (aproximadamente 40 GB de datos satelitales L1C).
 
 ## 2. Partición del Dataset (Train vs Test)
 
 ### 2.1. Conjunto de Entrenamiento y Validación (Train/Val) - 30 Gránulos
-Estos 30 gránulos se utilizarán para ajustar los pesos de la red neuronal. Deben estar estratégicamente seleccionados a mano para forzar a la red a aprender:
-- **Distribución Estacional:** 
-  - 15 gránulos de Invierno (con abundante nieve en el Pirineo, sol bajo, sombras largas y nubes superpuestas).
-  - 15 gránulos de Verano/Primavera (sin nieve, con nubes convectivas, cirros finos y cultivos cambiando de color).
-- **Distribución Orbital:** Mezclados equitativamente entre las órbitas R008 (Este) y R051 (Oeste) para enseñar a la red a ser invariante a la geometría de iluminación solar.
-- **Distribución Geográfica:** Que incluyan los gránulos más críticos: T31TCH/T31TDE (Pirineo puro), T31TDF (Delta del Ebro / Mar oscuro profundo), y el área metropolitana de Barcelona (Estabilidad espectral).
+El ajuste paramétrico de los pesos de la red neuronal se basa en este bloque de 30 gránulos. Su selección se ha estratificado para garantizar que la red aprenda la distribución completa de variabilidad del problema:
+- **Variabilidad Estacional:** 
+  - 15 gránulos de periodo invernal (presencia de cobertura nival, bajo ángulo de elevación solar, sombras orográficas extensas y nubosidad superpuesta).
+  - 15 gránulos de periodo estival/primaveral (ausencia de nieve, nubosidad convectiva, presencia de cirros y variabilidad fenológica agrícola).
+- **Variabilidad Orbital:** Selección equilibrada entre órbitas satelitales (R008 Este y R051 Oeste) para dotar al modelo de invarianza geométrica frente a las distintas posiciones y ángulos de iluminación.
+- **Variabilidad Geográfica:** Inclusión de cuadrículas de alta criticidad, como las regiones pirenaicas (e.g., T31TCH/T31TDE), entornos deltaicos o masas hídricas (e.g., T31TDF - Delta del Ebro) y entornos metropolitanos para parametrizar superficies de estabilidad espectral (e.g., Barcelona).
 
 ### 2.2. Conjunto de Test (Blind Test) - 10 Gránulos
-Estos 10 gránulos se mantendrán estrictamente **ocultos** a la red durante todo el proceso de entrenamiento. 
-Solo se usarán el día final para inferir las máscaras y calcular las métricas objetivas (IoU, F1-Score) que se presentarán al tribunal del TFB. Esto garantiza científicamente que la red no ha memorizado el relieve, sino que sabe generalizar a imágenes que jamás ha visto.
+El bloque de evaluación se mantiene en estricto aislamiento durante la totalidad del ciclo de entrenamiento, impidiendo el cruce de datos (*Data Leakage*).
+Estos datos se reservan exclusivamente para la etapa de inferencia final, permitiendo obtener el cálculo de las métricas de rendimiento (IoU, F1-Score). Este aislamiento garantiza empíricamente que la red posee capacidad de generalización sobre morfologías geográficas no analizadas previamente.
 - 5 gránulos de invierno (Nieve extrema).
 - 5 gránulos de verano.
 
-## 3. Del Gránulo al Parche (Tiling)
-Las redes neuronales de segmentación no pueden procesar imágenes completas de 10980x10980 píxeles en memoria de GPU. El flujo de pre-procesamiento será:
+## 3. Particionado Espacial (Tiling)
+Las dimensiones originales de las capturas (10980x10980 píxeles a 10m de resolución) superan las capacidades de procesamiento en VRAM. Por ello, se implementa un esquema de pre-procesamiento espacial:
 
-1. **Troceado:** Cada uno de los 40 gránulos se recortará matemáticamente en parches (tiles) de **512x512 píxeles**. Un gránulo produce teóricamente unos 441 parches completos.
-2. **Volumen Teórico Inicial:** 40 gránulos × 441 parches = ~17.640 parches en total.
-3. **Edición y clasificación (Filtrado Inteligente):** Gran parte de esos parches aportan nulo valor científico. Se descartarán por software:
-   - Parches que sean 100% mar despejado (no enseñan nada nuevo tras ver el primero).
-   - Parches que sean 100% núcleo sólido de nube densa (son demasiado fáciles y sesgan la red).
-   Nos quedaremos exclusivamente con el "Hard Negative Mining": parches que contengan bordes sutiles de nubes, mezclas de nieve/nube/sombra, sombras topográficas pirenaicas y zonas urbanas brillantes.
-4. **Volumen Final (Input Real de la U-Net):** Se estima destilar el conjunto hasta obtener un dataset final de entre **2.500 y 3.500 parches de 512x512**. 
+1. **Partición Estructural:** Cada gránulo es subdividido matemáticamente en matrices cuadradas (*tiles*) de **512x512 píxeles**. Teóricamente, cada gránulo genera 441 celdas completas.
+2. **Volumen Bruto Estimado:** 40 gránulos × 441 parches = ~17.640 celdas totales.
+3. **Filtrado Analítico (Hard Negative Mining):** Dada la alta presencia de datos sin valor probabilístico, se descartan de forma automatizada:
+   - Celdas que presentan cobertura total de mar despejado.
+   - Celdas que presentan nucleos convectivos 100% densos (su ausencia de bordes induce un sesgo estadístico que compromete el aprendizaje del algoritmo).
+   Se retienen de forma exclusiva aquellos cuadrantes sujetos a la metodología de *Hard Negative Mining*: parches que evidencian bordes nubosos difusos, interacciones complejas nube/nieve/sombras, sombras orográficas prominentes y áreas urbanas altamente reflectantes.
+4. **Volumen Neto (Input de Entrenamiento):** Se estima una reducción del conjunto bruto hasta obtener un volumen final operativo situado entre **2.500 y 3.500 parches de 512x512 píxeles**.
 
-**Conclusión:** Un volumen de 3.000 parches de 512x512 con 7 canales de profundidad es el *Sweet Spot* (punto óptimo) para entrenar una U-Net desde cero. Permite una convergencia rápida, evita el sobreajuste (overfitting) masivo, es manejable en un disco SSD estándar y permite realizar iteraciones de entrenamiento en tiempos razonables (horas, no semanas).
+**Conclusión:** El volumen operativo de aproximadamente 3.000 tensores de 512x512 (con 7 canales espectrales de profundidad) representa un estado de equilibrio óptimo metodológico para entrenar la red U-Net. Esta volumetría previene riesgos de sobreajuste masivo (*overfitting*), permite la ejecución de ciclos iterativos de entrenamiento en periodos de tiempo razonables y es eficiente en términos de infraestructura de almacenamiento.

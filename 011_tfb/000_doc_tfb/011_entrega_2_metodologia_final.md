@@ -37,12 +37,12 @@ graph TD
     D -->|004_create_dataset.py| E("Tiling Dinámico 512x512")
     E -->|Filtro de Ruido| F{"¿>10% Terreno Válido?"}
     F -->|Sí| G["Dataset PyTorch"]
-    F -->|No| H["Descartar (Océano/Basura)"]
+    F -->|No| H["Descartar (Océano/No Data)"]
 ```
 
 Las máscaras SCL originales de Sen2Cor contienen 12 clases. Entrenar un modelo predictivo sobre 12 clases dispersaría el espacio latente matemático. Por ello, se ha diseñado un proceso de reducción de dimensionalidad, colapsando físicamente las clases originales en 6 Clases Maestras:
 
-- **0 (Basura):** Sin datos, errores.
+- **0 (Ruido/No Data):** Sin datos, errores, reflejos saturados.
 - **1 (Suelo):** Vegetación, tierra.
 - **2 (Nube):** Nubes de todos los espesores.
 - **3 (Sombra Nube):** Obstrucción oscura.

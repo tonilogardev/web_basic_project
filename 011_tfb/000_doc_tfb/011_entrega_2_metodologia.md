@@ -43,21 +43,21 @@ La descarga de gránulos se realiza mediante la API OData del Copernicus Data Sp
 ### <span style="color: #FFC000;">2.2 Ingeniería de Datos y Reducción de Dimensionalidad</span>
 Las máscaras SCL originales de Sen2Cor contienen 12 clases, muchas de las cuales son irrelevantes para el problema binario de "Nube vs Nieve". Entrenar un modelo con 12 clases dispersaría el espacio latente matemático y reduciría la precisión. Por ello, se ha diseñado un proceso de **reducción de dimensionalidad**, colapsando físicamente las clases originales en 6 Clases Maestras:
 
-1. **Clase 0 (Basura):** Agrupa [0, 1, 2, 6, 7] (No Data, reflejos saturados, agua profunda). Esta clase es ignorada por la Función de Pérdida (`ignore_index`) durante el entrenamiento.
+1. **Clase 0 (Ruido/No Data):** Agrupa [0, 1, 2, 6, 7] (No Data, reflejos saturados, agua profunda). Esta clase es ignorada por la Función de Pérdida (`ignore_index`) durante el entrenamiento.
 2. **Clase 1 (Suelo Útil):** Agrupa [4, 5] (Vegetación y suelo desnudo).
 3. **Clase 2 (Nube):** Agrupa [8, 9, 10] (Nube media, densa y cirros finos).
-4. **Clase 3 (Sombra Nube):** Mantiene [3]. Se conserva como clase independiente para evitar la "disonancia cognitiva" en el entrenamiento, ya que agrupar píxeles brillantes (nube) y negros (sombra) bajo una misma etiqueta corrompería el aprendizaje.
+4. **Clase 3 (Sombra Nube):** Mantiene [3]. Se conserva como clase independiente para evitar la ambigüedad matemática durante el entrenamiento, ya que agrupar píxeles de alta reflectancia (nube) y baja reflectancia (sombra) bajo una misma etiqueta corrompería la convergencia del modelo.
 5. **Clase 4 (Nieve):** Mantiene [11].
 
-Adicionalmente, el pipeline calcula dinámicamente el índice **NDSI** (*Normalized Difference Snow Index*) operando las bandas B03 (Verde) y B11 (Infrarrojo de Onda Corta). Este índice se inyecta como una banda adicional al tensor de entrada, proporcionando a la red un "atajo matemático" para potenciar el gradiente diferencial entre nieve y nube.
+Adicionalmente, el pipeline calcula dinámicamente el índice **NDSI** (*Normalized Difference Snow Index*) operando las bandas B03 (Verde) y B11 (Infrarrojo de Onda Corta). Este índice se inyecta como una banda adicional al tensor de entrada, proporcionando a la red un vector matemático explícito para potenciar el gradiente diferencial entre nieve y nube.
 
 ### <span style="color: #FFC000;">2.3 Generación del Dataset (Tiling Dinámico)</span>
 Un gránulo completo de Sentinel-2 posee una resolución de 10.980 x 10.980 píxeles. Introducir este tensor completo en la VRAM de una GPU provocaría un fallo de *Out of Memory* (OOM). 
 
 Para solucionarlo, el algoritmo ETL aplica una técnica de **Tiling**:
 - Remuestrea iterativamente todas las bandas infrarrojas de 20m (B11, B12) a una malla común de 10m mediante interpolación bilineal.
-- Trocea dinámicamente el gránulo en miles de parches (Tensors) de 512 x 512 píxeles.
-- Filtra la "basura": Si más del 90% de un parche pertenece a la Clase 0 (por ejemplo, todo es Mar Mediterráneo), el parche se descarta y no se guarda en disco, optimizando dramáticamente el almacenamiento y el tiempo de entrenamiento.
+- Fragmenta dinámicamente el gránulo en miles de parches (Tensores) de 512 x 512 píxeles.
+- Filtra las zonas sin información válida: Si más del 90% de un parche pertenece a la Clase 0 (por ejemplo, cobertura exclusiva sobre el Mar Mediterráneo), el parche se descarta y no se guarda en disco, optimizando sustancialmente el almacenamiento y el tiempo de computación.
 
 Este flujo de trabajo garantiza que el modelo aprenda exclusivamente de píxeles terrestres con alto valor informativo, sentando las bases para una predicción de alta fiabilidad.
 
@@ -78,7 +78,7 @@ Para solucionar este cuello de botella sin forzar el uso de herramientas GIS com
 - **Edición Humana:** El analista utiliza herramientas estándar (lazo, cuentagotas, lápiz) sobre la imagen a color, apoyándose en capas subyacentes de Color Real y Falso Color para realizar las correcciones manuales con extrema facilidad.
 - **Decodificador:** Un script inverso escanea los colores RGB inyectados por el operador y reconstruye la matriz matemática original de 1 banda (0-4).
 
-Este "puente" garantiza un proceso de edición y clasificación altamente ergonómico para el operador humano mientras preserva el rigor matemático indispensable para la Inteligencia Artificial.
+Este puente algorítmico garantiza un proceso de edición y clasificación altamente ergonómico para el operador humano mientras preserva el rigor matemático indispensable para el modelado en Inteligencia Artificial.
 
 ### <span style="color: #FFC000;">2.6 Evaluación de Métricas y Clasificación Manual de Píxeles</span>
 Una vez que se ha finalizado la edición visual y clasificación utilizando la arquitectura *Encode/Decode*, se obtiene un conjunto de archivos matemáticos definitivos a los que se denomina **Edición y Clasificación Manual de Píxeles**.

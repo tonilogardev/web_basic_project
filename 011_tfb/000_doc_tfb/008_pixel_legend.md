@@ -1,72 +1,72 @@
-# Leyenda de Píxeles y Estrategia de Agrupación (SCL)
+# Legendado Categórico y Estrategia de Agrupación Espacial (SCL)
 
 ![Comparativa Leyenda ESA vs Modelo](leyenda_comparativa.svg)
 
-Este documento detalla la justificación teórica y la estrategia de Ingeniería de Datos aplicada a las máscaras de segmentación de Sentinel-2 (Scene Classification Layer - SCL) para el entrenamiento de la red neuronal U-Net.
+Este documento justifica el esquema teórico y la estructuración del *Feature Engineering* aplicado a las máscaras de segmentación nativas de Sentinel-2 (*Scene Classification Layer* - SCL) para el adiestramiento y calibración de la arquitectura neuronal U-Net.
 
-## 1. El Estándar Sen2Cor (Las 12 Clases Originales)
+## 1. El Estándar Semántico de Sen2Cor (Las 12 Clases Iniciales)
 
-El algoritmo oficial de la ESA (Sen2Cor) genera una máscara de clasificación (Ground Truth) que divide el mundo en 12 categorías discretas (valores del 0 al 11). 
+El módulo oficial estandarizado por la ESA (Sen2Cor) genera una matriz de validación (*Ground Truth*) paramétrica que segrega el dominio territorial en 12 categorías discretas (escalas 0 a 11).
 
-| Valor | Clase Sen2Cor | Descripción |
+| Escala | Categorial Sen2Cor | Justificación Descriptiva |
 | :---: | :--- | :--- |
-| 0 | No Data | Píxeles fuera del barrido del sensor. |
-| 1 | Saturated / Defective | Píxeles cegados por reflejos extremos (ej. metales). |
-| 2 | Dark Area Pixels | Zonas oscuras inespecíficas (bosques densos, grandes sombras orográficas). |
-| 3 | Cloud Shadows | Sombras proyectadas por formaciones nubosas. |
-| 4 | Vegetation | Clorofila activa (cultivos, bosques). |
-| 5 | Not Vegetated | Suelo desnudo, asfalto, roca, urbanizaciones. |
-| 6 | Water | Agua profunda, ríos, embalses, mar. |
-| 7 | Unclassified | Imposibilidad algorítmica de clasificar el píxel. |
-| 8 | Cloud (Medium Probability) | Nubes finas, bruma, bordes de grandes nubes. |
-| 9 | Cloud (High Probability) | Formaciones nubosas densas (Cúmulos, Cumulonimbos). |
-| 10 | Thin Cirrus | Nubes de hielo muy altas y delgadas (Cirros). |
-| 11 | Snow / Ice | Superficies cubiertas por nieve o hielo. |
+| 0 | No Data | Regiones nulas fuera del perímetro de barrido del sensor espacial. |
+| 1 | Saturated / Defective | Píxeles cegados por reflectancia extrema (saturación paramétrica). |
+| 2 | Dark Area Pixels | Dominios de muy baja reflectancia (densidad forestal, sombras topográficas escarpadas). |
+| 3 | Cloud Shadows | Proyección del oscurecimiento derivado de cuerpos nubosos convectivos o laminares. |
+| 4 | Vegetation | Cobertura edáfica con trazas de clorofila activa (biomasa silvestre y agrícola). |
+| 5 | Not Vegetated | Cobertura desprovista de biomasa (geología desnuda, pavimentación, tejidos urbanos). |
+| 6 | Water | Dominios pelágicos, cursos hídricos y cuencas lacustres de alta profundidad. |
+| 7 | Unclassified | Inviabilidad algorítmica de correlacionar el espectro del píxel con perfiles conocidos. |
+| 8 | Cloud (Medium Probability) | Sistemas nubosos de transición (bruma, frentes de avance). |
+| 9 | Cloud (High Probability) | Sistemas nubosos estructurales de alta albedo (cúmulos densos, desarrollos verticales). |
+| 10 | Thin Cirrus | Formaciones atmosféricas de elevada altitud constituidas por partículas de hielo (Cirros). |
+| 11 | Snow / Ice | Coberturas sólidas generadas por precipitación nival o casquetes de hielo. |
 
-## 2. Reducción de Dimensionalidad (Colapso Físico a 6 Clases)
+## 2. Reducción de la Complejidad Dimensional (Colapso Físico a 6 Clases)
 
-Entrenar una red neuronal para discernir entre 12 clases, muchas de las cuales son irrelevantes para el objetivo (Nieve vs Nube), generaría un modelo ineficiente.
+El procesamiento inferencial estructurado para discriminar un abanico de 12 clases, de las cuales un porcentaje mayoritario carece de impacto estadístico para la disociación nube-nieve, penalizaría severamente la capacidad de convergencia algorítmica.
 
-Para solucionar esto de forma elegante, el script de descarga ([`download_sentinel.py`](../scripts/download_sentinel.py)) colapsará **físicamente** el archivo `SCL.jp2` original en un nuevo archivo `SCL.tif` (GeoTIFF) que contendrá exclusivamente **6 Clases Maestras**. Esto facilita la edición y clasificación manual en QGIS y optimiza el filtrado automático de parches en [`004_create_dataset.py`](../scripts/004_create_dataset.py).
+Para mitigar esta ineficiencia latente, la rutina de ingesta ([`download_sentinel.py`](../scripts/download_sentinel.py)) ejecuta un colapso algebraico sistemático del archivo `SCL.jp2`, generando un documento matricial GeoTIFF (`SCL.tif`) que aglutina el espacio paramétrico en **6 Clases Maestras**. Este colapso optimiza y agiliza la revisión visual y las secuencias automatizadas de depuración del script [`004_create_dataset.py`](../scripts/004_create_dataset.py).
 
-El mapeo físico y visual (RGB) para la edición en GIMP es el siguiente:
+La transcripción estructural y su correlación cromática para entornos GIS queda definida bajo el siguiente esquema:
 
-- **Clase 0 (Basura / Descarte):** [COLOR GIMP: Negro puro / `000000`] Agrupa [0, 1, 2, 7]. Píxeles sin datos o errores. Si un parche contiene más del 90% de Clase 0, [`004_create_dataset.py`](../scripts/004_create_dataset.py) lo descarta para no llenar el disco duro. La red neuronal ignorará esta clase durante el entrenamiento (`ignore_index=0`).
-- **Clase 1 (Suelo Útil):** [COLOR GIMP: Verde Bosque / `228B22`] Agrupa [4, 5]. Vegetación y suelo desnudo.
-- **Clase 2 (Nube):** [COLOR GIMP: Blanco puro / `FFFFFF`] Agrupa [8, 9, 10]. Toda la obstrucción atmosférica brillante.
-- **Clase 3 (Sombra Nube):** [COLOR GIMP: Gris / `646464`] Mantiene [3]. Obstrucción terrestre oscura generada por nube.
-- **Clase 4 (Nieve):** [COLOR GIMP: Cyan Brillante / `00FFFF`] Mantiene [11]. El objetivo de control.
-- **Clase 5 (Masas de Agua):** [COLOR GIMP: Azul Puro / `0000FF`] Mantiene [6]. El mar y lagos profundos. Evita falsos positivos por sun glint.
+- **Clase 0 (Descarte):** [COLOR GIMP: Negro puro / `000000`] Aglutina los valores nativos [0, 1, 2, 7]. Segmentos sin validez analítica. Si un bloque matricial supera una concentración del 90% de este valor, el módulo [`004_create_dataset.py`](../scripts/004_create_dataset.py) lo suprime del flujo de almacenamiento. La arquitectura de *Deep Learning* ignorará estas coordenadas espaciales durante el adiestramiento (`ignore_index=0`).
+- **Clase 1 (Suelo Analítico):** [COLOR GIMP: Verde Bosque / `228B22`] Aglutina [4, 5]. Agrupa la biomasa activa y los sustratos geológicos descubiertos.
+- **Clase 2 (Nube):** [COLOR GIMP: Blanco puro / `FFFFFF`] Aglutina [8, 9, 10]. Engloba todo el espectro de obstrucción atmosférica altamente reflectante.
+- **Clase 3 (Sombra Proyectada Nube):** [COLOR GIMP: Gris / `646464`] Preserva el valor [3]. Dominios terrestres oscurecidos por interferencia meteorológica.
+- **Clase 4 (Nieve):** [COLOR GIMP: Cyan Brillante / `00FFFF`] Preserva el valor [11]. El objetivo matriz de control y segmentación del proyecto.
+- **Clase 5 (Dominios Hídricos):** [COLOR GIMP: Azul Puro / `0000FF`] Preserva el valor [6]. Masas de agua pelágicas e interiores. Su aislamiento algorítmico previene la asignación probabilística errónea inducida por reflejos solares direccionales (*Sun Glint*).
 
-## 3. Justificaciones Científicas de la Agrupación
+## 3. Justificación de la Arquitectura de Agrupación
 
-### 3.1. Simplificación de Nubes (8, 9, 10 -> Clase 1)
-A efectos de teledetección operativa (cálculo de índices NDVI, monitoreo de sequías, etc.), un píxel ocluido por un cirro fino (10) está tan corrompido como uno ocluido por un cumulonimbo denso (9). El objetivo binario final es: *"¿El píxel es útil para mirar la tierra o está tapado?"*. Al agrupar las nubes, simplificamos el espacio latente matemático que la U-Net debe aprender, acelerando la convergencia del entrenamiento.
+### 3.1. Simplificación Atmosférica (8, 9, 10 -> Clase 2)
+Dentro del ámbito de la teledetección operativa (Cálculo NDVI, perfiles de deforestación), un píxel corrompido por la interferencia de un cirro tenue (10) asume el mismo grado de invalidez instrumental que aquel tapado por un sistema cumulonimbo (9). El paradigma binario esencial cuestiona la validez visual del píxel frente al suelo. Al colapsar las variables nubosas, se simplifica radicalmente la dimensionalidad del espacio latente que la topología U-Net debe correlacionar, optimizando dramáticamente la aceleración convexa de la red.
 
-### 3.2. Prevención de "Disonancia Cognitiva" (Separación de Nube y Sombra)
-Podría parecer lógico agrupar la "Sombra de nube" dentro de la categoría "Nube", ya que ambas representan "ruido meteorológico" que no se desean en el mosaico final. Sin embargo, en el entrenamiento de Machine Learning, esto es un anti-patrón de diseño crítico.
+### 3.2. Prevención de Ruido Categórico (Separación Nube y Sombra)
+Podría formularse la unificación taxonómica de las clases "Sombra" y "Nube" bajo una macrorregión de "Interferencia Meteorológica". No obstante, la transposición de esta filosofía al campo de las Redes Convolucionales constituye un anti-patrón de diseño crítico.
 
-- **Firma Espectral Opuesta:** Una nube refleja casi toda la radiación (valores altísimos, píxeles muy brillantes). Una sombra absorbe la radiación (valores bajísimos, píxeles casi negros).
-- **El Problema:** Si forzamos a la red neuronal a agrupar píxeles blancos y píxeles negros bajo un mismo identificador matemático (Clase), la red sufrirá "disonancia cognitiva". Al no encontrar ningún patrón físico o frontera matemática común entre un blanco brillante y un negro oscuro, la precisión del modelo colapsaría.
-- **La Solución:** Dividir para vencer. Mantenemos la Clase 1 (Nubes) y la Clase 2 (Sombras) estrictamente separadas durante el entrenamiento para que la red aprenda la física de la luz perfectamente. Una vez el modelo esté en Producción y genere predicciones precisas sobre imágenes nuevas, la lógica de negocio del visor web agrupará ambas clases para descartarlas simultáneamente del mosaico final.
+- **Dualidad Espectral:** La formación nubosa exhibe reflectancias exponenciales (señales saturadas en el espacio visible). La sombra, contrariamente, desencadena la atenuación radiométrica extrema (sumidero paramétrico).
+- **El Problema Latente:** Si se fuerza a la arquitectura a indexar valores matemáticos de magnitudes diametralmente opuestas bajo una etiqueta semántica unificada, el modelo neuronal incurrirá en inestabilidad algorítmica (imposibilidad de hallar el límite convectivo entre blancos y negros). Esto hundiría las métricas de precisión global.
+- **Estrategia Divisoria:** Se decreta la separación categórica inquebrantable de la Clase 2 (Nubes) y la Clase 3 (Sombras) a lo largo de las fases de entrenamiento. Con este aislamiento, el algoritmo mapea las leyes físicas con alta pureza. En fase de Producción (Inferencia), el *backend* del visor GIS asume la unificación programática de ambas etiquetas para su eliminación gráfica conjunta, externalizando el esfuerzo heurístico fuera de la IA.
 
-## 4. Casuística Especial: Sombras sobre Nubes (El "Mar de Nubes")
+## 4. Fenómenos Excepcionales: Sombras Superpuestas (Sistema "Mar de Nubes")
 
-Durante la edición y clasificación manual de la máscara SCL, es común encontrar escenarios donde la capa nubosa es total y presenta texturas oscuras muy marcadas, como se observa en la siguiente imagen:
+Durante el protocolo de revisión visual y edición de la máscara SCL, se constata recurrentemente la aparición de estratos nubosos de alta densidad, caracterizados por texturas orográficas severas, como denota el siguiente mapeo espacial:
 
 ![Nubes proyectando sombra sobre nubes](./img/Screenshot_2026-07-18_15-20-28.png)
 
-### 4.1. El Falso Positivo Geométrico
-El algoritmo Sen2Cor carece de percepción de profundidad 3D. Cuando una formación nubosa alta (ej. un cúmulo) proyecta una sombra sobre una formación nubosa más baja (ej. un estrato), el algoritmo detecta un píxel brillante seguido geométricamente de un píxel muy oscuro. Aplicando su lógica basada en la posición solar, deduce que esa mancha negra es una sombra en la superficie terrestre y la clasifica erróneamente como **Sombra de Nube (3)**, cuando en realidad es material nuboso.
+### 4.1. Falsos Positivos Topológicos de Sen2Cor
+El algoritmo de base de la ESA carece de noción de volumen atmosférico. Al intersectar un sistema nuboso alto con una formación estratificada inferior, el sistema procesa una caída de reflectancia inmediatamente adyacente a un foco de alta reflectancia. Condicionado por estimadores geométricos y la elevación cenital, Sen2Cor infiere heurísticamente la presencia de un elemento terrestre oscurecido, etiquetando la depresión nubosa como **Sombra de Nube (3)**, cuando su verdadera naturaleza es hidrometeorológica.
 
-### 4.2. Estrategia de Edición y Clasificación
-Ante estas situaciones (imágenes 100% cubiertas por nubes donde el suelo no es visible), se plantean dos opciones metodológicas:
-1. **Conservadora (Recomendada):** Dejar los píxeles negros clasificados como **Sombra de Nube (3)**. La red neuronal aprenderá que estas formas oscuras adyacentes a zonas blancas son sombras. Dado que en producción se eliminará tanto la clase Nube como la Sombra, el resultado final operativo será correcto.
-2. **Purista:** Repintar manualmente la zona negra como **Nube (2)**, asumiendo que físicamente sigue siendo agua condensada.
+### 4.2. Tratamiento Metodológico
+Ante estas disfunciones categóricas (paneles geográficos con 100% de cobertura y nula percepción terrestre), se estipulan dos vectores metodológicos:
+1. **Opción Conservadora (Pauta Estándar):** Preservar la clasificación originaria de Sen2Cor como **Sombra de Nube (3)**. La topología convolucional interiorizará dichas geometrías limítrofes oscuras como perfiles de sombra. Dado que el post-procesamiento de Inferencia unifica y elimina nubes y sombras simultáneamente, la resolución de negocio será matemáticamente correcta.
+2. **Opción Restitutiva:** Intervención manual exhaustiva sobre la cartografía y recategorización cromática como **Nube (2)**.
 
-Se recomienda emplear la opción conservadora durante el volumen general de datos para optimizar recursos, reservando el esfuerzo manual minucioso para la corrección de errores críticos estructurales: **nieve clasificada erróneamente como nube, o terreno útil clasificado como nube**.
+Se adopta la vía conservadora como directriz operativa para el entrenamiento basal del modelo, con el objetivo de optimizar recursos del equipo de datos, reservando la auditoría e intervención manual intensiva exclusivamente para subsanar deficiencias de alto impacto estructural: **reclasificación de formaciones nivales bajo el umbral de nubes, o falsos positivos atmosféricos proyectados sobre polígonos industriales y litorales**.
 
-### 4.3. Importancia Crítica de la Edición en los Datos de Test
-Es imperativo comprender que la estrategia descrita anteriormente cambia de paradigma al abordar los 10 gránulos designados en el conjunto de evaluación ([`test_granules.csv`](../scripts/test_granules.csv)). 
+### 4.3. Restricciones Analíticas sobre los Datos de Test
+Es prioritario destacar que la flexibilidad tolerada bajo la estrategia previa queda suprimida categóricamente al operar sobre el conjunto de evaluación constituido por los 10 gránulos de Test ([`test_granules.csv`](../scripts/test_granules.csv)).
 
-Para los datos de Test, la edición y clasificación manual de los píxeles de los ficheros SCL no es opcional ni se admite laxitud, sino que constituye el pilar validador del proyecto. Si no se curan meticulosamente estos gránulos, la red neuronal (U-Net) sería evaluada matemáticamente contra los propios errores algorítmicos de Sen2Cor que la investigación pretende mitigar. Esto generaría una paradoja de "falsos positivos" donde la U-Net sería penalizada estadísticamente precisamente cuando acierte identificando la nieve de forma correcta. Por tanto, el esfuerzo manual "purista" debe concentrarse íntegramente en generar la **Edición y Clasificación Manual de Píxeles** perfecta para la batería de Test.
+En la fase de depuración de este subconjunto ciego, la intervención metodológica no contempla la más mínima tolerancia analítica; resulta fundamental la ejecución de un etiquetado paramétrico perfecto. Si el proceso adolece de rigor, la precisión inferencial (IoU) de la U-Net sería contrastada frente a los propios errores geométricos del algoritmo Sen2Cor. Ello desencadenaría una alteración engañosa de los indicadores estadísticos, deprimiendo falsamente la tasa de aciertos de la arquitectura en los dominios nivales donde precisamente demuestra superioridad técnica. Consecuentemente, el vector "restitutivo" debe aplicarse sistemáticamente a la totalidad de gránulos designados como barrera validadora (Edición *Pixel-Perfect* del *Ground Truth*).

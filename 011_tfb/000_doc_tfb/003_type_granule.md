@@ -1,91 +1,91 @@
-# Lista de la Compra del Dataset (Guía de Selección de Gránulos)
+# Criterios de Selección del Dataset (Guía de Extracción de Gránulos)
 
-Este documento sirve como guía estricta para realizar la búsqueda manual de las imágenes Sentinel-2 en herramientas como Copernicus Browser. El objetivo es conseguir los 40 gránulos perfectos que contengan los "casos difíciles" para entrenar la U-Net.
+Este documento establece la metodología de selección manual para las imágenes Sentinel-2 en el repositorio Copernicus Browser. El objetivo radica en aislar 40 gránulos óptimos que representen escenarios topográficos y meteorológicos complejos ("casos difíciles") para el entrenamiento de la arquitectura U-Net.
 
 ## Índice
-- [0. Filosofía de Selección: El Peligro del Suelo Dominante](#0-filosofía-de-selección-el-peligro-del-suelo-dominante)
+- [0. Filosofía de Selección: El Sesgo del Suelo Dominante](#0-filosofía-de-selección-el-sesgo-del-suelo-dominante)
 - [1. Conjunto de Entrenamiento (30 Gránulos)](#1-conjunto-de-entrenamiento-30-gránulos)
-  - [Caso A: El "Jefe Final" - Mezcla de Nieve y Nube (Pirineos)](#caso-a-el-jefe-final---mezcla-de-nieve-y-nube-pirineos)
-  - [Caso B: Niebla de Invalle y Nubes Convectivas (Llanura)](#caso-b-niebla-de-invalle-y-nubes-convectivas-llanura-central)
-  - [Caso C: Falsos Positivos Urbanos y Marinos (Costa Central)](#caso-c-falsos-positivos-urbanos-y-marinos-costa-central)
-  - [Caso D: Extremos Agrícolas y Zonas Inundadas (Sur)](#caso-d-extremos-agrícolas-y-zonas-inundadas-sur)
-- [2. Conjunto de Test Oculto (10 Gránulos)](#2-conjunto-de-test-oculto-10-gránulos)
+  - [Caso A: Nivel Máximo de Complejidad - Interacciones Nieve/Nube (Pirineos)](#caso-a-nivel-máximo-de-complejidad---interacciones-nievenube-pirineos)
+  - [Caso B: Niebla de Inversión y Nubosidad Convectiva (Llanura)](#caso-b-niebla-de-inversión-y-nubosidad-convectiva-llanura-central)
+  - [Caso C: Anomalías Urbanas y Entornos Marinos (Costa Central)](#caso-c-anomalías-urbanas-y-entornos-marinos-costa-central)
+  - [Caso D: Fenología Agrícola y Zonas de Inundación (Sur)](#caso-d-fenología-agrícola-y-zonas-de-inundación-sur)
+- [2. Conjunto de Test Aislado (10 Gránulos)](#2-conjunto-de-test-aislado-10-gránulos)
 
 ---
 
 ## 0. Filosofía de Selección: La Regla de Oro (Suelo vs Nube)
 
-Antes de buscar gránulos, debes interiorizar una regla de oro fundamental para el *Deep Learning*: **La inmensa mayoría de tus gránulos deben tener entre un 30% y un 70% de nubosidad, mezclando siempre nubes y suelo visible.**
+Como principio metodológico fundamental en *Deep Learning*: **La inmensa mayoría de los gránulos debe presentar un umbral de nubosidad situado entre el 30% y el 70%, garantizando la coexistencia espacial de nubes y suelo visible.**
 
-¿Por qué es esto obligatorio?
-1. **Fronteras y Sombras:** Si descargas un gránulo 100% nublado, la red no aprende cómo se proyectan las sombras de las nubes sobre el suelo, ni cómo es el borde exacto de una nube (transición de blanco a terreno).
-2. **Dos por el precio de uno:** Como la U-Net recorta la imagen en trozos de 512x512, un gránulo con un 40% de nubes dispersas te regala cientos de recortes que son 100% nube, cientos que son 100% suelo despejado, y cientos que contienen el borde crítico entre ambos.
-3. **El Peligro del Suelo Dominante:** Si bajas muchos gránulos 100% despejados, el 90% de tus píxeles de entrenamiento serán "suelo". La red se volverá "vaga", prediciendo siempre "Suelo" para ganar precisión matemática fácil, ignorando las nubes pequeñas.
+**Justificación Analítica:**
+1. **Fronteras y Proyección de Sombras:** La ingesta de gránulos con cobertura nubosa del 100% inhibe la parametrización de las sombras proyectadas sobre la superficie, así como la caracterización de los bordes nubosos (gradientes de transición nube-terreno).
+2. **Eficiencia del Muestreo (Tiling):** Puesto que la arquitectura U-Net particiona la matriz espacial en cuadrantes de 512x512 píxeles, un gránulo con nubosidad dispersa (40%) genera inherentemente un conjunto de datos mixto: parches con 100% de nubosidad, parches 100% despejados, y áreas de transición críticas.
+3. **El Sesgo del Suelo Dominante:** La inclusión desproporcionada de gránulos totalmente despejados provocaría un desbalanceo de clases (dominancia del 90% de píxeles "Suelo"). Esto induce un fenómeno estadístico donde el modelo prioriza predecir "Suelo" por defecto para maximizar el *Accuracy* global, invisibilizando formaciones nubosas minoritarias.
 
 **La Única Excepción (Hard Negatives):**
-Solo buscarás gránulos 100% despejados cuando quieras enseñarle a la red un "Falso Positivo Duro". Por ejemplo: un día 100% soleado sobre el Pirineo nevado (para que aprenda que el blanco de la nieve NO es nube), o un día 100% soleado sobre Barcelona (para que aprenda que los techos industriales brillantes NO son nubes).
+La extracción de gránulos con cobertura 0% se reserva exclusivamente para la parametrización de "Falsos Positivos Duros". Ejemplos: coberturas nivales puras bajo alta insolación (para disociar espectralmente la nieve pura de la nube), o tejidos urbanos e industriales de alta reflectancia (para evitar que geometrías reflectantes, como cubiertas industriales, sean catalogadas como formaciones atmosféricas).
 
 ## 1. Conjunto de Entrenamiento (30 Gránulos)
 
-### Caso A: El "Jefe Final" - Mezcla de Nieve y Nube (Pirineos)
-Es vital enseñarle a la red (con la banda SWIR) la diferencia cuando ambas cosas se solapan.
+### Caso A: Nivel Máximo de Complejidad - Interacciones Nieve/Nube (Pirineos)
+Resulta crítico parametrizar la disociación física (mediante canal SWIR) en zonas de solapamiento nival y nuboso.
 *   **Cantidad:** 8 Gránulos
-*   **Gránulos recomendados:** `T31TCH` (Val d'Aran/Aigüestortes), `T31TDH` (Cerdanya/Ripollès).
-*   **Meses:** Enero, Febrero, Marzo.
-*   **Qué debes ver exactamente en pantalla:** 
-    *   **2 Gránulos (Excepción 100% despejado):** Día soleado perfecto. Picos y valles totalmente blancos por la nieve. Ni una sola nube. Esto enseña a la IA la textura pura de la nieve.
-    *   **6 Gránulos (El Caos - 50% nube / 50% nieve):** Tienes que ver nieve en las montañas, y justo encima o al lado, formaciones nubosas tapando partes nevadas y partes de bosque oscuro. Esto obliga a la red a encontrar la minúscula diferencia espectral entre la nube y la nieve que tiene debajo. Usa el filtro de nubes de Copernicus entre el 20% y el 60%.
+*   **Identificadores Estratégicos:** `T31TCH` (Val d'Aran/Aigüestortes), `T31TDH` (Cerdanya/Ripollès).
+*   **Ventana Temporal:** Enero, Febrero, Marzo.
+*   **Criterios de Inspección Visual:** 
+    *   **2 Gránulos (Hard Negatives):** Cobertura despejada absoluta. Masas nivales íntegras. Este conjunto instruye a la red sobre la textura espacial y radiometría pura de la nieve.
+    *   **6 Gránulos (Interacción Mixta):** Coexistencia de formaciones nivales con sistemas nubosos superpuestos. Obliga al algoritmo a inferir gradientes espectrales mínimos entre la nubosidad y el estrato nival subyacente. Filtro Copernicus recomendado: 20% - 60%.
 
-### Caso B: Niebla de Invalle y Nubes Convectivas (Llanura Central)
-La niebla a ras de suelo se parece mucho a la nube alta, pero el DEM ayuda a discriminarla. Los cirros son el reto de verano.
+### Caso B: Niebla de Inversión y Nubosidad Convectiva (Llanura Central)
+La niebla de subsidencia orográfica presenta alta similitud espectral con nubosidad alta. Los cirros representan el reto principal estival.
 *   **Cantidad:** 8 Gránulos
-*   **Gránulos recomendados:** `T31TCG` (Plana de Lleida Norte), `T31TDG` (Cataluña Central / Berguedà).
-*   **Meses y Composición visual exacta:**
-    *   **4 Gránulos de Invierno (Niebla):** Diciembre/Enero. Busca días muy anticiclónicos. En el mapa general de España no hay nubes, pero en Lleida hay una "mancha plana y blanca" (niebla). Debe verse la niebla tapando el valle, pero las montañas de los bordes del gránulo deben verse perfectamente despejadas.
-    *   **4 Gránulos de Verano (Cirros/Cúmulos):** Junio/Julio. Busca cielos con un 30-50% de nubes. Deben ser nubes finas y estiradas (Cirros) o nubes de buen tiempo esparcidas como algodón, proyectando sombras muy definidas sobre los campos de cultivo secos. Cero nieve en toda la imagen.
+*   **Identificadores Estratégicos:** `T31TCG` (Plana de Lleida Norte), `T31TDG` (Cataluña Central / Berguedà).
+*   **Criterios de Inspección Visual:**
+    *   **4 Gránulos de Invierno (Niebla):** Diciembre/Enero. Situaciones anticiclónicas. Masas de niebla restringidas al fondo de valle, con divisorias montañosas circundantes despejadas.
+    *   **4 Gránulos de Verano (Cirros/Cúmulos):** Junio/Julio. Cobertura del 30-50%. Formaciones estratificadas (Cirros) o estructuras convectivas aisladas proyectando sombra dura sobre cobertura terrestre árida. Ausencia estricta de nieve.
 
-### Caso C: Falsos Positivos Urbanos y Marinos (Costa Central)
-Las ciudades tienen naves industriales blancas gigantes que brillan como nubes. El mar es tan oscuro que una nube pequeña resalta muchísimo.
+### Caso C: Anomalías Urbanas y Entornos Marinos (Costa Central)
+La reflectancia de infraestructuras urbanas actúa como sumidero de falsos positivos. Paralelamente, la baja reflectancia marina intensifica el contraste de nubosidad minoritaria.
 *   **Cantidad:** 8 Gránulos
-*   **Gránulos recomendados:** `T31TDF` (Área Metropolitana de Barcelona).
-*   **Meses:** Indiferente (mezclar Verano e Invierno).
-*   **Qué debes ver exactamente en pantalla:**
-    *   **2 Gránulos (Excepción 100% despejado):** Ni una sola nube en la ciudad ni en el mar. Barcelona brillando a pleno sol. La IA aprenderá que el gris claro del asfalto y el blanco de los polígonos industriales no son nubes.
-    *   **6 Gránulos (El Contraste - 30% nube / 70% visible):** Nubes esparcidas cruzando desde el interior hacia el mar. Mitad de la nube sobre la ciudad, mitad de la nube sobre el agua azul marino. Queremos que la red aprenda cómo se ve el borde de una nube cuando el fondo es muy oscuro (mar) frente a cuando el fondo es ruidoso (ciudad).
+*   **Identificadores Estratégicos:** `T31TDF` (Área Metropolitana de Barcelona).
+*   **Ventana Temporal:** Indiferente (mezclar estacionalidad).
+*   **Criterios de Inspección Visual:**
+    *   **2 Gránulos (Hard Negatives):** Entorno urbano y litoral 100% despejado bajo alta insolación (mitigación de falsos positivos en zonas industriales y asfaltos claros).
+    *   **6 Gránulos (Contraste Litoral):** Nubosidad advectiva (30%-70%) transitando entre el dominio marítimo y el entorno antropogénico, forzando la evaluación de bordes bajo fondos de alta varianza (ciudad) frente a fondos homogéneos de baja reflectancia (mar).
 
-### Caso D: Extremos Agrícolas y Zonas Inundadas (Sur)
-Queremos confundir a la red con campos que parecen espejos de agua o campos de tierra muy clara.
+### Caso D: Fenología Agrícola y Zonas de Inundación (Sur)
+El objetivo radica en evaluar el comportamiento frente a láminas de agua antropogénicas (arrozales) y coberturas edáficas de alta albedo (secanos extremos).
 *   **Cantidad:** 6 Gránulos
-*   **Gránulos recomendados:** `T31TCE` (Delta del Ebro), `T31TCF` (Llanuras de secano).
-*   **Meses y Composición visual exacta:**
-    *   **3 Gránulos (Arrozales inundados):** Mayo/Junio en el Delta del Ebro. Debes ver los campos totalmente marrones u oscuros (inundados, parecen espejos de agua). El cielo debe tener nubes cruzando (20-40% de nubosidad) para que el reflejo del agua confunda al algoritmo antiguo pero no a la IA.
-    *   **3 Gránulos (Secano árido):** Agosto. Llanuras áridas, amarillas y pálidas. Busca que haya nubes grandes (50% de cobertura) para que la IA aprenda a distinguir una nube blanca de un campo amarillento quemado por el sol.
+*   **Identificadores Estratégicos:** `T31TCE` (Delta del Ebro), `T31TCF` (Llanuras de secano).
+*   **Criterios de Inspección Visual:**
+    *   **3 Gránulos (Inundación Agrícola):** Mayo/Junio (Delta del Ebro). Parajes inundados con nubosidad en tránsito (20-40%). Evita la clasificación errónea de reflejos especulares acuáticos (*Sun Glint*).
+    *   **3 Gránulos (Aridez Estival):** Agosto. Llanuras áridas con nubosidad consolidada (50%). Enseña a la arquitectura a distinguir la firma radiométrica de la nube frente a suelos áridos altamente reflectantes en espectro visible.
 
 ---
 
-## 2. Conjunto de Test Oculto (10 Gránulos)
-Este es el examen final de la red. Debe ser un popurrí brutal. **Recuerda: estos gránulos NUNCA deben mezclarse con los 30 de arriba**.
+## 2. Conjunto de Test Aislado (10 Gránulos)
+Este conjunto se reserva estrictamente para la fase de validación inferencial. **Se prohíbe terminantemente su exposición durante la fase de entrenamiento**.
 
 *   **Invierno (5 Gránulos):**
-    *   2 × `T31TCH` o `T31TDH` (Febrero): Nieve a tope + nubes parciales.
-    *   2 × `T31TCG` (Enero): Niebla espesa en la llanura.
-    *   1 × `T31TDF` (Diciembre): Sol bajo creando sombras largas en edificios y montañas costeras.
+    *   2 × `T31TCH` o `T31TDH` (Febrero): Máxima cobertura nival con nubosidad parcial.
+    *   2 × `T31TCG` (Enero): Eventos severos de niebla orográfica.
+    *   1 × `T31TDF` (Diciembre): Proyección de sombras kilométricas bajo ángulo solar bajo.
 *   **Verano/Transición (5 Gránulos):**
-    *   2 × `T31TDG` (Abril/Mayo): Cimas con un poco de nieve derritiéndose y nubes de primavera.
-    *   2 × `T31TDF` (Agosto): Nubes de tormenta de verano sobre el mar y la ciudad.
-    *   1 × `T31TCE` (Julio): Delta del Ebro despejado parcialmente.
+    *   2 × `T31TDG` (Abril/Mayo): Zonas de transición fenológica y deshielo parcial.
+    *   2 × `T31TDF` (Agosto): Desarrollos tormentosos estivales y frentes marítimos.
+    *   1 × `T31TCE` (Julio): Zona deltaica parcialmente cubierta.
 
 ---
 
-## 3. Filosofía de Evaluación: La "Edición y Clasificación Manual de Píxeles"
+## 3. Filosofía de Evaluación: La "Clasificación Manual de Píxeles" (Verdad Terreno)
 
-Existe una regla inquebrantable para evaluar matemáticamente al modelo al finalizar el proyecto: **Bajo ningún concepto se evaluará el rendimiento de la IA contra la máscara SCL original de Sen2Cor en el conjunto de Test.**
+Se establece un protocolo analítico estricto para la evaluación del modelo: **Bajo ninguna circunstancia se calcularán métricas de rendimiento contra la máscara SCL original de Sen2Cor en el conjunto de Test.**
 
-Dado que la literatura científica y empírica (e.g., *Baetens, Desjardins & Hagolle, 2019*) demuestra que los algoritmos tradicionales como Sen2Cor cometen errores graves de clasificación (falsos positivos) ante la presencia de nieve y agua, usar su archivo SCL original como "verdad absoluta" para puntuar a la red neuronal llevaría a una paradoja inaceptable: el script estadístico penalizaría a la IA precisamente cuando acierta corrigiendo un fallo de la ESA.
+Dado que la literatura científica (e.g., *Baetens, Desjardins & Hagolle, 2019*) demuestra que algoritmos tradicionales como Sen2Cor incurren en sesgos sistemáticos frente a la nieve y cuerpos de agua, su uso como "verdad absoluta" generaría una distorsión métrica: el sistema penalizaría estadísticamente a la red U-Net precisamente en los escenarios donde acierta al subsanar un falso positivo heredado de la ESA.
 
-**El Flujo de Trabajo obligatorio para el Test Set será el siguiente:**
-1. Descargaremos los gránulos de Test incluyendo sus máscaras SCL a través del script [`002_download_test.py`](../scripts/002_download_test.py).
-2. Utilizaremos el SCL de Sen2Cor *únicamente* como plantilla o "borrador" inicial para ahorrar trabajo.
-3. Se realizará una **edición y clasificación manual exhaustiva en QGIS**, revisando los píxeles conflictivos (apoyados en las vistas `ColorReal.vrt` y `FalsoColor_Nieve.vrt`) y repintando a mano los errores de clasificación (ej. nieve marcada como nube).
-4. Ese archivo corregido a mano se exportará como la **"Edición y Clasificación Manual de Píxeles" (Verdad Terreno)**.
-5. Las métricas científicas del proyecto (F1-Score, IoU, Accuracy) se calcularán enfrentando la predicción matemática de la U-Net *exclusivamente* contra esta Verdad Absoluta revisada por un humano.
+**El Protocolo Operativo para el Test Set se estructura de la siguiente forma:**
+1. Ejecución de la ingesta de gránulos de Test (incluyendo máscaras SCL nativas) mediante el script [`002_download_test.py`](../scripts/002_download_test.py).
+2. Utilización del archivo SCL de Sen2Cor exclusivamente como matriz topológica preliminar.
+3. Ejecución de un proceso de **edición visual asistida en entornos GIS**, realizando una reclasificación manual sobre las zonas de conflicto radiométrico (apoyada en visualizaciones de `ColorReal.vrt` y `FalsoColor_Nieve.vrt`).
+4. Exportación del raster editado como la **Verdad Terreno consolidada**.
+5. Los indicadores estadísticos finales (F1-Score, IoU, Accuracy) se computarán confrontando la inferencia de la arquitectura U-Net frente a esta Verdad Terreno revisada empíricamente.

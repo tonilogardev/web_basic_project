@@ -1,27 +1,30 @@
 # Justificación Arquitectónica: Descarte del DEM (Modelo Digital de Elevaciones)
 
-Durante las fases preliminares de la arquitectura técnica del proyecto, se contempló la posibilidad de incluir un Modelo Digital de Elevaciones (DEM) como canal de entrada adicional a la red neuronal convolucional (U-Net). El propósito inicial era proporcionar a la red un contexto topográfico que le ayudara a discriminar entre nieve (típicamente a altas cotas) y nubes.
+Durante las fases preliminares relativas a la arquitectura de ingesta de datos del proyecto, se contempló la inyección paramétrica de un Modelo Digital de Elevaciones (DEM) como variable tensorial adicional a la red neuronal convolucional (U-Net). El propósito teórico residía en dotar a la arquitectura de contexto orográfico, bajo el axioma de correlación entre altimetría y precipitación nival, facilitando la segregación entre superficies nivales (cotas superiores) y formaciones nubosas bajas.
 
-Sin embargo, tras una revisión rigurosa del estado del arte y un análisis coste-beneficio en el marco de un Trabajo de Fin de Grado (TFB), se ha tomado la decisión arquitectónica de **desechar el uso del DEM**, confiando la discriminación nube-nieve única y exclusivamente a la firma espectral de las bandas físicas.
+No obstante, en base a una revisión exhaustiva del estado del arte, sumada a consideraciones operativas dentro del alcance de un Trabajo de Fin de Grado (TFB), se adopta la decisión arquitectónica de **descartar la integración del DEM**, delegando la clasificación semántica nube/nieve de forma exclusiva a las firmas espectrales derivadas de la captación radiométrica de las bandas L1C.
 
-## 1. La Física Espectral es suficiente (El poder del SWIR)
-La inclusión de un DEM parte de una premisa topográfica (altitud = nieve). Sin embargo, las bandas infrarrojas de onda corta (**SWIR: B11 y B12**) del satélite Sentinel-2 resuelven este problema mediante las leyes de la termodinámica y la óptica:
-*   **Las nubes** reflejan fuertemente la radiación SWIR.
-*   **La nieve**, al estar compuesta por cristales de hielo y agua, absorbe masivamente la radiación SWIR, mostrándose muy oscura en estas bandas.
+## 1. La Resolución Analítica de la Física Espectral (Espectro SWIR)
 
-La red neuronal tiene, por tanto, información matemática robusta y directa para separar nieve de nube sin necesidad de recurrir a metadatos de altitud.
+La inyección de información altimétrica se ampara en una estimación probabilística (altitud = probabilidad nival). A nivel físico, esta dependencia queda resuelta mediante el análisis del rango de radiación Infrarroja de Onda Corta (**SWIR: Bandas B11 y B12**) captado por los sensores del Sentinel-2, obedeciendo a leyes termodinámicas y ópticas deterministas:
+*   **Las formaciones atmosféricas (Nubes)** exhiben una alta reflectancia frente a la radiación incidente SWIR.
+*   **Las superficies nivales**, compuestas mayoritariamente por fases cristalinas de hielo y agua intersticial, inducen procesos de absorción casi totales frente a la radiación SWIR, registrando una señal radiométrica residual (pixeles oscuros).
 
-### Evidencia Bibliográfica
-El descarte del DEM está respaldado por los estudios y algoritmos más consolidados en teledetección:
+En consecuencia, el algoritmo neuronal dispone de una variable predictora puramente matemática (radiométrica) para establecer umbrales de separación entre nieve y nubes sin incurrir en inferencias basadas en altimetría estática.
 
-*   **Zhu & Woodcock (2012) - Fmask:** El algoritmo histórico por excelencia para enmascarado de nubes (Fmask) basa su separación nube-nieve en el cálculo del índice NDSI (*Normalized Difference Snow Index*) usando bandas del verde y del SWIR, prescindiendo totalmente de modelos topográficos. [Enlace al estudio (ScienceDirect)](https://doi.org/10.1016/j.rse.2011.10.028)
-*   **Zupanc (2017) - s2cloudless:** El algoritmo de Machine Learning oficial utilizado por la Agencia Espacial Europea en su *Copernicus Browser* (s2cloudless, desarrollado por Synergize) se alimenta exclusiva y estrictamente de 10 bandas espectrales de Sentinel-2. Logra resultados del estado del arte sin inyectar ninguna capa de elevación. [Enlace a la publicación técnica (Sentinel Hub)](https://medium.com/sentinel-hub/improving-cloud-detection-with-machine-learning-c09dc5d7cf13) | [Repositorio GitHub](https://github.com/sentinel-hub/sentinel2-cloud-detector)
+### Evidencia Bibliográfica y Algorítmica
 
-## 2. Complejidad de Ingeniería de Datos (Data Engineering)
-En el contexto de un TFB, incorporar el DEM introduce una complejidad técnica desproporcionada que no garantiza un retorno equivalente en la métrica final de precisión:
-*   Requiere la descarga independiente de mallas DEM altimétricas (e.g., *Institut Cartogràfic i Geològic de Catalunya [ICGC], 2026*).
-*   Exige reproyectar las mallas desde coordenadas geográficas puras al sistema cartográfico UTM específico de cada gránulo de Sentinel-2.
-*   Precisa un remuestreo espacial avanzado para coregistrar los píxeles de 30m del DEM a la cuadrícula estricta de 10m/20m de las bandas L1C.
+El descarte metodológico de información topográfica queda sustentado por los algoritmos estandarizados en la disciplina de teledetección óptica:
+
+*   **Zhu & Woodcock (2012) - Fmask:** El algoritmo referencial de enmascaramiento de nubes a nivel global funda su discriminación en el umbral paramétrico del índice *Normalized Difference Snow Index* (NDSI). Este índice calcula proporciones basales entre la reflectancia verde y SWIR, absteniéndose de utilizar modelos de elevación auxiliar. [Enlace al estudio (ScienceDirect)](https://doi.org/10.1016/j.rse.2011.10.028)
+*   **Zupanc (2017) - s2cloudless:** El motor de aprendizaje automático integrado por la Agencia Espacial Europea en su ecosistema *Copernicus Browser* (desarrollado por la organización Synergize), emplea estrictamente vectores de 10 bandas espectrales procedentes del Sentinel-2. Esta arquitectura asimila resultados asimilables al estado del arte prescindiendo en su totalidad de la inyección de canales altimétricos. [Enlace a la publicación técnica (Sentinel Hub)](https://medium.com/sentinel-hub/improving-cloud-detection-with-machine-learning-c09dc5d7cf13) | [Repositorio GitHub](https://github.com/sentinel-hub/sentinel2-cloud-detector)
+
+## 2. Complejidad y Sobrecarga de Ingeniería de Datos (Data Engineering)
+
+La incorporación metodológica de una capa DEM añade una componente exponencial de complejidad técnica al flujo de *MLOps*, injustificada por el retorno inferencial paramétrico marginal esperado:
+*   Incurre en dependencias externas para la adquisición automatizada de archivos matriciales altimétricos masivos (e.g., *Institut Cartogràfic i Geològic de Catalunya [ICGC], 2026*).
+*   Demanda algoritmos dinámicos de reproyección, transmutando el formato esférico puro hacia el sistema cartográfico local UTM exigido por cada malla de la constelación Sentinel-2.
+*   Conlleva la aplicación de técnicas de interpolación y remuestreo (*resampling*), necesarias para forzar el co-registro espacial de los bloques altimétricos (típicamente de 30m) a las resoluciones rígidas de captura espectral L1C (10m/20m).
 
 **Conclusión Final:**
-Se descarta el uso del DEM por no ser lógico ni conveniente. El modelo se basará en las bandas espectrales nativas (Visible + NIR + SWIR), alineándose con los estándares de la industria (s2cloudless) y asegurando que el esfuerzo de investigación se destine a la edición y clasificación del *Ground Truth* y al diseño de la red neuronal, evitando una sobrecarga innecesaria y peligrosa en el preprocesamiento de datos.
+Se descarta la integración del DEM debido a su ineficiencia operativa y baja aportación teórica neta. El sistema arquitectónico se anclará exclusivamente a los tensores radiométricos nativos (Visible + NIR + SWIR), manteniendo coherencia con las arquitecturas de segmentación vigentes de la industria (s2cloudless). Esta decisión canaliza y optimiza los recursos temporales hacia procesos empíricos determinantes: diseño matricial convolucional y re-etiquetado riguroso del *Ground Truth*.

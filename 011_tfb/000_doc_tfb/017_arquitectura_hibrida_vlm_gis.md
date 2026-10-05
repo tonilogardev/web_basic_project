@@ -1,13 +1,13 @@
 # Arquitectura Híbrida Desacoplada: VLM + GIS
 
-Este documento detalla, paso a paso y de forma minuciosa, el flujo de trabajo automatizado que permite a un Modelo de Lenguaje Visual (VLM) dictar la edición de máscaras satelitales sin que la Inteligencia Artificial necesite comprender sistemas de coordenadas geográficas (EPSG, Lat/Lon).
+Este documento detalla analíticamente el flujo de trabajo automatizado mediante el cual un Modelo de Lenguaje Visual (VLM) orquesta la edición de máscaras satelitales, abstraído de la necesidad de procesar sistemas de coordenadas geográficas nativas (EPSG, Lat/Lon).
 
-El éxito de este sistema radica en su diseño **totalmente desacoplado**: el script de Python asume el rol de "Motor Geométrico" y el LLM asume el rol de "Motor de Decisión Visual".
+La viabilidad del sistema reside en su diseño de **arquitectura totalmente desacoplada**: las rutinas programáticas en Python operan como "Motor Geométrico", mientras que el LLM ejerce de "Motor de Decisión Semántica".
 
 ---
 
 ## Paso 1: Pre-procesamiento GIS (Tiling y Gridding)
-El objetivo de este paso es transformar el GeoTIFF matemático (incomprensible para un LLM) en un formato puramente visual y referenciado que la IA pueda auditar como si jugara a "hundir la flota".
+El objetivo de esta fase es la transcodificación del tensor GeoTIFF matemático a un formato raster visual referenciado, optimizado para la auditoría cualitativa mediante modelos multimodales.
 
 1. **Lectura Geoespacial:** Python (mediante la librería `rasterio`) lee el gránulo Sentinel-2 original.
 2. **Troceado (Tiling):** Se extraen baldosas de un tamaño digerible para la IA (ej. 512x512 píxeles). **Clave técnica:** `rasterio` almacena en la memoria del script la "transformación afín" de cada baldosa, es decir, el cordón umbilical que une esta pequeña matriz de píxeles con su ubicación exacta en el mundo real.
@@ -34,18 +34,18 @@ El modelo multimodal ignora por completo la Tierra, los meridianos y paralelos. 
 ```
 
 ## Paso 4: Post-procesamiento GIS (La Traducción Inversa)
-Aquí es donde ocurre la magia geométrica. El script de Python recibe el JSON y traduce la orden visual a un impacto geográfico.
+En esta fase, la orden semántica visual contenida en la respuesta JSON es traducida matemáticamente a un impacto geográfico determinista.
 
 1. **De Celda a Matriz Local:** El script de Python ha sido programado para saber que la celda "C4" corresponde a una caja (Bounding Box) que abarca exactamente desde el píxel `X:128` al `X:192` y del `Y:192` al `Y:256` dentro de esa baldosa de 512x512.
 2. **De Matriz a Geoespacio:** Recuperando los metadatos guardados en el Paso 1, `rasterio` proyecta ese pequeño cuadrado `[128:192, 192:256]` a las coordenadas UTM reales del planeta.
 3. **Edición Quirúrgica:** El script abre el archivo GeoTIFF original de la máscara (`_SCL_GIMP.tif`) y, actuando como un bisturí, sobrescribe únicamente ese bloque exacto de píxeles con el nuevo valor (ej. `1` = Nube), sin corromper ni un centímetro del resto de la imagen ni perder su georreferenciación.
 
 ## Paso 5: El Ciclo de Active Learning
-Una vez que el script ha recorrido las 121 baldosas y aplicado todas las inyecciones de código dictadas por la IA, el archivo original queda reparado de forma totalmente desatendida.
-El resultado es un *Ground Truth V2* de altísima fidelidad, listo para volver a entrenar a la red neuronal U-Net. Hemos logrado que un LLM genérico audite e instruya de facto a una red de segmentación geoespacial altamente especializada.
+Tras la iteración algorítmica sobre la totalidad de las baldosas y la ejecución paramétrica de las inyecciones dictadas por la IA, el archivo original queda rectificado de forma autónoma.
+Se consolida así un *Ground Truth V2* de alta fidelidad, capacitado para el reentrenamiento de la red neuronal U-Net. Se demuestra empíricamente la capacidad de un LLM genérico para auditar y dirigir el entrenamiento de una red de segmentación geoespacial especializada.
 
 ## Paso 6 (Evolución): Inferencia Local vs API 
-Con el avance de los modelos de visión de código abierto (como **PaliGemma** o **LLaVA**), el "Motor de Decisión Visual" (Paso 2 y 3) puede ejecutarse íntegramente de forma local, siempre que se disponga de hardware adecuado (por ejemplo, una GPU NVIDIA Quadro P5000 con 16GB de VRAM).
+Con la evolución tecnológica de los modelos fundacionales abiertos (e.g. **PaliGemma** o **LLaVA**), el motor de decisión semántica puede ejecutarse de forma integral *on-premise*, sujeto a requerimientos de hardware específicos (e.g. GPU NVIDIA Quadro P5000 de 16GB VRAM).
 
 ### Pros de utilizar un VLM en local (PaliGemma):
 - **Cero Límites de Cuota (Rate Limits):** Al no depender de una API (como Gemini o GPT-4o), el script no sufre errores `429 Resource Exhausted` ni necesita pausas forzosas de 20 a 60 segundos entre imágenes.

@@ -1,74 +1,74 @@
 # Ciclo de Vida del Modelo (MLOps y Lógica de Negocio)
 
-Este documento define la estrategia metodológica de entrenamiento, validación y mejora continua del modelo de *Deep Learning* (U-Net). Describe el ciclo de vida completo de la Inteligencia Artificial, desde su creación inicial para el Trabajo de Fin de Grado hasta su mantenimiento en un entorno de producción real.
+Este documento define la estrategia metodológica de entrenamiento, validación y mejora continua del modelo de *Deep Learning* (U-Net). Se describe el ciclo de vida completo de la arquitectura, desde su parametrización inicial para el Trabajo de Fin de Grado hasta su consolidación en un entorno de producción operativa.
 
 ## Índice
 - [0. Justificación Científica del Enfoque Arquitectónico](#0-justificación-científica-del-enfoque-arquitectónico)
-- [1. Fase 1: Nacimiento y Validación (El TFB)](#1-fase-1-nacimiento-y-validación-el-tfb)
+- [1. Fase 1: Despliegue y Validación (El TFB)](#1-fase-1-despliegue-y-validación-el-tfb)
 - [2. Fase 2: Puesta en Producción (Inferencia Automática)](#2-fase-2-puesta-en-producción-inferencia-automática)
-- [3. Fase 3: Entrenamiento Continuo y "Human-in-the-Loop" (MLOps)](#3-fase-3-entrenamiento-continuo-y-human-in-the-loop-mlops)
+- [3. Fase 3: Entrenamiento Continuo (Human-in-the-Loop y MLOps)](#3-fase-3-entrenamiento-continuo-human-in-the-loop-y-mlops)
 
 ---
 
 ## 0. Justificación Científica del Enfoque Arquitectónico
-Durante el diseño de este proyecto, se evaluaron diversas arquitecturas empleadas en la literatura científica para la detección de nubes. Es fundamental justificar ante el tribunal por qué se ha optado por un **modelo global *Single-Date*** (que evalúa una única imagen mezclando múltiples gránulos) frente a otras alternativas lógicas.
+Durante el diseño estructural del proyecto, se evaluaron diversas metodologías empleadas en el estado del arte de detección atmosférica. Resulta esencial fundamentar la selección de un **modelo global *Single-Date*** (evaluación de una única captura fusionando distribuciones espaciales heterogéneas) frente a alternativas convencionales.
 
-### Hipótesis Descartada 1: Un modelo específico por cada gránulo
-Podría plantearse entrenar un modelo experto exclusivo para el gránulo de los Pirineos (T31TCH) y otro para el de Barcelona (T31TDF).
-*   **Problema (Sobreajuste Espacial):** Las redes neuronales tienden a memorizar el fondo estático (ciudades, valles) en lugar de aprender la física espectral de las nubes. Si el modelo memoriza el paisaje, fallará catastróficamente ante un cambio de uso del suelo o una expansión urbana. Además, a nivel de ingeniería (MLOps), mantener múltiples modelos locales no es escalable.
-*   **Evidencia Científica:** Autores como *Mohajerani y Saeedi (2019)* en su artículo ["Cloud-Net"](https://arxiv.org/abs/1901.10077) demostraron que una red neuronal convolucional necesita nutrirse de parches de imágenes globalmente distribuidas para lograr **Invarianza Espacial**. Arquitecturas punteras como *s2cloudless* (de Synergise) también utilizan un único modelo unificado.
+### Hipótesis Descartada 1: Modelos Especializados Geográficamente
+Se contempló el entrenamiento de un modelo experto exclusivo para dominio pirenaico (T31TCH) y otro para dominio litoral/urbano (T31TDF).
+*   **Problema (Sobreajuste Espacial):** Las arquitecturas convolucionales poseen propensión a memorizar el contexto topológico estático (urbes, valles) en detrimento de la extracción de características espectrales físicas de las nubes. Si el modelo memoriza el sustrato geográfico, su capacidad inferencial colapsará frente a cambios de uso de suelo (*Land Use Change*). Operativamente (MLOps), la gestión de clústeres de modelos locales carece de escalabilidad.
+*   **Evidencia Científica:** Autores como *Mohajerani y Saeedi (2019)* ("Cloud-Net") determinaron empíricamente que la inducción de invarianza espacial requiere exponer a la red convolucional a matrices distribuidas globalmente. Arquitecturas referenciales como *s2cloudless* operan bajo un paradigma de modelo unificado.
 
 ### Hipótesis Descartada 2: Detección de Anomalías (Método Multi-Temporal)
-Otra aproximación intuitiva es alimentar al modelo con una "imagen ideal 100% despejada" del gránulo y clasificar como nube cualquier desviación temporal (*Change Detection* o *Anomaly Detection*).
-*   **Problema (Deriva del Concepto / Concept Drift):** La superficie terrestre cambia constantemente. Una llanura verde en primavera se vuelve marrón en verano, el Delta del Ebro se inunda (brillando como un espejo) y la nieve aparece y desaparece. Un modelo de anomalías detectaría estos cambios naturales como nubes. Solucionarlo requiere procesar pesadas series temporales y fracasa cuando una zona pasa meses cubierta de nubes, impidiendo actualizar la imagen "limpia" de referencia.
-*   **Evidencia Científica:** El algoritmo **MAJA** (*Hagolle et al., 2010*), usado por el CNES francés, aplica esta lógica multi-temporal. *Baetens et al. (2019)* en ["Validation of Copernicus Sentinel-2 Cloud Masks"](https://www.mdpi.com/2072-4292/11/4/433) concluyen que aunque MAJA es preciso, es inmensamente pesado a nivel computacional (depende del historial de imágenes previas) y sufre ante cambios bruscos del terreno. Por el contrario, *Gómez-Chova et al. (2017)* respaldan que un modelo *Single-Date* robusto debe obligarse a aprender la física de la nube (usando casos difíciles como la nieve pura) en lugar de depender del historial del fondo.
+Una aproximación alternativa consistiría en ingerir una imagen referencial ("clear-sky") y someter la adquisición reciente a una sustracción temporal (*Change/Anomaly Detection*).
+*   **Problema (Deriva del Concepto / Concept Drift):** La superficie terrestre experimenta fluctuaciones dinámicas (transiciones fenológicas, inundaciones de zonas húmedas, ciclos de deshielo). La arquitectura interpretaría lógicamente alteraciones del sustrato como eventos atmosféricos anómalos. La estabilización requiere series temporales masivas e incurre en fallos sistémicos en regiones con persistencia nubosa (imposibilitando la obtención de un "clear-sky" basal).
+*   **Evidencia Científica:** El algoritmo **MAJA** (*Hagolle et al., 2010*), estandarizado por el CNES, emplea esta base algorítmica. *Baetens et al. (2019)* concluyen que, si bien MAJA exhibe alta precisión, impone restricciones computacionales severas por su dependencia secuencial y muestra degradación ante alteraciones bruscas de cobertura. *Gómez-Chova et al. (2017)* respaldan que la robustez se fundamenta en un enfoque *Single-Date*, forzando a la arquitectura a asimilar respuestas espectrales atmosféricas (parametrizando límites complejos como nieve) sin anclarse al registro histórico del sustrato.
 
-**Conclusión:** Se adopta un enfoque **Single-Date Unificado** entrenado con casos límite (*Hard Negatives* de nieve y ciudades), garantizando que la red aprenda la respuesta espectral de la nube sin memorizar geográficamente Cataluña, y asegurando una inferencia rápida y ligera en producción.
+**Conclusión:** Se ratifica el enfoque **Single-Date Unificado**, entrenado con casos límite (*Hard Negatives*), garantizando la asimilación espectral independiente de la georreferenciación y posibilitando una inferencia de baja latencia en entornos de producción.
 
 ---
 
-## 1. Fase 1: Nacimiento y Validación (El TFB)
-Esta fase constituye el núcleo académico del proyecto y se realiza una única vez para generar el **Modelo V1** fundacional.
+## 1. Fase 1: Despliegue y Validación (El TFB)
+Esta etapa conforma el pilar analítico del proyecto y determina la generación del **Modelo V1** fundacional.
 
 ### 1.1 Flujo de Trabajo Operativo (Los 30 Gránulos)
-El proceso de construcción del dataset de entrenamiento sigue una mecánica estrictamente secuencial por parte del investigador:
+El ensamblaje del conjunto de datos de entrenamiento se rige por un esquema secuencial:
 
-1.  **Extracción Automatizada (API OData):** Basándose en un listado curado de gránulos críticos para la orografía catalana, el sistema ejecuta el pipeline de ingesta (`download_sentinel.py`). Se extraen las bandas crudas (B02, B03, B04, B08, B11, B12) y la máscara nativa de la ESA (SCL).
-2.  **Arquitectura "GIMP Bridge" (El Ground Truth):** Dado que los fallos de Sen2Cor requieren corrección humana, se ejecuta un *script* de codificación (`002_encode_for_gimp.py`) que transforma las matrices espaciales en una composición visualmente editable. El investigador emplea GIMP para reclasificar manualmente errores graves (falsos positivos de nieve, sombras escarpadas, y masas de agua). Finalmente, un decodificador (`003_decode_gimp_edits.py`) re-inyecta las correcciones fotográficas en el mapa científico matricial.
-3.  **Ingeniería de Datos (Feature Engineering):** El flujo calcula el índice matemático de nieve NDSI `(B03 - B11) / (B03 + B11)` a partir de la reflectancia física, y lo apila como un séptimo canal de información. Esta inyección de conocimiento físico puro reduce drásticamente la curva de aprendizaje de la U-Net.
-4.  **Troceado de Tensores y Filtrado OOM (Tiling):** Las colosales imágenes originales (10980x10980 píxeles) destrozarían la memoria RAM de cualquier máquina. Mediante el script `004_create_dataset.py`, el mapa geográfico se despedaza en teselas operativas de 512x512 píxeles. Durante este proceso, un filtro purga y destruye sistemáticamente cualquier cuadrante de terreno que contenga más de un 90% de vacío (bordes satelitales ciegos u océano profundo), ensamblando los paquetes definitivos `.pt` (PyTorch) compuestos por las 6 Clases Maestras de predicción.
+1.  **Extracción Automatizada (API OData):** Sobre la base de gránulos estratégicos, se ejecuta el script de ingesta (`download_sentinel.py`). Se capturan las bandas físicas (B02, B03, B04, B08, B11, B12) y el producto nativo de nivel L2A (SCL).
+2.  **Arquitectura "GIMP Bridge" (El Ground Truth):** Ante la existencia de errores sistemáticos en Sen2Cor, se invoca un módulo de codificación (`002_encode_for_gimp.py`) que transforma la matriz espacial en composiciones RGB editables. Se procede a una depuración visual manual en GIMP, re-clasificando errores analíticos severos (falsos positivos en coberturas nivales, sombras orográficas o masas de agua). Posteriormente, el módulo decodificador (`003_decode_gimp_edits.py`) re-integra la información en el plano matricial científico.
+3.  **Ingeniería de Características (Feature Engineering):** Se procede al cálculo matricial del índice de nieve NDSI `(B03 - B11) / (B03 + B11)` basado en valores de reflectancia, inyectándose en el tensor como una séptima dimensión de profundidad. Esta inyección de dominio físico acelera drásticamente la convergencia del algoritmo U-Net.
+4.  **Tiling y Prevención OOM:** Dado el tamaño nativo de las matrices (10980x10980), se procesa el particionado a través de `004_create_dataset.py`, aislando tensores operativos de 512x512 píxeles. Durante el proceso, algoritmos de filtrado descartan bloques estáticos (cuadrantes sin cobertura territorial), generando la estructura de datos definitiva `.pt` (PyTorch) en función de las 6 Clases Maestras.
 
-### 1.2 Generación del "Ground Truth" (Técnicas de Edición y Clasificación)
-Para ejecutar el Paso 2 mencionado anteriormente, se establece una metodología única y pragmática:
+### 1.2 Generación del "Ground Truth" (Edición y Clasificación)
+El proceso de depuración (Paso 2) obedece a una dinámica de eficiencia pragmática:
 
-*   **Edición y Corrección del producto SCL:** Se toma como base ineludible la máscara SCL (Nivel L2A) generada por el algoritmo clásico Sen2Cor de la ESA. El investigador revisa visualmente la máscara superpuesta a la imagen real (utilizando herramientas SIG como QGIS o scripts de Python) y re-clasifica o "repinta" manualmente los píxeles erróneos (ej. zonas de nieve marcadas falsamente como nubes o litorales costeros). Esta estrategia ahorra más del 90% del trabajo manual de etiquetado.
+*   **Intervención sobre el producto SCL:** Se asume como base inicial la clasificación de la ESA. Mediante sistemas SIG (QGIS) o interfaces programáticas, se someten a revisión las discrepancias y se repintan matricialmente los falsos positivos. Este paradigma reduce el esfuerzo de etiquetado manual en más de un 90%.
 
-**Casos Extremos (El efecto confeti):** En situaciones de *Hard Negatives* (ej. Pirineos con cirros finos sobre nieve), el algoritmo de la ESA suele generar un "ruido de confeti" clasificando píxeles erróneos de forma masiva y altamente fragmentada. En estos escenarios extremos, la mecánica de edición sigue siendo la misma, con la salvedad de que a nivel operativo resulta más eficiente borrar la máscara SCL completa y redibujar el contorno de la nube con la herramienta de polígono, en lugar de intentar corregir el ruido píxel a píxel.
+**Gestión de Casos Extremos (El "efecto confeti"):** En entornos de *Hard Negatives* (e.g. cirros fragmentados sobre estratos nivales), el clasificador de la ESA emite predicciones ruidosas y fragmentadas. Bajo estas circunstancias, se estima operativamente más riguroso purgar integralmente el bloque SCL erróneo y delimitar manualmente los contornos atmosféricos.
 
-### 1.3 Taxonomía de Clases (El Ground Truth)
-Para que la red neuronal aprenda correctamente la física espectral sin ambigüedades, se establece una ontología estricta de **6 clases maestras**:
-* **Clase 0 (NoData / Bordes):** Píxeles vacíos del sensor. Se ignoran activamente durante el entrenamiento matemático (`ignore_index=0`).
-* **Clase 1 (Suelo):** Tierra, rocas, vegetación, ciudades. Reflejan intensamente el infrarrojo (SWIR).
-* **Clase 2 (Nube):** Alta reflectancia visible e infrarroja.
-* **Clase 3 (Sombra Nube):** Oscurecimiento proyectado.
-* **Clase 4 (Nieve):** Alta reflectancia visible, pero absorción total en infrarrojo de onda corta (SWIR).
-* **Clase 5 (Masas de Agua):** Mar, pantanos, lagos. Absorbe el SWIR. Esta clase se aisló del "Suelo" (Clase 1) y del "NoData" (Clase 0) debido a su tendencia a generar reflejos solares especulares (*Sun Glint*). Al forzar a la red a predecir esta clase de forma independiente, el modelo aprende la física del agua y deja de confundir sus destellos con nubes.
+### 1.3 Taxonomía de Clases (Ontología del Ground Truth)
+Para consolidar la asimilación espectral y anular ambigüedades, se establece un esquema de **6 clases fundamentales**:
+* **Clase 0 (NoData / Bordes):** Zonas de supresión espacial. Se excluyen dinámicamente de la función de pérdida matemática (`ignore_index=0`).
+* **Clase 1 (Suelo):** Coberturas continentales (tierra, litología, biomasa, asfalto). Altamente reflexivas en espectro SWIR.
+* **Clase 2 (Nube):** Entidades de alta reflectancia en el espectro visible e infrarrojo.
+* **Clase 3 (Sombra Nube):** Perfiles de oscurecimiento proyectado.
+* **Clase 4 (Nieve):** Entidades de reflectancia máxima en el espectro visible, conjugada con absorción total en el canal SWIR.
+* **Clase 5 (Masas de Agua):** Mar y formaciones lacustres. Dominantes en la absorción del espectro SWIR. La segregación de esta clase (aislándola del bloque "Suelo") mitiga el riesgo de clasificar la reflectancia especular acuática (*Sun Glint*) como formaciones atmosféricas.
 
 ### 1.4 Entrenamiento y Validación
-*   **Entrenamiento Supervisado Inicial:** Se entrena la U-Net utilizando el conjunto de entrenamiento curado. Durante este proceso (dividido en cientos de *Epochs*), la Función de Pérdida (*Loss Function*) evalúa matemáticamente el error entre la predicción de la red y la máscara real (*Ground Truth*), ajustando los pesos internos mediante *Backpropagation*.
-*   **Validación Ciega (Test):** Una vez la red ha convergido, se somete al examen final utilizando el **conjunto de Test oculto de 10 gránulos** (que la red jamás ha visto). 
-*   **Métricas de Éxito:** Si las métricas (IoU, F1-Score) sobre el conjunto de test superan los umbrales de precisión esperados (y superan los resultados de algoritmos clásicos como Sen2Cor en casos complejos), se da por validada la arquitectura y nace oficialmente el Modelo V1.
+*   **Ajuste Paramétrico Inicial:** Se somete la arquitectura U-Net a entrenamiento bajo el tensor curado. La Función de Pérdida (*Loss Function*) evalúa la desviación entre la inferencia proyectada y el *Ground Truth*, ejecutando la optimización de pesos ( *Backpropagation* ).
+*   **Fase Evaluativa de Aislamiento (Test):** Concluida la convergencia matemática, el modelo es evaluado mediante la **muestra de Test aislada de 10 gránulos** (datos inéditos para la red).
+*   **Consolidación Métrica:** La superación de los umbrales estadísticos objetivos (IoU, F1-Score), y la demostración de superioridad frente a algoritmos *legacy* en escenarios límite, certifican la validez de la arquitectura, consolidando el despliegue del Modelo V1.
 
 ## 2. Fase 2: Puesta en Producción (Inferencia Automática)
-Una vez validado el Modelo V1, este abandona el entorno de entrenamiento y se integra en la aplicación Web (el visor GIS).
-*   En esta fase, la red neuronal opera exclusivamente en modo "Inferencia" (solo predice, no aprende).
-*   Cada vez que el satélite Sentinel-2 adquiere una nueva imagen sobre Cataluña, el sistema descarga los datos crudos L1C, los recorta en parches de 512x512 y se los pasa al Modelo V1.
-*   El modelo genera instantáneamente la máscara de nubes/nieve, la cual se procesa y se muestra visualmente al usuario final en la interfaz web.
+Tras la auditoría del Modelo V1, su estructura se migra hacia el aplicativo final (Visor GIS).
+*   El modelo transiciona a un estado puro de Inferencia (capacidad predictiva sin reentrenamiento asíncrono).
+*   Ante la adquisición satelital sobre el área de interés, la pasarela extrae los canales L1C crudos, aplica la rutina de *tiling* (512x512) e inyecta la malla sobre el Modelo V1.
+*   El cálculo neuronal emite la máscara deductiva, la cual se procesa y exporta dinámicamente hacia el usuario en el visor.
 
-## 3. Fase 3: Entrenamiento Continuo y "Human-in-the-Loop" (MLOps)
-Ningún modelo de IA es perfecto en el mundo real. La Fase 3 define cómo el modelo evolucionará a lo largo de los años sin necesidad de re-etiquetar miles de imágenes desde cero. Utilizaremos un enfoque de **Aprendizaje Activo (Active Learning)** mediante *Fine-Tuning* recurrente.
+## 3. Fase 3: Entrenamiento Continuo (Human-in-the-Loop y MLOps)
+Se establece la pauta evolutiva de la arquitectura, fundamentada en rutinas de **Aprendizaje Activo (Active Learning)** y *Fine-Tuning* recurrente.
 
-*   **Auditoría Humana:** El sistema funcionará en piloto automático en producción, pero ocasionalmente se observarán fallos en la aplicación web (ej. el modelo confunde una nueva cantera brillante o un secano extremo con una nube).
-*   **Corrección Quirúrgica (Human-in-the-Loop):** Cuando se detecta un fallo sistemático, el experto humano **no** corrige todo un gránulo de 100x100 km. Únicamente extrae el recorte de 512x512 píxeles donde ha fallado la red y pinta manualmente la máscara correcta en ese recorte específico (generando un nuevo *Hard Negative*).
-*   **Fine-Tuning Iterativo:** De forma periódica (ej. una vez al mes), se coge el Modelo V1 guardado y se re-entrena alimentándolo **solo** con el dataset original más las nuevas docenas de recortes corregidos.
-*   **Evolución del Modelo:** La red no empieza de cero, sino que mantiene todo su conocimiento anterior y afina sus pesos para corregir esos casos específicos. De este re-entrenamiento rápido nace el **Modelo V2**, que se despliega automáticamente en producción. Este ciclo de mejora continua es infinito, haciendo que la Inteligencia Artificial sea cada día más robusta y adaptada a la dinámica del terreno catalán.
+*   **Auditoría Asistida:** En el marco productivo, el algoritmo inferirá desviaciones estadísticas frente a casuísticas inéditas (canteras recientes o coberturas litológicas anómalas interpretadas como masas atmosféricas).
+*   **Asimilación Quirúrgica (Human-in-the-Loop):** Detectada la desviación sistémica, no se ejecuta el re-procesamiento integral del gránulo. Se aísla el cuadrante espacial defectuoso (512x512) y se establece la nueva Verdad Terreno local.
+*   **Fine-Tuning Evolutivo:** En intervalos predefinidos, la estructura de pesos del Modelo V1 se somete a entrenamiento focalizado, incorporando la muestra curada local a la base fundacional.
+*   **Actualización Estructural:** El conocimiento pre-parametrizado se ajusta vectorialmente, dando lugar a un nuevo bloque consolidado (**Modelo V2**), que es desplegado en producción sin interrupciones arquitectónicas. Este ciclo de integración continua consolida un perfil de escalabilidad teórica ilimitada.

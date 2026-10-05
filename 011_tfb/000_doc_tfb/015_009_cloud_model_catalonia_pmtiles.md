@@ -11,8 +11,8 @@
 
 ## 1 Orquestación Serverless
 
-- ***Descripción***: Orquesta el ciclo completo limitando el uso de disco a 0 bytes mediante recolección de basura automática de los gigabytes descargados.
-- ***Instrucción***: Ejecutar script pasando el rango de fechas.
+- ***Descripción***: Se orquesta el ciclo operativo completo, restringiendo el uso de almacenamiento local mediante rutinas automáticas de recolección de basura (garbage collection) aplicadas a los volúmenes descargados.
+- ***Instrucción***: Ejecución paramétrica del script definiendo el rango temporal.
 - ***File References***:
     - Revisar código en [../scripts/009_cloud_model_catalonia_pmtiles.py](../scripts/009_cloud_model_catalonia_pmtiles.py)
     - Ver modelo IA en [../checkpoints/baseline_model.pth](../checkpoints/baseline_model.pth)
@@ -21,8 +21,8 @@
 
 ## 2 Extracción Quirúrgica
 
-- ***Descripción***: Consulta OData y extrae selectivamente del ZIP en remoto (o efímero) solo los `.jp2` vitales (Bandas ópticas y SCL).
-- ***Instrucción***: Asegurar credenciales activas.
+- ***Descripción***: Se efectúan consultas a la API OData para extraer selectivamente, desde los empaquetados ZIP remotos, los archivos `.jp2` vitales (Bandas ópticas y SCL).
+- ***Instrucción***: Verificación de disponibilidad de credenciales activas.
 - ***File References***:
     - Credenciales en [../../.env.production](../../.env.production)
 
@@ -30,8 +30,8 @@
 
 ## 3 Inferencia y PMTiles (Vector/Raster)
 
-- ***Descripción***: Ejecuta la Red Neuronal U-Net mediante *patching* (512x512). Transforma Cloud Masks en polígonos GeoJSON, que se empaquetan a MVT con `tippecanoe`.
-- ***Instrucción***: Convertir salida SQLite a PMTiles nativo usando el conversor oficial.
+- ***Descripción***: Ejecución de inferencia de la Red Neuronal U-Net mediante procesamiento por ventanas espaciales (512x512). Se transforman las predicciones ráster en polígonos GeoJSON y se empaquetan en mosaicos vectoriales (MVT) mediante `tippecanoe`.
+- ***Instrucción***: Conversión de la base de datos SQLite resultante al formato cloud-native PMTiles mediante el binario oficial.
 - ***File References***:
     - Binario PMTiles [../scripts/pmtiles](../scripts/pmtiles)
     - Carpeta resultante [../visualizations/SCL_UNET_catalonia/](../visualizations/SCL_UNET_catalonia/)

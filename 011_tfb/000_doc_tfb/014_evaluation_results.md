@@ -1,13 +1,13 @@
 # Resultados Finales de la Evaluación (Test Set)
 
-Hemos finalizado con éxito la evaluación estadística de la red neuronal **U-Net** diseñada "Desde Cero", validándola matemáticamente frente a la "Edición y Clasificación Manual de Píxeles" (la Verdad Terreno extraída de los 10 gránulos ocultos de Test curados meticulosamente con GIMP).
+Se ha finalizado la evaluación estadística de la red neuronal **U-Net** diseñada ad-hoc, validándola matemáticamente frente a la Edición y Clasificación Manual de Píxeles (la Verdad Terreno extraída de los 10 gránulos de Test curados metodológicamente con la arquitectura GIMP Bridge).
 
 > [!TIP]
-> **Optimización Técnica Implementada**: El motor estadístico de validación (`007_evaluate.py`) tuvo que re-escribirse y adaptarse. Dado el volumen descomunal de datos, y una discrepancia de resolución (Sen2Cor nativo a 20m vs Predicciones a 10m), se implementó un remuestreo al vuelo por *Nearest Neighbor* acoplado a una función de agregación matemática directa (`np.bincount`). Esto permitió cruzar toda la geografía de test sin colapsar la RAM.
+> **Optimización Técnica Implementada**: El motor estadístico de validación (`007_evaluate.py`) requirió una refactorización estructural. Dado el volumen de datos a procesar y la discrepancia de resoluciones espaciales (Sen2Cor nativo a 20m vs Predicciones a 10m), se implementó un remuestreo matricial por *Nearest Neighbor* acoplado a una función de agregación algorítmica iterativa (`np.bincount`). Este enfoque permitió el procesamiento integral de la cartografía de validación sin incurrir en desbordamientos de memoria RAM.
 
 ## 1. Métricas Agregadas por Clase
 
-Se evaluaron un total astronómico de **1.100.892.668 píxeles geográficos válidos**. Los resultados demuestran de forma empírica que se han cumplido los objetivos del Trabajo Final de Máster:
+Se ha evaluado un volumen de **1.100.892.668 píxeles geográficos válidos**. Los resultados demuestran de forma empírica la consecución de los objetivos planteados:
 
 | Clase Geográfica | IoU (%) | Precisión (%) | Recall (%) | F1-Score (%) |
 | :--- | :--- | :--- | :--- | :--- |
@@ -18,7 +18,7 @@ Se evaluaron un total astronómico de **1.100.892.668 píxeles geográficos vál
 | **Masas de Agua (5)** | 86.79% | 89.54% | 96.57% | 92.93% |
 
 ### 1.1 Análisis Crítico de Resultados
-*   **Detección de Nieve (El objetivo principal):** El modelo ha alcanzado un IoU muy sólido del 84.64% con un Recall rozando el 94%. Esto demuestra matemáticamente que la inyección conjunta de bandas físicas (RGB + SWIR) y el índice normalizado (**NDSI**) en la primera capa convolucional de la arquitectura U-Net consigue mapear el umbral radiométrico, separando topológicamente la nieve de las nubes y superando ampliamente la fiabilidad algorítmica clásica.
+*   **Detección de Nieve (El objetivo principal):** El modelo registra un IoU del 84.64% y un Recall del 93.72%. Esto demuestra matemáticamente que la inyección conjunta de bandas radiométricas (RGB + SWIR) y el índice normalizado (**NDSI**) en la primera capa convolucional de la arquitectura U-Net consigue mapear el umbral radiométrico, separando topológicamente la nieve de las nubes y superando ampliamente la fiabilidad heurística tradicional.
 *   **La Ambigüedad Intrínseca de las Sombras:** La clase "Sombra Nube" obtiene un IoU más moderado (46.96%). Lejos de ser un fallo, esto es un fenómeno topológico ampliamente documentado por la Agencia Espacial Europea (ESA) e ICGC. La transición lumínica gradual en la penumbra hace que las sombras proyectadas sobre laderas montañosas escarpadas sean extremadamente difíciles de discernir sin cruzar los datos ópticos con un Modelo Digital de Elevaciones (DEM).
 
 ---

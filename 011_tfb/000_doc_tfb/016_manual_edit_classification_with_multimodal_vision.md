@@ -3,7 +3,7 @@
 Este documento explora la integración de modelos de lenguaje multimodales (como Gemini) en el pipeline de segmentación de imágenes satelitales (Sentinel-2). El objetivo es utilizar la capacidad de razonamiento visual de la IA para auditar las clasificaciones de la red neuronal (U-Net) o las máscaras SCL originales.
 
 ## 1. El Concepto: "Early Visual Fusion"
-Dado que los modelos multimodales conversacionales están optimizados para formatos de imagen estándar (PNG, JPG) y resoluciones moderadas, no pueden ingerir un GeoTIFF gigante (5490x5490) multicapa de forma nativa. 
+Dado que los modelos multimodales conversacionales están optimizados para formatos de imagen estándar (PNG, JPG) y resoluciones moderadas, carecen de la capacidad nativa para ingerir tensores GeoTIFF de alta resolución y naturaleza multicapa.
 
 La solución técnica adoptada es el **Early Visual Fusion** (Fusión Visual Temprana):
 1. Se extraen recortes (tiles) manejables (ej. 512x512 píxeles) de la imagen completa.
@@ -20,21 +20,21 @@ La IA actúa como un experto humano mirando la pantalla:
   - Blanco brillante en Falso Color + Real Color = **Nieve (Clase 3)**.
   - Sombra en ladera de montaña sin nube = **Sombra Topográfica / Suelo (Clase 4)**. (Crucial: no confundir con sombra de nube, Clase 2).
 
-## 3. El Cuello de Botella del Píxel (La Barrera de la Precisión)
-Es fundamental entender la diferencia entre un LLM y una red de segmentación:
-- **El LLM (Auditor Cualitativo):** Produce **texto**. Entiende la imagen y puede decir: *"Hay un error en la nube del cuadrante noreste"*. Pero no puede devolver un array de 512x512 píxeles matemáticamente editados para arreglar los bordes fractales de la nube.
-- **La U-Net (Editor Cuantitativo):** Produce **geometría**. Predice matemáticamente la clase exacta de cada píxel a nivel de matriz numérica.
+## 3. El Cuello de Botella Geométrico (La Barrera de la Precisión)
+Es imperativo diferenciar la naturaleza computacional de un LLM multimodal frente a una red convolucional de segmentación semántica:
+- **El Modelo de Lenguaje (Auditor Cualitativo):** Produce un output textual. Analiza semánticamente la imagen para inferir incongruencias lógicas, pero es incapaz de retornar una matriz espacial de 512x512 píxeles con la corrección matemática implementada.
+- **La Arquitectura Convolucional (Editor Cuantitativo):** Produce un output topológico y geométrico, generando predicciones matemáticas para la totalidad del tensor matricial evaluado.
 
-Intentar que un LLM "pinte" píxeles directamente choca contra los límites de sus outputs (alucinaciones de tokens y desbordamiento de contexto).
+La generación directa de geometrías espaciales a nivel de píxel excede los límites arquitectónicos de los LLMs (alucinaciones estocásticas y desbordamientos de la ventana de contexto).
 
 ## 4. Aplicación Práctica al Proyecto: Flujo de "Active Learning"
-Para integrar esto en el Trabajo de Final de Grado sin romper la arquitectura, proponemos un ciclo de **Active Learning Guiado**:
+Para la integración metodológica de esta arquitectura multimodal sin alterar la cadena de valor, se estipula un ciclo algorítmico de **Aprendizaje Activo Guiado (Active Learning)**:
 
 1. **Predicción Base:** La U-Net (o el algoritmo SCL original) genera la máscara de un gránulo.
 2. **Troceado (Tiling):** Un script corta la imagen en una cuadrícula completa (ej. 121 baldosas de 512x512).
 3. **Auditoría IA:** El modelo multimodal evalúa las 121 baldosas generando un registro (archivo `.csv`) que indica el veredicto: `TIENE_ERRORES` o `CORRECTO`.
-4. **Cirugía Humana Dirigida:** El operario humano (GIMP Bridge) **solo** necesita abrir las baldosas específicas marcadas con error por la IA, ahorrando horas de escaneo visual inútil.
-5. **Reentrenamiento:** Se corrige el parche, se recompone el mosaico, y la U-Net se entrena de nuevo con este *Ground Truth* de alta fidelidad, iterando hacia un modelo más robusto.
+4. **Cirugía Humana Dirigida:** El operador humano (a través de GIMP Bridge) interviene exclusivamente sobre las baldosas específicas parametrizadas con error por el LLM, optimizando severamente el proceso de depuración del dataset.
+5. **Reentrenamiento Estratégico:** Tras la corrección de las anomalías focales, el tensor se re-integra al *Ground Truth*, promoviendo sucesivas etapas de entrenamiento para converger hacia un modelo más resiliente.
 
 ## 5. Extensión a Series Temporales (Temporal Visual Fusion)
 El análisis satelital Sentinel-2 es inherentemente temporal (mismo cuadrante, distintas fechas). Esta capacidad de la IA multimodal puede evolucionar de una simple "fusión de bandas espaciales" a una **Fusión Temporal**:
@@ -50,11 +50,11 @@ La intuición de combinar el razonamiento lingüístico con datos satelitales se
 - **GeoVLM (Esri):** Un avance que integra el razonamiento textual con la generación real de coordenadas y máscaras a nivel de píxel, cerrando la brecha entre "decir dónde está el error" y "dibujar el error matemáticamente".
 - **EarthDial:** Un modelo masivo diseñado para procesar datos satelitales en 4D, infiriendo información no solo del espectro óptico (RGB), sino del infrarrojo, radar y sobre todo, series temporales.
 
-## 7. Reflexión Estratégica: ¿Qué camino seguir en nuestro proyecto?
-Ante este panorama de vanguardia, el camino a seguir para este Trabajo Final de Grado (y posteriores desarrollos industriales) no debe ser intentar competir entrenando un nuevo modelo fundacional gigante (como GeoChat), lo cual requeriría centros de datos inaccesibles.
+## 7. Reflexión Estratégica: Arquitectura de Procesamiento Óptima
+Ante este avance tecnológico, se concluye que intentar entrenar un modelo fundacional multimodal gigante desde cero excede los requerimientos arquitectónicos y computacionales racionales para este caso de estudio.
 
-Nuestra **Hoja de Ruta (Roadmap)** estratégica es abrazar una arquitectura **Híbrida y Desacoplada (El Auditor y el Obrero)**:
-1. **El Obrero Cuantitativo (U-Net):** Mantener y optimizar nuestra red U-Net. Es ágil, ligera, barata de alojar en servidores *Serverless* e inmensamente precisa pintando matrices de píxeles (geometría matemática).
-2. **El Auditor Cualitativo (LLM Multimodal Genérico):** Utilizar APIs de LLMs comerciales (como Gemini) a través de scripts orquestadores (como `multimodal_auditor.py`) exclusivamente como un filtro de calidad durante la fase de *Active Learning*. 
+La **Hoja de Ruta (Roadmap)** tecnológica establece la adopción de una arquitectura **Híbrida y Desacoplada**:
+1. **Subsistema Cuantitativo (U-Net):** Mantenimiento de la arquitectura convolucional por su alta eficiencia topológica, bajo coste inferencial en entornos Serverless y precisión geométrica (operaciones matriciales densas).
+2. **Subsistema Cualitativo (LLM Multimodal Genérico):** Integración de inferencia LLM mediante orquestadores lógicos (`multimodal_auditor.py`) que actúan exclusivamente como validadores booleanos de control de calidad, impulsando el flujo de *Active Learning*.
 
-**Conclusión del Camino:** No necesitamos un LLM que escupa máscaras de píxeles (GeoVLM). Solo necesitamos que el LLM guíe la atención del humano (GIMP Bridge) o de algoritmos heurísticos para limpiar el *Ground Truth*. De esta manera, con recursos computacionales mínimos, conseguiremos alimentar a nuestra humilde U-Net con los datos más perfectos posibles, logrando que una red pequeña supere en precisión a los estándares monolíticos de la industria (Sen2Cor).
+**Conclusión:** Se descarta el uso de VLMs masivos en favor de una orquestación distribuida, donde la inferencia semántica del LLM focaliza la acción del auditor humano sobre la Verdad Terreno, permitiendo que arquitecturas matriciales de menor carga computacional (U-Net) superen estadísticamente a sistemas estáticos industriales (Sen2Cor) a través de datasets curados y optimizados.

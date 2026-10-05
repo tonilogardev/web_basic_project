@@ -38,15 +38,15 @@ El proceso de inferencia y cálculo de métricas para el Conjunto de Test sigue 
 
 Dada la naturaleza enormemente desbalanceada de las imágenes de satélite (donde el "Suelo Útil" o cielo despejado puede suponer fácilmente el 90% de la imagen), se ha descartado el uso de la *Overall Accuracy* (Precisión Global) como métrica principal, ya que premiaría modelos sesgados que predigan "Suelo" constantemente. 
 
-El modelo será evaluado y justificado ante el tribunal en base a dos herramientas estadísticas críticas:
+La evaluación estadística del modelo y su consiguiente fundamentación metodológica se basan en dos herramientas analíticas críticas:
 
 ### 3.1. Intersection over Union (IoU / Índice Jaccard)
-El IoU se calculará de forma **independiente por clase** (enfocándose críticamente en el IoU Nube y el IoU Nieve). Esta métrica mide geométricamente el grado de solapamiento exacto entre la "mancha" predicha por la IA y la "mancha" real curada por el operador humano.
-* Penaliza implacablemente el **sub-mapeo** (Falsos Negativos): Ocurre cuando la IA no detecta nieve real.
-* Penaliza implacablemente el **sobre-mapeo** (Falsos Positivos): Ocurre cuando la IA "alucina" nieve donde físicamente solo había terreno claro o nube.
+El IoU se calcula de forma **independiente por clase** (focalizándose estadísticamente en el IoU de Nube y el IoU de Nieve). Esta métrica mide geométricamente la proporción de solapamiento exacto entre la extensión segmentada por el modelo (IA) y la delimitación real establecida en la Verdad Terreno.
+* Penaliza de forma rigurosa el **sub-mapeo** (Falsos Negativos): Casuística en la que el modelo no detecta cobertura nívea existente.
+* Penaliza de forma rigurosa el **sobre-mapeo** (Falsos Positivos): Casuística en la que el modelo infiere presencia de nieve sobre coberturas terrestres discordantes o masas nubosas.
 
 ### 3.2. Matriz de Confusión Agregada (Confusion Matrix)
-Al acumular todas las inferencias de los 10 gránulos de Test, se generará una gran matriz de confusión agregada. Esta matriz es el instrumento de auditoría definitivo y más transparente para la comunidad científica, ya que permite leer numéricamente la transferencia de errores entre pares de clases:
-* Cuántos millones de píxeles que el humano etiquetó como "Nieve", la red neuronal confundió con "Nube" (El fallo histórico de Sen2Cor).
-* Cuántos millones de píxeles de "Nube" fueron confundidos con "Suelo" (Nubes que pasan indetectadas).
-* Cuántas "Sombras Topográficas" reales fueron erróneamente clasificadas como "Sombras de Nubes".
+La acumulación matricial de las inferencias sobre los 10 gránulos de validación permite generar una matriz de confusión agregada. Este instrumento analítico consolida la auditoría técnica aportando máxima transparencia sobre la transferencia de errores entre categorías. Concretamente, permite cuantificar:
+* La cantidad total de píxeles clasificados como "Nieve" en el *Ground Truth* que la red neuronal categorizó erróneamente como "Nube" (cuantificando así la mejora respecto al fallo histórico de Sen2Cor).
+* La proporción de píxeles de "Nube" que fueron clasificados como "Suelo" (falsos negativos de nubosidad).
+* La incidencia de "Sombras Topográficas" reales que el modelo identificó erróneamente como "Sombras de Nubes".
