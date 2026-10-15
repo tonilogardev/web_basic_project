@@ -580,13 +580,24 @@ def prompt_for_date(prompt_text, min_date=None):
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Pipeline Serverless CDSE")
+    parser.add_argument("--start-date", type=str, help="Fecha inicio YYYY-MM-DD")
+    parser.add_argument("--end-date", type=str, help="Fecha fin YYYY-MM-DD")
+    args = parser.parse_args()
+
     print("=== Pipeline Serverless CDSE ===")
-    start_dt, start_date = prompt_for_date(
-        "Introduce la fecha de inicio (YYYY-MM-DD): "
-    )
-    end_dt, end_date = prompt_for_date(
-        "Introduce la fecha de fin (YYYY-MM-DD): ", min_date=start_dt
-    )
+    if args.start_date and args.end_date:
+        start_date = args.start_date
+        end_date = args.end_date
+    else:
+        start_dt, start_date = prompt_for_date(
+            "Introduce la fecha de inicio (YYYY-MM-DD): "
+        )
+        end_dt, end_date = prompt_for_date(
+            "Introduce la fecha de fin (YYYY-MM-DD): ", min_date=start_dt
+        )
+
 
     print(
         f"\n[v] ¡Perfecto! Buscaremos gránulos en el rango: {start_date} al {end_date}."
