@@ -1,6 +1,4 @@
-# Guion de la Defensa (Speech) - 15 Minutos
 
-*Nota: No leas este documento de memoria. Úsalo como guía para entender qué historia debes contar en cada diapositiva.*
 
 ## 1. Portada tiempo(0:00 - 0:30)
 *(Página 1 ppt)*
