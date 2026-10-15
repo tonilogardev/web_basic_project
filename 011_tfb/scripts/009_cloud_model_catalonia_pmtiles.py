@@ -276,8 +276,9 @@ def run_inference(dest_dir, id_granule, model, device, base_path, out_tif_dir):
     out_gimp_path = out_tif_dir / f"{id_granule}_SCL_UNET_GIMP.tif"
     encode_to_rgb(out_tif_path, out_gimp_path)
 
+    # Máscara binaria: 1 = Nube (2) y Sombra de nube (3); 0 = Suelo, Nieve, Agua, Mar Mediterráneo y Fondo
     binary_mask = np.zeros_like(predicted_mask, dtype=np.uint8)
-    binary_mask[np.isin(predicted_mask, [1, 4])] = 1
+    binary_mask[np.isin(predicted_mask, [2, 3])] = 1
     out_binary_path = out_tif_dir / f"{id_granule}_SCL_UNET_mask_clouds.tif"
     with rasterio.Env(GDAL_PAM_ENABLED="NO"):
         with rasterio.open(out_binary_path, "w", **out_profile) as dst:
@@ -488,16 +489,25 @@ def process_pipeline(start_date_str, end_date_str):
                         img = src.read(1)
                         transform = src.transform
                         
-                    # Filtramos donde el píxel es nube (0)
-                    mask_filter = (img == 0).astype(np.uint8)
+                    # Filtramos donde el píxel es nube o sombra de nube (1)
+                    mask_filter = (img == 1).astype(np.uint8)
                     shapes = rasterio.features.shapes(mask_filter, mask=mask_filter, transform=transform)
                     
                     features = []
                     for geom, val in shapes:
+                        if val == 1:
+                            features.append({
+                                "type": "Feature",
+                                "geometry": geom,
+                                "properties": {"is_cloud": 1}
+                            })
+                            
+                    # Si no hay nubes detectadas, añadir geometría dummy para que tippecanoe no falle
+                    if not features:
                         features.append({
                             "type": "Feature",
-                            "geometry": geom,
-                            "properties": {"is_cloud": 1}
+                            "geometry": {"type": "Polygon", "coordinates": [[[0.0, 0.0], [0.00001, 0.0], [0.00001, 0.00001], [0.0, 0.0]]]},
+                            "properties": {"is_cloud": 0}
                         })
                         
                     with open(geojson_path, "w") as f:
