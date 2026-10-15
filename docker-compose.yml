@@ -65,74 +65,6 @@ services:
     networks:
       - traefik-net
 
-  dev-web-frontend:
-    container_name: dev_web_frontend
-    image: ghcr.io/tonilogardev/dev-web-frontend:latest
-    build:
-      context: ./009_dev_web/frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_URL: "${DEV_WEB_API_URL}"
-    restart: always
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.devwebfrontend.rule=Host(`dev-web.${DOMAIN_NAME:-localhost}`)"
-      - "traefik.http.routers.devwebfrontend.entrypoints=web,websecure"
-    networks:
-      - traefik-net
-
-  dev-web-backend:
-    container_name: dev_web_backend
-    image: ghcr.io/tonilogardev/dev-web-backend:latest
-    build:
-      context: ./009_dev_web/backend
-      dockerfile: Dockerfile
-    restart: always
-    environment:
-      DATABASE_URL: "${DEV_WEB_DB_URL}"
-      JWT_SECRET: "${DEV_WEB_JWT_SECRET}"
-      ETL_API_KEY: "${ETL_API_KEY:-default-secret-key}"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.devwebbackend.rule=Host(`api.dev-web.${DOMAIN_NAME:-localhost}`)"
-      - "traefik.http.routers.devwebbackend.entrypoints=web,websecure"
-      - "traefik.http.services.devwebbackend.loadbalancer.server.port=3000"
-    networks:
-      - traefik-net
-    depends_on:
-      - dev-web-db
-
-  dev-web-etl-worker:
-    container_name: dev_web_etl_worker
-    image: ghcr.io/tonilogardev/dev-web-etl-worker:latest
-    build:
-      context: ./009_dev_web/010_etl_worker
-      dockerfile: Dockerfile
-    restart: always
-    environment:
-      # Internal routing since they are in the same docker network
-      BACKEND_API_URL: "http://dev-web-backend:3000"
-      ETL_API_KEY: "${ETL_API_KEY:-default-secret-key}"
-      CRON_SCHEDULE: "*/15 17 * * *"
-    networks:
-      - traefik-net
-    depends_on:
-      - dev-web-backend
-
-  dev-web-db:
-    image: postgres:16-alpine
-    container_name: dev_web_db
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password123
-      POSTGRES_DB: datasphere
-    volumes:
-      - dev_web_postgres_data:/var/lib/postgresql/data
-      - ./009_dev_web/db/init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - traefik-net
-
   sentinel-viewer:
     container_name: sentinel_viewer
     image: ghcr.io/tonilogardev/sentinel-viewer:latest
@@ -202,5 +134,3 @@ networks:
   traefik-net:
     driver: bridge
 
-volumes:
-  dev_web_postgres_data:

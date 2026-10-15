@@ -25,7 +25,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const tfbLink = document.getElementById('link-tfb');
   if (tfbLink) tfbLink.setAttribute('href', getUrl('tfb-viewer'));
-
-  const devwebLink = document.getElementById('link-devweb');
-  if (devwebLink) devwebLink.setAttribute('href', getUrl('dev-web'));
 });
