@@ -288,7 +288,8 @@ def run_inference(dest_dir, id_granule, model, device, base_path, out_tif_dir):
 def get_granules_in_range(start_date_str, end_date_str):
     """
     Interroga al API de OData para localizar todos los gránulos (tiles) que cruzan
-    Cataluña (T31TCH, T31TDH, T31TCG, T31TDG, T31TDF, T31TCF) dentro de una ventana temporal.
+    Cataluña (31TBG, 31TBF, 31TCH, 31TCG, 31TCF, 31TCE, 31TDH, 31TDG, 31TDF, 31TEH, 31TEG)
+    cubriendo tanto la pasada R008 (Este) como la R051 (Oeste) dentro de una ventana temporal.
     
     Args:
         start_date_str (str): Límite temporal inferior (YYYY-MM-DD).
@@ -300,7 +301,16 @@ def get_granules_in_range(start_date_str, end_date_str):
     print(
         f"\n[*] Consultando catálogo CDSE para Cataluña desde {start_date_str} hasta {end_date_str}..."
     )
-    tiles = ["31TCH", "31TDH", "31TCG", "31TDG", "31TDF", "31TCF"]
+    tiles = [
+        # Columna B (Ponent / Franja / Terra Alta / Ports - Órbita R051)
+        "31TBG", "31TBF",
+        # Columna C (Lleida / Pirineo occidental / Ebro / Delta sur)
+        "31TCH", "31TCG", "31TCF", "31TCE",
+        # Columna D (Girona / Barcelona / Maresme / Costa)
+        "31TDH", "31TDG", "31TDF",
+        # Columna E (Cap de Creus / Cadaqués / Portbou - Órbita R008)
+        "31TEH", "31TEG"
+    ]
     granules = []
 
     start_dt = f"{start_date_str}T00:00:00.000Z"
