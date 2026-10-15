@@ -387,13 +387,9 @@ def process_pipeline(start_date_str, end_date_str):
         end_date_str (str): Límite temporal superior (YYYY-MM-DD).
     """
     base_path = Path(__file__).parent
-    # Permite especificar el directorio de salida via variable de entorno (ej: disco externo)
-    out_dir_env = os.getenv("OUTPUT_DIR")
-    if out_dir_env:
-        out_dir = Path(out_dir_env)
-    else:
-        out_dir = base_path.parent / "visualizations" / "SCL_UNET_catalonia"
-        
+    # Directorio de almacenamiento definitivo en disco
+    out_dir_env = os.getenv("OUTPUT_DIR", "/dades/antonio/tfb/inference_model")
+    out_dir = Path(out_dir_env)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     granules = get_granules_in_range(start_date_str, end_date_str)
@@ -421,10 +417,10 @@ def process_pipeline(start_date_str, end_date_str):
             f"\n{'='*40}\nProcesando Efímero: {id_granule} | {tile} | {date_str}\n{'='*40}"
         )
 
-        # EL PODER DE LA ARQUITECTURA EFÍMERA:
-        # Usamos Context Manager (with tempfile.TemporaryDirectory)
-        # Esto le indica al Sistema Operativo que asigne una carpeta temporal atada a este bloque de código.
-        with tempfile.TemporaryDirectory() as temp_dir_name:
+        # Directorio temporal efímero en /dades para no saturar /tmp ni el disco raíz
+        temp_base = out_dir / "temp_downloads"
+        temp_base.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=str(temp_base)) as temp_dir_name:
             temp_dir = Path(temp_dir_name)
 
             l1c_id = search_odata(tile, date_str, "MSIL1C")
@@ -542,6 +538,8 @@ def process_pipeline(start_date_str, end_date_str):
             # Al salir de este nivel de indentación, Python hace un "Garbage Collection" físico
             # y destruye los gigabytes de datos descargados, liberando el espacio instantáneamente.
 
+    return out_dir
+
 
 from datetime import datetime
 
@@ -612,9 +610,10 @@ if __name__ == "__main__":
     get_sea_mask = create_dataset.get_sea_mask
     from gimp_tools import encode_to_rgb
 
-    process_pipeline(start_date, end_date)
+    processed_dir = process_pipeline(start_date, end_date)
     
     # Generar inventario automáticamente tras terminar el proceso
     import generate_inventory
     print("\n[*] Actualizando inventario estático para el Web GIS...")
-    generate_inventory.generate_inventory()
+    generate_inventory.generate_inventory(target_dir=processed_dir)
+
