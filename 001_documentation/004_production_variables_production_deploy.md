@@ -38,10 +38,11 @@
             # Cargar el entorno desde GitHub Secrets
             echo "${{ secrets.PROD_ENV_FILE }}" > .env
 ```
-- **Haz push** a la rama `main` o `main_dev_pro` para ejecutar el Action. El servidor leerá las nuevas variables automáticamente al reiniciar Docker.
+- **Haz push** a la rama `main` o `main_dev_pro` para ejecutar el Action. El servidor leerá las nuevas variables automáticamente al reiniciar Docker y descargar las imágenes desde GHCR.
 
 [←Index](#index)
 
 ## 4 Next steps
 
+- [011_ghcr_docker_registry_cicd.md](./011_ghcr_docker_registry_cicd.md)
 - [README.md](../README.md)

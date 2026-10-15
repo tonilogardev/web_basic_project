@@ -34,8 +34,9 @@ RUN npm run build
 
 - **Edita** el archivo principal [`docker-compose.yml`](../docker-compose.yml).
 - **Define** el nuevo contenedor bajo `services`.
-- **Mapea** las variables de entorno de Docker Compose hacia los argumentos de construcción del Dockerfile:
+- **Mapea** las variables de entorno de Docker Compose hacia los argumentos de construcción del Dockerfile y define la imagen para GitHub Container Registry:
 ```yaml
+    image: ghcr.io/tonilogardev/antarctic-subsidence:latest
     build:
       context: ./010_antarctic_subsidence
       args:
@@ -48,17 +49,18 @@ RUN npm run build
 
 ## 4 Despliegue a Producción (GitHub Secrets)
 
-- **Comprende** que el flujo CI/CD [production-deploy.yml](../.github/workflows/production-deploy.yml) reconstruye el `.env` del servidor copiando íntegramente el secreto de GitHub llamado `PROD_ENV_FILE`.
+- **Comprende** que el flujo CI/CD [production-deploy.yml](../.github/workflows/production-deploy.yml) compila la nueva imagen en GitHub Actions, la publica en GHCR (`ghcr.io`) y el servidor en Hetzner solo la descarga (`docker compose pull`) sin saturar la CPU.
 - **Copia** todo el texto de tu archivo local [`.env.production`](../.env.production).
 - **Accede** a tu repositorio en GitHub > `Settings` > `Secrets and variables` > `Actions`.
 - **Edita** el secreto `PROD_ENV_FILE` (pulsa el icono del lápiz).
 - **Pega** el texto copiado (que ahora incluye la nueva variable `ANTARCTIC_SUBSIDENCE_URL`) y guarda.
 - **Añade** (git add) y **comitea** los cambios de tu código.
-- **Haz push** a la rama `main` o `main_dev_pro`. El despliegue automático se encargará de crear el `.env` fresco y compilar sin caché en el servidor.
+- **Haz push** a la rama `main` o `main_dev_pro`. El despliegue automático compilará la imagen en GitHub, la subirá a GHCR y la levantará en Hetzner con cero downtime.
 
 [←Index](#index)
 
 ## 5 Next steps
 
 - [004_production_variables_production_deploy.md](./004_production_variables_production_deploy.md)
+- [011_ghcr_docker_registry_cicd.md](./011_ghcr_docker_registry_cicd.md)
 - [README.md](../README.md)
