@@ -195,6 +195,16 @@
     pointer-events: auto;
   }
 
+  @media (max-width: 768px) {
+    .left-sidebar {
+      top: 66px;
+      left: 12px;
+      right: 12px;
+      gap: 10px;
+      max-height: calc(100vh - 78px);
+    }
+  }
+
   .map-container {
     flex: 1;
     height: 100%;

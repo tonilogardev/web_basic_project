@@ -160,4 +160,12 @@
     width: 100%;
     margin: 0;
   }
+
+  @media (max-width: 768px) {
+    .panel-capas-activas {
+      width: 100%;
+      max-width: 320px;
+      max-height: 220px;
+    }
+  }
 </style>

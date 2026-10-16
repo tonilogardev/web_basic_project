@@ -312,12 +312,16 @@
     font-size: 0.85rem;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: 768px) {
     .panel-flotante {
-      width: calc(100% - 40px);
+      width: 100%;
+      max-width: 320px;
     }
     .panel-flotante.colapsado {
-      width: 56px;
+      width: 48px;
+    }
+    .lista-multi-selector {
+      max-height: 200px;
     }
   }
 </style>

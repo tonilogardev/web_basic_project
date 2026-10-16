@@ -93,9 +93,9 @@
   .buscador-container {
     position: absolute;
     top: 20px;
-    right: 56px; /* Para no tapar los botones de zoom de MapLibre */
+    right: 20px;
     width: 280px;
-    z-index: 20;
+    z-index: 30;
     font-family: system-ui, sans-serif;
   }
 
@@ -150,7 +150,7 @@
     border-radius: 8px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.15);
     overflow: hidden;
-    max-height: 300px;
+    max-height: 280px;
     overflow-y: auto;
   }
 
@@ -176,11 +176,12 @@
     color: #2196f3;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: 768px) {
     .buscador-container {
-      top: 10px;
-      right: 56px;
-      width: calc(100% - 76px);
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      width: auto;
     }
   }
 </style>
