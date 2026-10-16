@@ -23,6 +23,17 @@ RUN echo $'server { \n\
         index index.html index.htm; \n\
         try_files $uri $uri/ /index.html; \n\
     } \n\
+    location = /data/inventory.json { \n\
+        root /usr/share/nginx/html; \n\
+        add_header Cache-Control "no-cache, no-store, must-revalidate"; \n\
+        add_header Access-Control-Allow-Origin *; \n\
+    } \n\
+    location /data/ { \n\
+        root /usr/share/nginx/html; \n\
+        add_header Access-Control-Allow-Origin *; \n\
+        add_header Access-Control-Allow-Headers "Range, Accept-Ranges, Content-Type"; \n\
+        add_header Access-Control-Expose-Headers "Content-Range, Content-Length, Accept-Ranges"; \n\
+    } \n\
 }' > /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

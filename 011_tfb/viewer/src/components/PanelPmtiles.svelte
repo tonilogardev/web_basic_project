@@ -17,7 +17,7 @@
   onMount(async () => {
     try {
       // Cargamos dinámicamente el inventario generado por Python en el directorio montado (/data)
-      const res = await fetch('/data/inventory.json');
+      const res = await fetch(`/data/inventory.json?t=${Date.now()}`);
       if (res.ok) {
         const inventory = await res.json();
         const granulosValidos: string[] = [];
@@ -26,7 +26,8 @@
             granulosValidos.push(`${date}_${tile}`);
           }
         }
-        opciones = granulosValidos.sort();
+        // Orden descendente: las fechas más recientes de agosto primero
+        opciones = granulosValidos.sort().reverse();
       } else {
         console.warn("No se pudo cargar /data/inventory.json");
       }
