@@ -122,7 +122,7 @@ services:
       dockerfile: Dockerfile
     restart: always
     volumes:
-      - ./011_tfb/visualizations/SCL_UNET_catalonia:/usr/share/nginx/html/data
+      - ${TFB_DATA_DIR:-./011_tfb/visualizations/SCL_UNET_catalonia}:/usr/share/nginx/html/data
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.tfbviewer.rule=Host(`tfb-viewer.${DOMAIN_NAME:-localhost}`)"

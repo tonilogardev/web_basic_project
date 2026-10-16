@@ -9,7 +9,11 @@ VPS_IP="tonilogar.com"
 VPS_USER="root"
 
 # Directorios de origen y destino
-DIR_LOCAL="../visualizations/SCL_UNET_catalonia/"
+if [ -d "/dades/antonio/tfb/inference_model" ]; then
+    DIR_LOCAL="/dades/antonio/tfb/inference_model/"
+else
+    DIR_LOCAL="../visualizations/SCL_UNET_catalonia/"
+fi
 DIR_REMOTO="/opt/gis_platform/011_tfb/visualizations/SCL_UNET_catalonia/"
 
 echo "============================================="
