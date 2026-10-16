@@ -43,6 +43,9 @@ rsync -avzh --progress \
     --exclude="*.vrt" \
     --exclude="*.txt" \
     --exclude="*.tfw" \
+    --exclude="*.log" \
+    --exclude="*.pid" \
+    --exclude="temp_downloads/" \
     "$DIR_LOCAL" "$VPS_USER@$VPS_IP:$DIR_REMOTO"
 
 if [ $? -eq 0 ]; then
