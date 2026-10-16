@@ -1,6 +1,8 @@
 <script lang="ts">
   import { capasState, updateCapaState, toggleGranulo } from '../state/capasState.svelte';
 
+  let colapsado = $state(false);
+
   // Group active layers by granulo for display
   let groupedLayers = $derived(() => {
     const groups: Record<string, typeof capasState.capasActivas> = {};
@@ -15,45 +17,54 @@
 </script>
 
 {#if capasState.seleccionados.length > 0}
-  <aside class="panel-capas-activas">
+  <aside class="panel-capas-activas" class:colapsado>
     <div class="panel-header">
       <h2>Active Layers</h2>
+      <button 
+        class="btn-toggle" 
+        onclick={() => colapsado = !colapsado} 
+        title={colapsado ? "Expandir capas activas" : "Colapsar capas activas"}
+      >
+        {colapsado ? '+' : '−'}
+      </button>
     </div>
 
-    <div class="panel-body">
-      {#each Object.entries(groupedLayers()) as [granulo, capas]}
-        <div class="granulo-group">
-          <div class="granulo-title-wrapper">
-            <div class="granulo-title">{granulo}</div>
-            <button class="btn-delete" onclick={() => toggleGranulo(granulo)} title="Remove {granulo}">×</button>
-          </div>
-          
-          {#each capas as capa}
-            <div class="layer-control">
-              <label class="layer-visibility">
-                <input 
-                  type="checkbox" 
-                  checked={capa.visible} 
-                  onchange={(e) => updateCapaState(capa.id, { visible: e.currentTarget.checked })}
-                />
-                <span class="layer-name">{capa.tipo}</span>
-              </label>
-              
-              <div class="layer-opacity">
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="1" 
-                  step="0.05" 
-                  value={capa.opacidad}
-                  oninput={(e) => updateCapaState(capa.id, { opacidad: parseFloat(e.currentTarget.value) })}
-                />
-              </div>
+    {#if !colapsado}
+      <div class="panel-body">
+        {#each Object.entries(groupedLayers()) as [granulo, capas]}
+          <div class="granulo-group">
+            <div class="granulo-title-wrapper">
+              <div class="granulo-title">{granulo}</div>
+              <button class="btn-delete" onclick={() => toggleGranulo(granulo)} title="Remove {granulo}">×</button>
             </div>
-          {/each}
-        </div>
-      {/each}
-    </div>
+            
+            {#each capas as capa}
+              <div class="layer-control">
+                <label class="layer-visibility">
+                  <input 
+                    type="checkbox" 
+                    checked={capa.visible} 
+                    onchange={(e) => updateCapaState(capa.id, { visible: e.currentTarget.checked })}
+                  />
+                  <span class="layer-name">{capa.tipo}</span>
+                </label>
+                
+                <div class="layer-opacity">
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.05" 
+                    value={capa.opacidad}
+                    oninput={(e) => updateCapaState(capa.id, { opacidad: parseFloat(e.currentTarget.value) })}
+                  />
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/each}
+      </div>
+    {/if}
   </aside>
 {/if}
 
@@ -68,20 +79,62 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    /* max-height handled by parent container now or can stay here to limit growth */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     max-height: 400px;
+  }
+
+  .panel-capas-activas.colapsado {
+    width: 56px;
+  }
+
+  .colapsado .panel-header h2 {
+    display: none;
+  }
+
+  .colapsado .panel-header {
+    justify-content: center;
+    padding: 10px;
   }
 
   .panel-header {
     background: #1e293b;
     color: white;
     padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
 
   .panel-header h2 {
     margin: 0;
     font-size: 1rem;
     font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .btn-toggle {
+    width: 26px;
+    height: 26px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+
+  .btn-toggle:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #38bdf8;
   }
 
   .panel-body {
@@ -166,6 +219,9 @@
       width: 100%;
       max-width: 320px;
       max-height: 220px;
+    }
+    .panel-capas-activas.colapsado {
+      width: 48px;
     }
   }
 </style>
