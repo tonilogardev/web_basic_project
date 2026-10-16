@@ -84,16 +84,22 @@
   }
 
   .panel-capas-activas.colapsado {
-    width: 56px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .colapsado .panel-header {
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
   }
 
   .colapsado .panel-header h2 {
     display: none;
-  }
-
-  .colapsado .panel-header {
-    justify-content: center;
-    padding: 10px;
   }
 
   .panel-header {
@@ -114,13 +120,13 @@
   }
 
   .btn-toggle {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.1);
     cursor: pointer;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     font-weight: 700;
     line-height: 1;
     display: flex;
@@ -128,6 +134,9 @@
     justify-content: center;
     color: #fff;
     flex-shrink: 0;
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
     transition: all 0.2s;
   }
 
@@ -222,6 +231,7 @@
     }
     .panel-capas-activas.colapsado {
       width: 48px;
+      height: 48px;
     }
   }
 </style>

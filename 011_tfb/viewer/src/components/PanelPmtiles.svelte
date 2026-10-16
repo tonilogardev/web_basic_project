@@ -135,7 +135,22 @@
   }
 
   .panel-flotante.colapsado {
-    width: 56px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .colapsado .panel-header {
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+  }
+
+  .colapsado .panel-header h2 {
+    display: none;
   }
 
   .panel-header {
@@ -153,10 +168,6 @@
     white-space: nowrap;
   }
 
-  .colapsado .panel-header h2 {
-    display: none;
-  }
-
   .btn-toggle {
     width: 28px;
     height: 28px;
@@ -172,6 +183,9 @@
     justify-content: center;
     color: #555;
     flex-shrink: 0;
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
   }
 
   .btn-toggle:hover {
@@ -319,6 +333,7 @@
     }
     .panel-flotante.colapsado {
       width: 48px;
+      height: 48px;
     }
     .lista-multi-selector {
       max-height: 200px;
