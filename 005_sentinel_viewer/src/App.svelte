@@ -31,11 +31,16 @@
     if (mapManager) mapManager.activarDibujo();
   }
 
+  function limpiarDibujo() {
+    if (mapManager) mapManager.limpiarBoundingBox();
+  }
+
   async function ejecutarBusqueda() {
-    if (!store.boundingBox || !store.fechaInicio || !store.fechaFin) return;
+    if (!store.boundingBox || !store.areaValida || !store.fechaInicio || !store.fechaFin || !store.rangoFechasValido) return;
 
     store.cargando = true;
-    store.progresoCarga = 10;
+    store.mensajeCarga = "Searching Sentinel-2 scenes...";
+    store.progresoCarga = 20;
     store.resultados = [];
     store.limpiarTodasLasCapas();
     store.busquedaRealizada = false;
@@ -43,7 +48,7 @@
     const collection = COLECTION_MAP[store.satelite] || "sentinel-2-l2a";
 
     try {
-      store.progresoCarga = 40;
+      store.progresoCarga = 50;
       store.resultados = await searchSentinel2({
         collection,
         bbox: store.boundingBox,
@@ -53,11 +58,11 @@
         maxResults: store.maxResults === 'all' ? 10000 : (store.maxResults as number),
       });
 
-      store.progresoCarga = 70;
+      store.progresoCarga = 80;
 
       const nuevasVisibles = new Set<string>();
-      for (const r of store.resultados) {
-        nuevasVisibles.add(r.id);
+      if (store.resultados.length > 0) {
+        nuevasVisibles.add(store.resultados[0].id);
       }
       store.escenasVisibles = nuevasVisibles;
     } catch (error) {
@@ -65,12 +70,7 @@
     } finally {
       store.cargando = false;
       store.busquedaRealizada = true;
-      if (store.resultados.length > 0) {
-        store.cargaInicialPendiente = true;
-        store.progresoCarga = 85;
-      } else {
-        store.progresoCarga = 0;
-      }
+      store.progresoCarga = 0;
     }
   }
 
@@ -89,6 +89,13 @@
       mapManager.sincronizarCapas();
     }
   });
+
+  $effect(() => {
+    const op = store.opacidadCapas;
+    if (mapManager) {
+      mapManager.actualizarOpacidad(op);
+    }
+  });
 </script>
 
 <main class="contenedor-principal">
@@ -99,6 +106,7 @@
   <div class="paneles-izquierda">
     <PanelControles 
       onDibujarRectangulo={activarDibujo}
+      onLimpiarRectangulo={limpiarDibujo}
       onBuscar={ejecutarBusqueda}
     />
 
@@ -200,7 +208,19 @@
   }
 
   .panel-resultados.colapsado {
-    width: 56px;
+    width: 48px;
+    height: 48px;
+    overflow: hidden;
+  }
+
+  .panel-resultados.colapsado .panel-header {
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
   }
 
   .panel-resultados .panel-header {
@@ -307,7 +327,8 @@
       width: 100%;
     }
     .panel-resultados.colapsado {
-      width: 56px;
+      width: 48px;
+      height: 48px;
     }
 
     .paneles-izquierda {

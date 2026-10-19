@@ -91,21 +91,27 @@
   input {
     width: 100%;
     padding: 10px 14px;
-    padding-right: 30px;
-    border: 1px solid rgba(0,0,0,0.1);
+    padding-right: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-    font-size: 0.9rem;
-    color: #222;
+    background: rgba(10, 10, 11, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    font-size: 0.88rem;
+    color: #f3f4f6;
     outline: none;
     transition: all 0.2s ease;
     box-sizing: border-box;
   }
 
+  input::placeholder {
+    color: #6b7280;
+  }
+
   input:focus {
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2), 0 0 0 2px #2196f3;
+    border-color: #0ea5e9;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(14, 165, 233, 0.3);
   }
 
   .spinner {
@@ -115,8 +121,8 @@
     transform: translateY(-50%);
     width: 14px;
     height: 14px;
-    border: 2px solid #ccc;
-    border-top-color: #2196f3;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-top-color: #0ea5e9;
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
@@ -129,12 +135,14 @@
     margin: 6px 0 0 0;
     padding: 0;
     list-style: none;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(8px);
+    background: rgba(10, 10, 11, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
     overflow: hidden;
-    max-height: 300px;
+    max-height: 280px;
     overflow-y: auto;
   }
 
@@ -145,10 +153,10 @@
     border: none;
     background: none;
     font-size: 0.8rem;
-    color: #444;
+    color: #d1d5db;
     cursor: pointer;
-    border-bottom: 1px solid #f0f0f0;
-    transition: background 0.1s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    transition: all 0.15s ease;
   }
 
   .resultados-lista li:last-child button {
@@ -156,8 +164,8 @@
   }
 
   .resultados-lista li button:hover {
-    background: rgba(33, 150, 243, 0.05);
-    color: #2196f3;
+    background: rgba(14, 165, 233, 0.15);
+    color: #38bdf8;
   }
 
   @media (max-width: 600px) {

@@ -19,10 +19,13 @@ export const PRESETS = [
   { id: 'ndvi', label: 'NDVI (Vegetation)', type: 'expression' as const, assets: ['nir', 'red'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'rdylgn' },
   { id: 'ndwi', label: 'NDWI (Water)', type: 'expression' as const, assets: ['green', 'nir'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'blues' },
   { id: 'ndbi', label: 'NDBI (Built-up)', type: 'expression' as const, assets: ['swir16', 'nir'], expression: '(b1-b2)/(b1+b2)', rescale: [-1, 1] as [number, number], colormap_name: 'ylorbr' },
-  { id: 'water-quality', label: 'Water Quality Analysis', type: 'external_api' as any },
+  { id: 'water-quality', label: 'Water Quality Analysis', type: 'external_api' as const },
 ];
 
-export type BandPreset = typeof PRESETS[number];
+export type BandPreset =
+  | { id: string; label: string; type: 'rgb'; assets: [string, string, string] | string[]; rescale: [number, number]; expression?: undefined; colormap_name?: undefined }
+  | { id: string; label: string; type: 'expression'; assets: string[]; expression: string; rescale: [number, number]; colormap_name?: string }
+  | { id: string; label: string; type: 'external_api'; assets?: undefined; rescale?: undefined; expression?: undefined; colormap_name?: undefined };
 
 class SentinelStore {
   satelite = $state("sentinel-2");
@@ -39,12 +42,26 @@ class SentinelStore {
   busquedaRealizada = $state(false);
   resultadosColapsado = $state(false);
 
-  cargaInicialPendiente = $state(false);
+  cargaCapasPendiente = $state(false);
+  mensajeCarga = $state("Loading...");
   progresoCarga = $state(0);
   mensajeExito = $state("");
 
+  iniciarCargaCapas(mensaje: string = "Downloading image tiles...") {
+    this.cargaCapasPendiente = true;
+    this.mensajeCarga = mensaje;
+  }
+
+  finalizarCargaCapas(mensajeExito?: string) {
+    this.cargaCapasPendiente = false;
+    if (mensajeExito) {
+      this.mostrarMensajeExito(mensajeExito);
+    }
+  }
+
   presetActivo = $state('true-color');
   bandasCustom = $state<[string, string, string]>(['B04', 'B03', 'B02']);
+  opacidadCapas = $state(90);
 
   get bandConfig(): BandPreset {
     return this.presetActivo === 'custom'
@@ -54,6 +71,37 @@ class SentinelStore {
           rescale: [0, 3000] as [number, number]
         }
       : PRESETS.find(p => p.id === this.presetActivo)!;
+  }
+
+  get areaKm2(): number {
+    if (!this.boundingBox) return 0;
+    const [minLng, minLat, maxLng, maxLat] = this.boundingBox;
+    const midLat = (minLat + maxLat) / 2;
+    const latRad = (midLat * Math.PI) / 180;
+    const widthKm = Math.abs(maxLng - minLng) * 111.32 * Math.cos(latRad);
+    const heightKm = Math.abs(maxLat - minLat) * 110.574;
+    return Math.round(widthKm * heightKm);
+  }
+
+  get areaValida(): boolean {
+    return this.areaKm2 > 0 && this.areaKm2 <= 10000;
+  }
+
+  get diasRango(): number {
+    if (!this.fechaInicio || !this.fechaFin) return 0;
+    const d1 = new Date(this.fechaInicio).getTime();
+    const d2 = new Date(this.fechaFin).getTime();
+    if (isNaN(d1) || isNaN(d2) || d2 < d1) return 0;
+    return Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+  }
+
+  get rangoFechasValido(): boolean {
+    return this.diasRango > 0 && this.diasRango <= 90;
+  }
+
+  limpiarBoundingBox() {
+    this.boundingBox = null;
+    this.modoDibujo = false;
   }
 
   mostrarMensajeExito(msg: string) {

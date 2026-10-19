@@ -2,12 +2,18 @@
   import { store } from '../lib/store.svelte';
 </script>
 
-{#if store.cargando || store.cargaInicialPendiente}
+{#if store.cargando || store.cargaCapasPendiente}
   <div class="toast-loading">
     <div class="loader-spinner"></div>
     <div class="toast-content">
-      <span>Loading ...</span>
-      <div class="progress-bg"><div class="progress-fill" style="width: {store.progresoCarga}%"></div></div>
+      <span>{store.mensajeCarga || 'Loading...'}</span>
+      <div class="progress-bg">
+        {#if store.progresoCarga > 0}
+          <div class="progress-fill" style="width: {store.progresoCarga}%"></div>
+        {:else}
+          <div class="progress-pulse"></div>
+        {/if}
+      </div>
     </div>
   </div>
 {/if}
@@ -68,12 +74,26 @@
     background: rgba(255,255,255,0.2);
     border-radius: 2px;
     overflow: hidden;
+    position: relative;
   }
 
   .progress-fill {
     height: 100%;
-    background: #2196f3;
+    background: #0ea5e9;
     transition: width 0.3s ease;
+  }
+
+  .progress-pulse {
+    width: 45%;
+    height: 100%;
+    background: #0ea5e9;
+    border-radius: 2px;
+    animation: indeterminate 1.4s infinite ease-in-out;
+  }
+
+  @keyframes indeterminate {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(250%); }
   }
 
   .loader-spinner {

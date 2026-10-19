@@ -9,6 +9,7 @@ export interface StacFeature {
   id: string;
   type: string;
   geometry: any;
+  bbox: [number, number, number, number];
   properties: {
     datetime: string;
     "eo:cloud_cover": number;

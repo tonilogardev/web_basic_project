@@ -1,6 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import type { StacFeature } from './stacApi';
-import { getTitilerUrlAsync } from './titilerApi';
+import { getTitilerTileUrlAsync } from './titilerApi';
 import { store } from './store.svelte';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -8,6 +8,9 @@ export class MapManager {
   private map: maplibregl.Map;
   private arrastrando = false;
   private inicioArrastre: { lng: number; lat: number } | null = null;
+  private cancelarEsperaCarga: (() => void) | null = null;
+  private ultimoPresetId: string = 'true-color';
+  private ultimasBandasCustom: string = '';
 
   constructor(container: HTMLElement) {
     this.map = new maplibregl.Map({
@@ -19,21 +22,12 @@ export class MapManager {
 
     this.map.addControl(new maplibregl.NavigationControl(), 'top-right');
     this.setupDrawEvents();
-
-    this.map.on('idle', () => {
-      if (store.cargaInicialPendiente) {
-        store.cargaInicialPendiente = false;
-        store.progresoCarga = 100;
-        store.mostrarMensajeExito("All uploaded images");
-        setTimeout(() => { store.progresoCarga = 0; }, 500);
-      }
-    });
   }
 
   private setupDrawEvents() {
-    this.map.on('mousedown', (e) => this.onMouseDown(e));
-    this.map.on('mousemove', (e) => this.onMouseMove(e));
-    this.map.on('mouseup', (e) => this.onMouseUp(e));
+    this.map.on('mousedown', (e: maplibregl.MapMouseEvent) => this.onMouseDown(e));
+    this.map.on('mousemove', (e: maplibregl.MapMouseEvent) => this.onMouseMove(e));
+    this.map.on('mouseup', (e: maplibregl.MapMouseEvent) => this.onMouseUp(e));
   }
 
   private onMouseDown(e: maplibregl.MapMouseEvent) {
@@ -112,6 +106,12 @@ export class MapManager {
     });
   }
 
+  public limpiarBoundingBox() {
+    if (this.map.getLayer('bbox-layer')) this.map.removeLayer('bbox-layer');
+    if (this.map.getSource('bbox-source')) this.map.removeSource('bbox-source');
+    store.limpiarBoundingBox();
+  }
+
   public activarDibujo() {
     store.modoDibujo = true;
     this.arrastrando = false;
@@ -136,22 +136,15 @@ export class MapManager {
     if (this.map.getSource(srcId)) return;
 
     try {
-      if (store.bandConfig.type === 'external_api') {
-        store.cargando = true;
-        store.progresoCarga = 50;
-      }
+      const { tileUrl, bounds } = await getTitilerTileUrlAsync(feature, store.bandConfig, store.boundingBox);
 
-      const { url, coordinates } = await getTitilerUrlAsync(feature, store.bandConfig, store.boundingBox);
-
-      if (store.bandConfig.type === 'external_api') {
-        store.progresoCarga = 100;
-        setTimeout(() => { store.cargando = false; store.progresoCarga = 0; }, 500);
-      }
+      if (this.map.getSource(srcId)) return;
 
       this.map.addSource(srcId, {
-        type: 'image',
-        url,
-        coordinates: coordinates as any
+        type: 'raster',
+        tiles: [tileUrl],
+        tileSize: 256,
+        bounds: bounds
       });
 
       const beforeId = this.map.getLayer('bbox-layer') ? 'bbox-layer' : undefined;
@@ -159,13 +152,25 @@ export class MapManager {
         id: `${srcId}-layer`,
         type: 'raster',
         source: srcId,
-        paint: { 'raster-opacity': 0.9 },
+        paint: { 
+          'raster-opacity': store.opacidadCapas / 100,
+          'raster-resampling': 'linear'
+        },
       }, beforeId);
     } catch (error) {
       console.error("Error adding scene:", error);
-      store.cargando = false;
-      store.progresoCarga = 0;
-      alert("Error analyzing water quality. Ensure Python backend is running.");
+      store.finalizarCargaCapas();
+      alert("Error loading satellite tiles. Ensure TiTiler is running.");
+    }
+  }
+
+  public actualizarOpacidad(opacidad: number) {
+    const style = this.map.getStyle();
+    if (!style) return;
+
+    const capasActuales = style.layers?.filter((l: maplibregl.LayerSpecification) => l.id.startsWith('cog-') && l.id.endsWith('-layer')) || [];
+    for (const capa of capasActuales) {
+      this.map.setPaintProperty(capa.id, 'raster-opacity', opacidad / 100);
     }
   }
 
@@ -175,22 +180,123 @@ export class MapManager {
     if (this.map.getSource(srcId)) this.map.removeSource(srcId);
   }
 
-  public sincronizarCapas() {
+  public async sincronizarCapas() {
     const style = this.map.getStyle();
     if (!style) return;
 
-    const capasActuales = style.layers?.filter(l => l.id.startsWith('cog-')) || [];
-    for (const capa of capasActuales) {
-      this.quitarEscena(capa.id.replace('-layer', '').replace('cog-', ''));
+    const presetActual = store.presetActivo;
+    const customActual = store.bandasCustom.join(',');
+    const cambioPreset = this.ultimoPresetId !== presetActual || this.ultimasBandasCustom !== customActual;
+
+    this.ultimoPresetId = presetActual;
+    this.ultimasBandasCustom = customActual;
+
+    if (cambioPreset) {
+      const capasActuales = style.layers?.filter((l: maplibregl.LayerSpecification) => l.id.startsWith('cog-')) || [];
+      for (const capa of capasActuales) {
+        this.quitarEscena(capa.id.replace('-layer', '').replace('cog-', ''));
+      }
+    } else {
+      const capasActuales = style.layers?.filter((l: maplibregl.LayerSpecification) => l.id.startsWith('cog-')) || [];
+      for (const capa of capasActuales) {
+        const sceneId = capa.id.replace('-layer', '').replace('cog-', '');
+        if (!store.escenasVisibles.has(sceneId)) {
+          this.quitarEscena(sceneId);
+        }
+      }
     }
 
-    for (const id of store.escenasVisibles) {
-      const f = store.resultados.find(r => r.id === id);
-      if (f) this.agregarEscena(f);
+    const escenasPorAgregar = Array.from(store.escenasVisibles).filter(id => !this.map.getSource(`cog-${id}`));
+
+    if (escenasPorAgregar.length === 0) {
+      return;
     }
+
+    if (this.cancelarEsperaCarga) {
+      this.cancelarEsperaCarga();
+    }
+
+    store.iniciarCargaCapas(escenasPorAgregar.length > 1 ? "Downloading images..." : "Downloading image tiles...");
+
+    for (const id of escenasPorAgregar) {
+      const f = store.resultados.find(r => r.id === id);
+      if (f) {
+        await this.agregarEscena(f);
+      }
+    }
+
+    const sourceIds = escenasPorAgregar.map(id => `cog-${id}`);
+    this.esperarCargaFuentes(sourceIds, () => {
+      store.finalizarCargaCapas("Image loaded");
+    });
+  }
+
+  private esperarCargaFuentes(sourceIds: string[], onCompletado: () => void) {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    let completado = false;
+
+    const cleanup = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+      this.map.off('sourcedata', onSourceData);
+      this.map.off('idle', onIdle);
+      this.cancelarEsperaCarga = null;
+    };
+
+    this.cancelarEsperaCarga = () => {
+      completado = true;
+      cleanup();
+    };
+
+    const verificar = () => {
+      if (completado) return;
+
+      const todasCargadas = sourceIds.every(id => {
+        try {
+          return this.map.getSource(id) !== undefined && this.map.isSourceLoaded(id);
+        } catch {
+          return false;
+        }
+      });
+
+      if (todasCargadas) {
+        completado = true;
+        cleanup();
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            onCompletado();
+          });
+        });
+      }
+    };
+
+    const onSourceData = (e: maplibregl.MapSourceDataEvent) => {
+      if (e.sourceId && sourceIds.includes(e.sourceId)) {
+        verificar();
+      }
+    };
+
+    const onIdle = () => {
+      verificar();
+    };
+
+    this.map.on('sourcedata', onSourceData);
+    this.map.on('idle', onIdle);
+
+    pollInterval = setInterval(verificar, 150);
+
+    timer = setTimeout(() => {
+      if (!completado) {
+        completado = true;
+        cleanup();
+        onCompletado();
+      }
+    }, 12000);
   }
 
   public destroy() {
+    if (this.cancelarEsperaCarga) this.cancelarEsperaCarga();
     this.map.remove();
   }
 }
