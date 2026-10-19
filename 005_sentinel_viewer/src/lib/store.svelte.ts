@@ -22,25 +22,64 @@ export const PRESETS = [
   { id: 'water-quality', label: 'Water Quality Analysis', type: 'external_api' as const },
 ];
 
+export function getPresetBadge(presetId: string): string {
+  switch (presetId) {
+    case 'true-color': return 'RGB';
+    case 'ndvi': return 'NDVI';
+    case 'ndwi': return 'NDWI';
+    case 'ndbi': return 'NDBI';
+    case 'false-color': return 'False Color';
+    case 'cir': return 'CIR';
+    case 'agriculture': return 'Agriculture';
+    case 'geology': return 'Geology';
+    case 'bathymetric': return 'Bathymetric';
+    case 'water-quality': return 'Water Quality';
+    case 'custom': return 'Custom';
+    default: return presetId.toUpperCase();
+  }
+}
+
+export interface BusquedaSession {
+  id: string;
+  presetId: string;
+  presetLabel: string;
+  bandConfig: BandPreset;
+  resultados: StacFeature[];
+  escenasVisibles: Set<string>;
+  opacidad: number;
+  colapsado: boolean;
+  x?: number;
+  y?: number;
+}
+
 export type BandPreset =
   | { id: string; label: string; type: 'rgb'; assets: [string, string, string] | string[]; rescale: [number, number]; expression?: undefined; colormap_name?: undefined }
   | { id: string; label: string; type: 'expression'; assets: string[]; expression: string; rescale: [number, number]; colormap_name?: string }
   | { id: string; label: string; type: 'external_api'; assets?: undefined; rescale?: undefined; expression?: undefined; colormap_name?: undefined };
 
+function getDefaultDates(days: number = 30) {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - days);
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10)
+  };
+}
+
 class SentinelStore {
   satelite = $state("sentinel-2");
   coberturaNubes = $state(20);
   maxResults = $state<number | 'all'>('all');
-  fechaInicio = $state("");
-  fechaFin = $state("");
+  fechaInicio = $state(getDefaultDates(30).start);
+  fechaFin = $state(getDefaultDates(30).end);
   boundingBox = $state<[number, number, number, number] | null>(null);
   modoDibujo = $state(false);
 
-  resultados = $state<StacFeature[]>([]);
-  escenasVisibles = $state<Set<string>>(new Set());
+  panelControlesPos = $state<{ x: number; y: number }>({ x: 20, y: 20 });
+  busquedas = $state<BusquedaSession[]>([]);
   cargando = $state(false);
   busquedaRealizada = $state(false);
-  resultadosColapsado = $state(false);
 
   cargaCapasPendiente = $state(false);
   mensajeCarga = $state("Loading...");
@@ -57,6 +96,77 @@ class SentinelStore {
     if (mensajeExito) {
       this.mostrarMensajeExito(mensajeExito);
     }
+  }
+
+  agregarOActualizarBusqueda(presetId: string, bandConfig: BandPreset, resultados: StacFeature[]) {
+    const existente = this.busquedas.find(b => b.presetId === presetId);
+    if (existente) {
+      existente.resultados = resultados;
+      existente.bandConfig = JSON.parse(JSON.stringify(bandConfig));
+      existente.presetLabel = getPresetBadge(presetId);
+      existente.colapsado = false;
+      if (existente.escenasVisibles.size === 0 && resultados.length > 0) {
+        existente.escenasVisibles = new Set([resultados[0].id]);
+      }
+    } else {
+      const existingCount = this.busquedas.length;
+      const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+      const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+      const cardWidth = 320;
+      const startX = 355; // Next to Copernicus Viewer (width 320 at left 20)
+      const availableWidth = Math.max(320, screenWidth - startX - cardWidth);
+      const cols = Math.max(1, Math.floor(availableWidth / (cardWidth + 15)));
+
+      const colIndex = existingCount % (cols + 1);
+      const rowIndex = Math.floor(existingCount / (cols + 1));
+
+      const initialX = Math.min(Math.max(20, screenWidth - cardWidth - 20), startX + colIndex * (cardWidth + 15));
+      const initialY = Math.min(Math.max(20, screenHeight - 350), 20 + rowIndex * 35);
+
+      const nueva: BusquedaSession = {
+        id: `search_${presetId}_${Date.now()}`,
+        presetId,
+        presetLabel: getPresetBadge(presetId),
+        bandConfig: JSON.parse(JSON.stringify(bandConfig)),
+        resultados,
+        escenasVisibles: new Set(resultados.length > 0 ? [resultados[0].id] : []),
+        opacidad: 100,
+        colapsado: false,
+        x: initialX,
+        y: initialY,
+      };
+      this.busquedas.push(nueva);
+    }
+  }
+
+  toggleEscenaEnBusqueda(busquedaId: string, featureId: string) {
+    const b = this.busquedas.find(item => item.id === busquedaId);
+    if (!b) return;
+    const nuevaSet = new Set(b.escenasVisibles);
+    if (nuevaSet.has(featureId)) {
+      nuevaSet.delete(featureId);
+    } else {
+      nuevaSet.add(featureId);
+    }
+    b.escenasVisibles = nuevaSet;
+  }
+
+  toggleTodasEnBusqueda(busquedaId: string) {
+    const b = this.busquedas.find(item => item.id === busquedaId);
+    if (!b) return;
+    if (b.escenasVisibles.size === b.resultados.length) {
+      b.escenasVisibles = new Set();
+    } else {
+      b.escenasVisibles = new Set(b.resultados.map(r => r.id));
+    }
+  }
+
+  eliminarBusqueda(busquedaId: string) {
+    this.busquedas = this.busquedas.filter(b => b.id !== busquedaId);
+  }
+
+  limpiarTodasLasBusquedas() {
+    this.busquedas = [];
   }
 
   presetActivo = $state('true-color');
@@ -109,32 +219,6 @@ class SentinelStore {
     setTimeout(() => {
       this.mensajeExito = "";
     }, 3500);
-  }
-
-  toggleEscena(featureId: string) {
-    const nuevaSet = new Set(this.escenasVisibles);
-    if (nuevaSet.has(featureId)) {
-      nuevaSet.delete(featureId);
-    } else {
-      nuevaSet.add(featureId);
-    }
-    this.escenasVisibles = nuevaSet;
-  }
-
-  limpiarTodasLasCapas() {
-    this.escenasVisibles = new Set();
-  }
-
-  toggleTodas() {
-    if (this.escenasVisibles.size === this.resultados.length) {
-      this.limpiarTodasLasCapas();
-    } else {
-      const nuevaSet = new Set<string>();
-      for (const r of this.resultados) {
-        nuevaSet.add(r.id);
-      }
-      this.escenasVisibles = nuevaSet;
-    }
   }
 }
 

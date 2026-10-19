@@ -8,6 +8,7 @@
   import Legend from './components/Legend.svelte';
   import { searchSentinel2 } from './lib/stacApi';
   import { store } from './lib/store.svelte';
+  import { draggable } from './lib/draggable';
 
   import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -39,17 +40,15 @@
     if (!store.boundingBox || !store.areaValida || !store.fechaInicio || !store.fechaFin || !store.rangoFechasValido) return;
 
     store.cargando = true;
-    store.mensajeCarga = "Searching Sentinel-2 scenes...";
+    store.mensajeCarga = `Searching ${store.bandConfig.label}...`;
     store.progresoCarga = 20;
-    store.resultados = [];
-    store.limpiarTodasLasCapas();
     store.busquedaRealizada = false;
 
     const collection = COLECTION_MAP[store.satelite] || "sentinel-2-l2a";
 
     try {
       store.progresoCarga = 50;
-      store.resultados = await searchSentinel2({
+      const features = await searchSentinel2({
         collection,
         bbox: store.boundingBox,
         startDate: store.fechaInicio,
@@ -60,11 +59,8 @@
 
       store.progresoCarga = 80;
 
-      const nuevasVisibles = new Set<string>();
-      if (store.resultados.length > 0) {
-        nuevasVisibles.add(store.resultados[0].id);
-      }
-      store.escenasVisibles = nuevasVisibles;
+      // Add or update search widget for current band preset
+      store.agregarOActualizarBusqueda(store.presetActivo, store.bandConfig, features);
     } catch (error) {
       console.error("Error en la búsqueda:", error);
     } finally {
@@ -74,26 +70,16 @@
     }
   }
 
-  function toggleEscena(featureId: string) {
-    store.toggleEscena(featureId);
-  }
-
-  function toggleTodas() {
-    store.toggleTodas();
-  }
-
   $effect(() => {
-    const _ = store.bandConfig;
-    const __ = store.escenasVisibles;
+    // Reactively monitor all search sessions, scene visibility and individual opacities
+    for (const b of store.busquedas) {
+      const _ = b.escenasVisibles.size;
+      const __ = b.opacidad;
+      const ___ = Array.from(b.escenasVisibles).join(',');
+    }
+    const count = store.busquedas.length;
     if (mapManager) {
       mapManager.sincronizarCapas();
-    }
-  });
-
-  $effect(() => {
-    const op = store.opacidadCapas;
-    if (mapManager) {
-      mapManager.actualizarOpacidad(op);
     }
   });
 </script>
@@ -103,51 +89,94 @@
 
   <Buscador onLugarSeleccionado={irALugar} />
 
-  <div class="paneles-izquierda">
-    <PanelControles 
-      onDibujarRectangulo={activarDibujo}
-      onLimpiarRectangulo={limpiarDibujo}
-      onBuscar={ejecutarBusqueda}
-    />
+  <PanelControles 
+    onDibujarRectangulo={activarDibujo}
+    onLimpiarRectangulo={limpiarDibujo}
+    onBuscar={ejecutarBusqueda}
+  />
 
-    {#if !store.cargando && store.resultados.length > 0}
-      <div class="panel-resultados" class:colapsado={store.resultadosColapsado}>
-        <div class="panel-header">
-          <div class="header-left">
-            <h3>Results ({store.resultados.length})</h3>
-            <label class="check-all">
-              <input type="checkbox" checked={store.escenasVisibles.size === store.resultados.length} onchange={toggleTodas} />
-              View all
-            </label>
-          </div>
-          <button class="btn-toggle" onclick={() => store.resultadosColapsado = !store.resultadosColapsado} aria-label={store.resultadosColapsado ? 'Expand panel' : 'Collapse panel'}>
-            {store.resultadosColapsado ? '+' : '−'}
+  {#each store.busquedas as busqueda (busqueda.id)}
+    <div 
+      class="panel-resultados" 
+      class:colapsado={busqueda.colapsado}
+      use:draggable={{
+        initialX: busqueda.x ?? 355,
+        initialY: busqueda.y ?? 20,
+        handle: '.panel-header',
+        ignore: 'button, input, select, label, a, .check-all',
+        onPositionChange: (pos) => {
+          busqueda.x = pos.x;
+          busqueda.y = pos.y;
+        }
+      }}
+    >
+      <div class="panel-header">
+        <div class="header-left">
+          <span class="drag-icon" title="Drag to move window">⠿</span>
+          <h3>Results ({busqueda.resultados.length})</h3>
+          <label class="check-all">
+            <input 
+              type="checkbox" 
+              checked={busqueda.escenasVisibles.size === busqueda.resultados.length && busqueda.resultados.length > 0} 
+              onchange={() => store.toggleTodasEnBusqueda(busqueda.id)} 
+            />
+            View all
+          </label>
+        </div>
+        <div class="header-right">
+          <span class="badge-preset badge-{busqueda.presetId}">{busqueda.presetLabel}</span>
+          <button 
+            class="btn-toggle" 
+            onclick={() => busqueda.colapsado = !busqueda.colapsado} 
+            aria-label={busqueda.colapsado ? 'Expand panel' : 'Collapse panel'}
+            title={busqueda.colapsado ? 'Expand' : 'Collapse'}
+          >
+            {busqueda.colapsado ? '+' : '−'}
+          </button>
+          <button 
+            class="btn-cerrar" 
+            onclick={() => store.eliminarBusqueda(busqueda.id)} 
+            aria-label="Close search widget"
+            title="Close"
+          >
+            ✕
           </button>
         </div>
-        {#if !store.resultadosColapsado}
-          <div class="panel-body">
-            <Resultados 
-              features={store.resultados} 
-              escenasVisibles={store.escenasVisibles}
-              onToggle={(f) => toggleEscena(f.id)}
-            />
-          </div>
-        {/if}
       </div>
-    {/if}
-  </div>
+
+      {#if !busqueda.colapsado}
+        <div class="panel-opacity-bar">
+          <span class="opacity-label">Opacity: {busqueda.opacidad}%</span>
+          <input 
+            type="range" 
+            min="0" 
+            max="100" 
+            bind:value={busqueda.opacidad} 
+            class="slider-opacity" 
+          />
+        </div>
+        <div class="panel-body">
+          <Resultados 
+            features={busqueda.resultados} 
+            escenasVisibles={busqueda.escenasVisibles}
+            onToggle={(f) => store.toggleEscenaEnBusqueda(busqueda.id, f.id)}
+          />
+        </div>
+      {/if}
+    </div>
+  {/each}
 
   {#if store.modoDibujo}
     <div class="hint-dibujo">Drag on the map to draw the bounding box</div>
   {/if}
 
-  {#if store.bandConfig.id === 'water-quality'}
+  {#if store.busquedas.some(b => b.presetId === 'water-quality' && b.escenasVisibles.size > 0)}
     <Legend />
   {/if}
 
   <Toasts />
 
-  {#if store.busquedaRealizada && !store.cargando && store.resultados.length === 0}
+  {#if store.busquedaRealizada && !store.cargando && store.busquedas.every(b => b.resultados.length === 0)}
     <div class="aviso-sin-resultados">
       No images found matching the selected criteria
     </div>
@@ -194,102 +223,204 @@
   }
 
   .panel-resultados {
-    background: rgba(10, 10, 11, 0.9);
+    background: rgba(10, 10, 11, 0.92);
     backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     color: #e5e7eb;
     font-family: system-ui, -apple-system, sans-serif;
     display: flex;
     flex-direction: column;
     width: 320px;
-    transition: width 0.25s ease;
-    min-height: 0;
+    min-width: 320px;
+    max-height: 420px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+    transition: width 0.2s ease, max-height 0.2s ease;
+  }
+
+  .panel-resultados:global(.is-dragging) {
+    transition: none !important;
+    cursor: grabbing !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(14, 165, 233, 0.5) !important;
   }
 
   .panel-resultados.colapsado {
-    width: 48px;
-    height: 48px;
+    width: auto;
+    min-width: 250px;
+    max-height: 48px;
     overflow: hidden;
   }
 
-  .panel-resultados.colapsado .panel-header {
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    box-sizing: border-box;
-  }
-
-  .panel-resultados .panel-header {
+  .panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 16px;
+    padding: 10px 14px;
     gap: 8px;
-    flex-shrink: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: grab;
+    user-select: none;
   }
 
-  .panel-resultados .header-left {
+  :global(.panel-resultados.is-dragging) .panel-header {
+    cursor: grabbing;
+  }
+
+  .drag-icon {
+    font-size: 1.1rem;
+    color: #6b7280;
+    cursor: grab;
+    user-select: none;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.15s ease;
+  }
+
+  .panel-header:hover .drag-icon {
+    color: #38bdf8;
+  }
+
+  .panel-resultados.colapsado .panel-header {
+    border-bottom: none;
+  }
+
+  .header-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
 
-  .panel-resultados h3 {
+  .header-left h3 {
     margin: 0;
-    font-size: 0.95rem;
-    color: #9ca3af;
+    font-size: 0.9rem;
+    color: #e5e7eb;
     white-space: nowrap;
+    font-weight: 600;
   }
 
-  .panel-resultados .check-all {
+  .check-all {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 0.8rem;
-    color: #e5e7eb;
+    font-size: 0.75rem;
+    color: #9ca3af;
     cursor: pointer;
     user-select: none;
   }
 
-  .panel-resultados .check-all input {
+  .check-all input {
     accent-color: #0ea5e9;
     cursor: pointer;
     margin: 0;
   }
 
-  .panel-resultados.colapsado .header-left {
-    display: none;
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 
-  .panel-resultados .btn-toggle {
-    width: 28px;
-    height: 28px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+  .badge-preset {
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 2px 7px;
     border-radius: 4px;
-    background: transparent;
-    cursor: pointer;
-    font-size: 1.2rem;
-    font-weight: 700;
-    line-height: 1;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .badge-true-color {
+    background: rgba(56, 189, 248, 0.18);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+  }
+
+  .badge-ndvi {
+    background: rgba(74, 222, 128, 0.18);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.4);
+  }
+
+  .badge-ndwi {
+    background: rgba(6, 182, 212, 0.18);
+    color: #06b6d4;
+    border: 1px solid rgba(6, 182, 212, 0.4);
+  }
+
+  .badge-ndbi {
+    background: rgba(245, 158, 11, 0.18);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+  }
+
+  .badge-water-quality {
+    background: rgba(45, 212, 191, 0.18);
+    color: #2dd4bf;
+    border: 1px solid rgba(45, 212, 191, 0.4);
+  }
+
+  .badge-false-color, .badge-cir {
+    background: rgba(192, 132, 252, 0.18);
+    color: #c084fc;
+    border: 1px solid rgba(192, 132, 252, 0.4);
+  }
+
+  .btn-toggle, .btn-cerrar {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #e5e7eb;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #e5e7eb;
-    flex-shrink: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
   }
 
-  .panel-resultados .btn-toggle:hover {
-    background: rgba(255, 255, 255, 0.1);
+  .btn-toggle:hover {
+    background: rgba(255, 255, 255, 0.18);
     color: white;
   }
 
-  .panel-resultados .panel-body {
-    padding: 0 16px 16px;
+  .btn-cerrar:hover {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #f87171;
+  }
+
+  .panel-opacity-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: rgba(0, 0, 0, 0.25);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    gap: 10px;
+  }
+
+  .opacity-label {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    white-space: nowrap;
+  }
+
+  .slider-opacity {
+    flex: 1;
+    height: 4px;
+    accent-color: #0ea5e9;
+    cursor: pointer;
+  }
+
+  .panel-body {
     overflow-y: auto;
+    padding: 10px 14px;
+    max-height: 260px;
   }
 
   .aviso-sin-resultados {
@@ -310,33 +441,14 @@
     font-family: system-ui, -apple-system, sans-serif;
   }
 
-  .paneles-izquierda {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    max-height: calc(100vh - 40px);
-  }
-
   @media (max-width: 600px) {
     .panel-resultados {
-      width: 100%;
+      width: calc(100vw - 20px);
+      min-width: unset;
     }
     .panel-resultados.colapsado {
       width: 48px;
       height: 48px;
-    }
-
-    .paneles-izquierda {
-      top: auto;
-      bottom: 10px;
-      left: 10px;
-      right: 10px;
-      max-height: calc(100vh - 80px);
     }
 
     .panel-resultados .panel-body {

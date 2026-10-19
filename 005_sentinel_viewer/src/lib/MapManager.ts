@@ -1,7 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { StacFeature } from './stacApi';
 import { getTitilerTileUrlAsync } from './titilerApi';
-import { store } from './store.svelte';
+import { store, type BandPreset } from './store.svelte';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 export class MapManager {
@@ -109,6 +109,16 @@ export class MapManager {
   public limpiarBoundingBox() {
     if (this.map.getLayer('bbox-layer')) this.map.removeLayer('bbox-layer');
     if (this.map.getSource('bbox-source')) this.map.removeSource('bbox-source');
+
+    const style = this.map.getStyle();
+    if (style) {
+      const cogLayers = style.layers?.filter(l => l.id.startsWith('cog-')) || [];
+      for (const cl of cogLayers) {
+        if (this.map.getLayer(cl.id)) this.map.removeLayer(cl.id);
+        const srcId = cl.id.replace('-layer', '');
+        if (this.map.getSource(srcId)) this.map.removeSource(srcId);
+      }
+    }
     store.limpiarBoundingBox();
   }
 
@@ -131,12 +141,73 @@ export class MapManager {
     }
   }
 
-  public async agregarEscena(feature: StacFeature) {
-    const srcId = `cog-${feature.id}`;
+  public async sincronizarCapas() {
+    const style = this.map.getStyle();
+    if (!style) return;
+
+    // 1. Build map of all desired layers across all search sessions
+    const capasDeseadas = new Map<string, { feature: StacFeature; bandConfig: BandPreset; opacidad: number }>();
+
+    for (const b of store.busquedas) {
+      for (const featureId of b.escenasVisibles) {
+        const f = b.resultados.find(r => r.id === featureId);
+        if (f) {
+          const layerKey = `${b.presetId}-${featureId}`;
+          capasDeseadas.set(layerKey, {
+            feature: f,
+            bandConfig: b.bandConfig,
+            opacidad: b.opacidad
+          });
+        }
+      }
+    }
+
+    // 2. Remove any cog- layers that are no longer in capasDeseadas
+    const capasActuales = style.layers?.filter((l: maplibregl.LayerSpecification) => l.id.startsWith('cog-') && l.id.endsWith('-layer')) || [];
+    for (const capa of capasActuales) {
+      const layerKey = capa.id.replace('cog-', '').replace('-layer', '');
+      if (!capasDeseadas.has(layerKey)) {
+        this.quitarCapa(layerKey);
+      }
+    }
+
+    // 3. Update opacities for existing layers
+    for (const [layerKey, item] of capasDeseadas.entries()) {
+      const layerId = `cog-${layerKey}-layer`;
+      if (this.map.getLayer(layerId)) {
+        this.map.setPaintProperty(layerId, 'raster-opacity', item.opacidad / 100);
+      }
+    }
+
+    // 4. Identify layers that need to be added
+    const capasPorAgregar = Array.from(capasDeseadas.entries()).filter(([key]) => !this.map.getSource(`cog-${key}`));
+
+    if (capasPorAgregar.length === 0) {
+      return;
+    }
+
+    if (this.cancelarEsperaCarga) {
+      this.cancelarEsperaCarga();
+    }
+
+    store.iniciarCargaCapas(capasPorAgregar.length > 1 ? "Downloading images..." : "Downloading image tiles...");
+
+    for (const [layerKey, item] of capasPorAgregar) {
+      await this.agregarEscenaConPreset(layerKey, item.feature, item.bandConfig, item.opacidad);
+    }
+
+    const sourceIds = capasPorAgregar.map(([key]) => `cog-${key}`);
+    this.esperarCargaFuentes(sourceIds, () => {
+      store.finalizarCargaCapas("Image loaded");
+    });
+  }
+
+  public async agregarEscenaConPreset(layerKey: string, feature: StacFeature, bandConfig: BandPreset, opacidad: number) {
+    const srcId = `cog-${layerKey}`;
     if (this.map.getSource(srcId)) return;
 
     try {
-      const { tileUrl, bounds } = await getTitilerTileUrlAsync(feature, store.bandConfig, store.boundingBox);
+      const { tileUrl, bounds } = await getTitilerTileUrlAsync(feature, bandConfig, store.boundingBox);
 
       if (this.map.getSource(srcId)) return;
 
@@ -153,7 +224,7 @@ export class MapManager {
         type: 'raster',
         source: srcId,
         paint: { 
-          'raster-opacity': store.opacidadCapas / 100,
+          'raster-opacity': opacidad / 100,
           'raster-resampling': 'linear'
         },
       }, beforeId);
@@ -164,71 +235,10 @@ export class MapManager {
     }
   }
 
-  public actualizarOpacidad(opacidad: number) {
-    const style = this.map.getStyle();
-    if (!style) return;
-
-    const capasActuales = style.layers?.filter((l: maplibregl.LayerSpecification) => l.id.startsWith('cog-') && l.id.endsWith('-layer')) || [];
-    for (const capa of capasActuales) {
-      this.map.setPaintProperty(capa.id, 'raster-opacity', opacidad / 100);
-    }
-  }
-
-  public quitarEscena(featureId: string) {
-    const srcId = `cog-${featureId}`;
+  public quitarCapa(layerKey: string) {
+    const srcId = `cog-${layerKey}`;
     if (this.map.getLayer(`${srcId}-layer`)) this.map.removeLayer(`${srcId}-layer`);
     if (this.map.getSource(srcId)) this.map.removeSource(srcId);
-  }
-
-  public async sincronizarCapas() {
-    const style = this.map.getStyle();
-    if (!style) return;
-
-    const presetActual = store.presetActivo;
-    const customActual = store.bandasCustom.join(',');
-    const cambioPreset = this.ultimoPresetId !== presetActual || this.ultimasBandasCustom !== customActual;
-
-    this.ultimoPresetId = presetActual;
-    this.ultimasBandasCustom = customActual;
-
-    if (cambioPreset) {
-      const capasActuales = style.layers?.filter((l: maplibregl.LayerSpecification) => l.id.startsWith('cog-')) || [];
-      for (const capa of capasActuales) {
-        this.quitarEscena(capa.id.replace('-layer', '').replace('cog-', ''));
-      }
-    } else {
-      const capasActuales = style.layers?.filter((l: maplibregl.LayerSpecification) => l.id.startsWith('cog-')) || [];
-      for (const capa of capasActuales) {
-        const sceneId = capa.id.replace('-layer', '').replace('cog-', '');
-        if (!store.escenasVisibles.has(sceneId)) {
-          this.quitarEscena(sceneId);
-        }
-      }
-    }
-
-    const escenasPorAgregar = Array.from(store.escenasVisibles).filter(id => !this.map.getSource(`cog-${id}`));
-
-    if (escenasPorAgregar.length === 0) {
-      return;
-    }
-
-    if (this.cancelarEsperaCarga) {
-      this.cancelarEsperaCarga();
-    }
-
-    store.iniciarCargaCapas(escenasPorAgregar.length > 1 ? "Downloading images..." : "Downloading image tiles...");
-
-    for (const id of escenasPorAgregar) {
-      const f = store.resultados.find(r => r.id === id);
-      if (f) {
-        await this.agregarEscena(f);
-      }
-    }
-
-    const sourceIds = escenasPorAgregar.map(id => `cog-${id}`);
-    this.esperarCargaFuentes(sourceIds, () => {
-      store.finalizarCargaCapas("Image loaded");
-    });
   }
 
   private esperarCargaFuentes(sourceIds: string[], onCompletado: () => void) {

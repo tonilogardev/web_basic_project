@@ -1,5 +1,6 @@
 <script lang="ts">
   import { store, BANDAS_DISPONIBLES, PRESETS } from '../lib/store.svelte';
+  import { draggable } from '../lib/draggable';
 
   interface Props {
     onDibujarRectangulo?: () => void;
@@ -49,9 +50,21 @@
   }
 </script>
 
-<aside class="panel-flotante" class:colapsado>
+<aside 
+  class="panel-flotante" 
+  class:colapsado
+  use:draggable={{
+    initialX: 20,
+    initialY: 20,
+    handle: '.panel-header',
+    ignore: 'button, input, select, label, a'
+  }}
+>
   <div class="panel-header">
-    <h2>Copernicus Viewer</h2>
+    <div class="header-drag-title">
+      <span class="drag-icon" title="Drag to move window">⠿</span>
+      <h2>Copernicus Viewer</h2>
+    </div>
     <button class="btn-toggle" onclick={() => colapsado = !colapsado} aria-label={colapsado ? 'Expand panel' : 'Collapse panel'}>
       {colapsado ? '+' : '−'}
     </button>
@@ -177,12 +190,6 @@
         {/if}
       </div>
 
-      {#if store.escenasVisibles.size > 0}
-        <div class="control-group">
-          <label for="layer-opacity">Layer Opacity: {store.opacidadCapas}%</label>
-          <input id="layer-opacity" type="range" min="0" max="100" bind:value={store.opacidadCapas} />
-        </div>
-      {/if}
 
       <button 
         class="btn-buscar" 
@@ -214,6 +221,12 @@
     flex-shrink: 0;
   }
 
+  .panel-flotante:global(.is-dragging) {
+    transition: none !important;
+    cursor: grabbing !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(14, 165, 233, 0.5) !important;
+  }
+
   .panel-flotante.colapsado {
     width: 48px;
     height: 48px;
@@ -230,7 +243,8 @@
     box-sizing: border-box;
   }
 
-  .colapsado .panel-header h2 {
+  .colapsado .panel-header h2,
+  .colapsado .drag-icon {
     display: none;
   }
 
@@ -241,6 +255,34 @@
     padding: 14px 16px;
     gap: 8px;
     box-sizing: border-box;
+    cursor: grab;
+    user-select: none;
+  }
+
+  :global(.panel-flotante.is-dragging) .panel-header {
+    cursor: grabbing;
+  }
+
+  .header-drag-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .drag-icon {
+    font-size: 1.1rem;
+    color: #6b7280;
+    cursor: grab;
+    user-select: none;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.15s ease;
+  }
+
+  .panel-header:hover .drag-icon {
+    color: #38bdf8;
   }
 
   .panel-header h2 {
