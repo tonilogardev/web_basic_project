@@ -84,18 +84,50 @@ class SentinelStore {
   cargaCapasPendiente = $state(false);
   mensajeCarga = $state("Loading...");
   progresoCarga = $state(0);
+  tiempoEstimado = $state<number | null>(null);
+  tiempoTranscurrido = $state(0);
   mensajeExito = $state("");
 
-  iniciarCargaCapas(mensaje: string = "Downloading image tiles...") {
+  private timerCarga: ReturnType<typeof setInterval> | null = null;
+  private inicioCargaTimestamp = 0;
+
+  iniciarCargaCapas(mensaje: string = "Downloading image tiles...", tiempoEstimado?: number) {
+    if (this.timerCarga) {
+      clearInterval(this.timerCarga);
+      this.timerCarga = null;
+    }
     this.cargaCapasPendiente = true;
     this.mensajeCarga = mensaje;
+    this.tiempoEstimado = tiempoEstimado ?? null;
+    this.tiempoTranscurrido = 0;
+    this.inicioCargaTimestamp = Date.now();
+
+    this.timerCarga = setInterval(() => {
+      this.tiempoTranscurrido = Math.round((Date.now() - this.inicioCargaTimestamp) / 100) / 10;
+    }, 100);
   }
 
   finalizarCargaCapas(mensajeExito?: string) {
-    this.cargaCapasPendiente = false;
-    if (mensajeExito) {
-      this.mostrarMensajeExito(mensajeExito);
+    if (this.timerCarga) {
+      clearInterval(this.timerCarga);
+      this.timerCarga = null;
     }
+    const duracion = this.inicioCargaTimestamp > 0
+      ? ((Date.now() - this.inicioCargaTimestamp) / 1000).toFixed(1)
+      : '0.0';
+
+    this.cargaCapasPendiente = false;
+    this.tiempoEstimado = null;
+
+    if (mensajeExito) {
+      const textoFinal = mensajeExito.includes('loaded') || mensajeExito.includes('Loaded')
+        ? `${mensajeExito} in ${duracion}s`
+        : `${mensajeExito} (${duracion}s)`;
+      this.mostrarMensajeExito(textoFinal);
+    }
+
+    this.tiempoTranscurrido = 0;
+    this.inicioCargaTimestamp = 0;
   }
 
   agregarOActualizarBusqueda(presetId: string, bandConfig: BandPreset, resultados: StacFeature[]) {

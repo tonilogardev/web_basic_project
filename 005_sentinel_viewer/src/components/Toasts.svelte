@@ -7,10 +7,25 @@
   <div class="toast-loading">
     <div class="loader-spinner"></div>
     <div class="toast-content">
-      <span>{store.mensajeCarga || 'Loading...'}</span>
+      <div class="toast-text-row">
+        <span class="toast-message">{store.mensajeCarga || 'Loading...'}</span>
+        {#if store.cargaCapasPendiente}
+          <div class="timer-badge">
+            {#if store.tiempoEstimado}
+              <span class="est-tag">(~{store.tiempoEstimado}s)</span>
+            {/if}
+            <span class="elapsed-tag">{Math.floor(store.tiempoTranscurrido)}s</span>
+          </div>
+        {/if}
+      </div>
       <div class="progress-bg">
         {#if store.progresoCarga > 0}
           <div class="progress-fill" style="width: {store.progresoCarga}%"></div>
+        {:else if store.tiempoEstimado && store.tiempoEstimado > 0}
+          <div 
+            class="progress-fill" 
+            style="width: {Math.min(95, Math.max(6, Math.round((store.tiempoTranscurrido / store.tiempoEstimado) * 90)))}%"
+          ></div>
         {:else}
           <div class="progress-pulse"></div>
         {/if}
@@ -90,14 +105,46 @@
     gap: 6px;
   }
   
-  .toast-content span {
+  .toast-text-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .toast-message {
     font-size: 0.85rem;
     font-weight: 600;
     color: #e5e7eb;
+    white-space: nowrap;
+  }
+
+  .timer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.8rem;
+  }
+
+  .est-tag {
+    color: #9ca3af;
+    font-size: 0.75rem;
+    font-weight: 400;
+  }
+
+  .elapsed-tag {
+    color: #38bdf8;
+    font-weight: 700;
+    background: rgba(14, 165, 233, 0.15);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(14, 165, 233, 0.3);
   }
 
   .progress-bg {
-    width: 120px;
+    width: 100%;
+    min-width: 140px;
     height: 4px;
     background: rgba(255,255,255,0.2);
     border-radius: 2px;

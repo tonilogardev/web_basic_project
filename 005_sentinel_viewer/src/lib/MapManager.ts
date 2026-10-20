@@ -162,24 +162,40 @@ export class MapManager {
       }
     }
 
-    // 2. Remove any cog- layers that are no longer in capasDeseadas
+    // 2. Identify active scenes across all current search sessions (to preserve in memory)
+    const capasActivasEnSesiones = new Set<string>();
+    for (const b of store.busquedas) {
+      for (const r of b.resultados) {
+        capasActivasEnSesiones.add(`${b.presetId}-${r.id}`);
+      }
+    }
+
+    // 3. Manage visibility and opacities of existing cog- layers in memory
     const capasActuales = style.layers?.filter((l: maplibregl.LayerSpecification) => l.id.startsWith('cog-') && l.id.endsWith('-layer')) || [];
     for (const capa of capasActuales) {
       const layerKey = capa.id.replace('cog-', '').replace('-layer', '');
-      if (!capasDeseadas.has(layerKey)) {
+      const layerId = capa.id;
+
+      if (capasDeseadas.has(layerKey)) {
+        // Desired layer: ensure it is visible and update opacity
+        const item = capasDeseadas.get(layerKey)!;
+        if (this.map.getLayoutProperty(layerId, 'visibility') === 'none') {
+          this.map.setLayoutProperty(layerId, 'visibility', 'visible');
+        }
+        this.map.setPaintProperty(layerId, 'raster-opacity', item.opacidad / 100);
+      } else if (capasActivasEnSesiones.has(layerKey)) {
+        // Layer belongs to an open search session but is currently unchecked:
+        // HIDE it without removing from MapLibre memory (0ms instant toggle when checked)
+        if (this.map.getLayoutProperty(layerId, 'visibility') !== 'none') {
+          this.map.setLayoutProperty(layerId, 'visibility', 'none');
+        }
+      } else {
+        // Session was closed or deleted: destroy layer & source to release memory
         this.quitarCapa(layerKey);
       }
     }
 
-    // 3. Update opacities for existing layers
-    for (const [layerKey, item] of capasDeseadas.entries()) {
-      const layerId = `cog-${layerKey}-layer`;
-      if (this.map.getLayer(layerId)) {
-        this.map.setPaintProperty(layerId, 'raster-opacity', item.opacidad / 100);
-      }
-    }
-
-    // 4. Identify layers that need to be added
+    // 4. Identify layers that need to be added to MapLibre for the first time
     const capasPorAgregar = Array.from(capasDeseadas.entries()).filter(([key]) => !this.map.getSource(`cog-${key}`));
 
     if (capasPorAgregar.length === 0) {
@@ -190,21 +206,30 @@ export class MapManager {
       this.cancelarEsperaCarga();
     }
 
+    const totalCapas = capasPorAgregar.length;
     const hasWaterQuality = capasPorAgregar.some(([_, item]) => item.bandConfig.preset === 'water-quality');
-    const msgCarga = hasWaterQuality
-      ? "Processing Water Quality Analysis..."
-      : (capasPorAgregar.length > 1 ? "Downloading images..." : "Downloading image tiles...");
 
-    store.iniciarCargaCapas(msgCarga);
+    // Realistic estimate based on processing type and number of scenes
+    const tiempoEstimado = hasWaterQuality
+      ? Math.max(4, Math.round(4 + (totalCapas - 1) * 3))
+      : Math.max(2, Math.round(2 + (totalCapas - 1) * 0.5));
+
+    const msgCarga = hasWaterQuality
+      ? (totalCapas > 1 ? `Processing Water Quality (${totalCapas} images)...` : "Processing Water Quality...")
+      : (totalCapas > 1 ? `Downloading ${totalCapas} images...` : "Downloading image tiles...");
+
+    store.iniciarCargaCapas(msgCarga, tiempoEstimado);
 
     for (const [layerKey, item] of capasPorAgregar) {
       await this.agregarEscenaConPreset(layerKey, item.feature, item.bandConfig, item.opacidad);
     }
 
     const sourceIds = capasPorAgregar.map(([key]) => `cog-${key}`);
+    const textoExito = totalCapas > 1 ? `${totalCapas} images loaded` : "Image loaded";
+    const timeoutMs = Math.max(15000, (tiempoEstimado + 5) * 1000);
     this.esperarCargaFuentes(sourceIds, () => {
-      store.finalizarCargaCapas("Image loaded");
-    });
+      store.finalizarCargaCapas(textoExito);
+    }, timeoutMs);
   }
 
   public async agregarEscenaConPreset(layerKey: string, feature: StacFeature, bandConfig: BandPreset, opacidad: number) {
@@ -246,7 +271,7 @@ export class MapManager {
     if (this.map.getSource(srcId)) this.map.removeSource(srcId);
   }
 
-  private esperarCargaFuentes(sourceIds: string[], onCompletado: () => void) {
+  private esperarCargaFuentes(sourceIds: string[], onCompletado: () => void, timeoutMs: number = 15000) {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let pollInterval: ReturnType<typeof setInterval> | null = null;
     let completado = false;
@@ -307,7 +332,7 @@ export class MapManager {
         cleanup();
         onCompletado();
       }
-    }, 12000);
+    }, timeoutMs);
   }
 
   public destroy() {
