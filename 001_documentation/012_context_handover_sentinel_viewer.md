@@ -59,10 +59,11 @@
 
 ## 3 Recent Commits & Deployment Status
 
-- **Working Branch**: `main_dev_pro` (up to date with `origin/main_dev_pro`).
-- **Feature Branch Merged**: `main_dev_pro_bluepixel_app` was merged into `main_dev_pro`.
+- **Active Branches**: `main` and `main_dev_pro` (fully synchronized with origin).
+- **Deleted Branches**: `main_dev_pro_bluepixel_app` (merged and deleted locally and on `origin`).
 - **Recent Git History**:
-  - `ae66277`: `feat: add water quality caching and full-screen lock during image download` (Latest)
+  - `443ce88`: `feat(sentinel-viewer): add live download timer and in-memory layer visibility cache` (Latest)
+  - `ae66277`: `feat: add water quality caching and full-screen lock during image download`
   - `e942565`: `feat(sentinel-viewer): add draggable windows and multi-widget search layout`
   - `7926edf`: `feat(sentinel-viewer): implement dynamic XYZ raster tiles, AOI guardrails, and download loading feedback`
 - **CI/CD Pipeline**: GitHub Actions workflow ([production-deploy.yml](../.github/workflows/production-deploy.yml)) runs on push to `main_dev_pro`.
