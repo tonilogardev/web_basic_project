@@ -114,10 +114,11 @@
         <div class="header-left">
           <span class="drag-icon" title="Drag to move window">⠿</span>
           <h3>Results ({busqueda.resultados.length})</h3>
-          <label class="check-all">
+          <label class="check-all" class:disabled={store.cargaCapasPendiente}>
             <input 
               type="checkbox" 
               checked={busqueda.escenasVisibles.size === busqueda.resultados.length && busqueda.resultados.length > 0} 
+              disabled={store.cargaCapasPendiente}
               onchange={() => store.toggleTodasEnBusqueda(busqueda.id)} 
             />
             View all
@@ -308,12 +309,23 @@
     color: #9ca3af;
     cursor: pointer;
     user-select: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .check-all.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 
   .check-all input {
     accent-color: #0ea5e9;
     cursor: pointer;
     margin: 0;
+  }
+
+  .check-all.disabled input {
+    cursor: not-allowed;
   }
 
   .header-right {

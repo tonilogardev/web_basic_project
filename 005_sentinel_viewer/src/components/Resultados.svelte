@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { StacFeature } from "../lib/stacApi";
+  import { store } from "../lib/store.svelte";
 
   interface Props {
     features?: StacFeature[];
@@ -26,10 +27,11 @@
             {formatDate(feature.properties.datetime)} · {feature.properties["eo:cloud_cover"]}% cloud cover
           </span>
         </div>
-        <label class="check-label">
+        <label class="check-label" class:disabled={store.cargaCapasPendiente}>
           <input
             type="checkbox"
             checked={escenasVisibles.has(feature.id)}
+            disabled={store.cargaCapasPendiente}
             onchange={() => onToggle?.(feature)}
           />
           View
@@ -84,6 +86,13 @@
     font-size: 0.8rem;
     color: #e5e7eb;
     user-select: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .check-label.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 
   .check-label input[type="checkbox"] {
@@ -91,6 +100,10 @@
     width: 16px;
     height: 16px;
     cursor: pointer;
+  }
+
+  .check-label.disabled input[type="checkbox"] {
+    cursor: not-allowed;
   }
 
   .empty {

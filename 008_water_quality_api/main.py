@@ -42,6 +42,8 @@ def cleanup_old_files():
                 except Exception as e:
                     print(f"Error borrando archivo antiguo {filepath}: {e}")
 
+import hashlib
+
 @app.get("/")
 def read_root():
     return {"status": "Water Quality API is running"}
@@ -52,25 +54,53 @@ async def analyze_water(request: AnalyzeRequest, background_tasks: BackgroundTas
         # Programar la limpieza en segundo plano para no frenar esta petición
         background_tasks.add_task(cleanup_old_files)
         
-        # Run the heavy numpy processor in a background thread to not block FastAPI
+        # Nombres deterministas basados en el item STAC y el BBox
+        bbox_str = "_".join(f"{coord:.4f}" for coord in request.bbox)
+        hash_suffix = hashlib.md5(f"{request.stac_item_id}_{bbox_str}".encode()).hexdigest()[:10]
+        clean_id = request.stac_item_id.replace("/", "_")
+        class_file = f"classification_{clean_id}_{hash_suffix}.tif"
+        rgb_file = f"rgb_{clean_id}_{hash_suffix}.tif"
+
+        class_path = os.path.join(OUTPUT_DIR, class_file)
+        rgb_path = os.path.join(OUTPUT_DIR, rgb_file)
+
+        classification_url = f"http://water-quality-api:8000/public/{class_file}"
+        rgb_url = f"http://water-quality-api:8000/public/{rgb_file}"
+
+        # Si ya existe en disco, responder inmediatamente desde caché (< 10ms)
+        if os.path.exists(class_path) and os.path.exists(rgb_path):
+            try:
+                os.utime(class_path, None)
+                os.utime(rgb_path, None)
+            except Exception:
+                pass
+
+            return {
+                "status": "success", 
+                "classification_url": classification_url,
+                "rgb_url": rgb_url,
+                "job_id": class_file,
+                "cached": True
+            }
+
+        # Ejecutar el procesador numpy en hilo secundario si no estaba en caché
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
             process_water_quality,
             request.stac_item_id,
             request.bbox,
-            OUTPUT_DIR
+            OUTPUT_DIR,
+            class_file,
+            rgb_file
         )
 
-        # We use the internal docker DNS name so Titiler (in the same network) can fetch it
-        classification_url = f"http://water-quality-api:8000/public/{result['classification_tif']}"
-        rgb_url = f"http://water-quality-api:8000/public/{result['rgb_tif']}"
-        
         return {
             "status": "success", 
             "classification_url": classification_url,
             "rgb_url": rgb_url,
-            "job_id": result['classification_tif']
+            "job_id": result['classification_tif'],
+            "cached": False
         }
     except Exception as e:
         import traceback

@@ -54,6 +54,8 @@ export function getTitilerTileUrlTemplate(
   return { tileUrl, bounds: layerBounds };
 }
 
+const waterQualityConfigCache = new Map<string, TileLayerConfig>();
+
 export async function getTitilerTileUrlAsync(
   feature: StacFeature, 
   bandConfig: BandPreset, 
@@ -73,6 +75,11 @@ export async function getTitilerTileUrlAsync(
       if (layerBounds[0] > layerBounds[2] || layerBounds[1] > layerBounds[3]) {
         layerBounds = bbox;
       }
+    }
+
+    const cacheKey = `${feature.id}_${layerBounds.map(n => n.toFixed(4)).join('_')}`;
+    if (waterQualityConfigCache.has(cacheKey)) {
+      return waterQualityConfigCache.get(cacheKey)!;
     }
 
     const payload = {
@@ -106,7 +113,10 @@ export async function getTitilerTileUrlAsync(
     // Dynamic tile endpoint for classification GeoTIFF
     const tileUrl = `${TITILER_BASE_URL}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodeURIComponent(classificationUrl)}&colormap=${colormapStr}`;
 
-    return { tileUrl, bounds: layerBounds };
+    const config: TileLayerConfig = { tileUrl, bounds: layerBounds };
+    waterQualityConfigCache.set(cacheKey, config);
+
+    return config;
   }
 
   // Sync generation for normal presets

@@ -114,7 +114,7 @@ def save_rgb(r, g, b, profile, output_path):
     with rasterio.open(output_path, "w", **profile_out) as dst:
         dst.write(rgb)
 
-def process_water_quality(item_id: str, bbox: list[float], output_dir: str):
+def process_water_quality(item_id: str, bbox: list[float], output_dir: str, class_file: str = None, rgb_file: str = None):
     print(f"Fetching STAC Item: {item_id}")
     hrefs = get_asset_hrefs(item_id)
     
@@ -197,9 +197,13 @@ def process_water_quality(item_id: str, bbox: list[float], output_dir: str):
     classification[mask_anomaly] = 5
     
     print("Exporting...")
-    job_id = item_id.split("_")[0] + "_" + str(np.random.randint(1000, 9999))
-    class_file = f"classification_{job_id}.tif"
-    rgb_file = f"rgb_{job_id}.tif"
+    if not class_file or not rgb_file:
+        import hashlib
+        bbox_str = "_".join(f"{coord:.4f}" for coord in bbox)
+        hash_suffix = hashlib.md5(f"{item_id}_{bbox_str}".encode()).hexdigest()[:10]
+        clean_id = item_id.replace("/", "_")
+        class_file = f"classification_{clean_id}_{hash_suffix}.tif"
+        rgb_file = f"rgb_{clean_id}_{hash_suffix}.tif"
     
     save_byte(classification, profile, os.path.join(output_dir, class_file))
     save_rgb(

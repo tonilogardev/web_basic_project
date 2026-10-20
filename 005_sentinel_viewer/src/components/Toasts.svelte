@@ -3,6 +3,7 @@
 </script>
 
 {#if store.cargando || store.cargaCapasPendiente}
+  <div class="blocking-backdrop" aria-hidden="true"></div>
   <div class="toast-loading">
     <div class="loader-spinner"></div>
     <div class="toast-content">
@@ -25,35 +26,62 @@
 {/if}
 
 <style>
-  .toast-loading, .toast-success {
-    position: absolute;
+  .blocking-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    z-index: 9998;
+    cursor: wait;
+    pointer-events: all;
+  }
+
+  .toast-loading {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10, 10, 11, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 12px 24px;
+    border-radius: 8px;
+    color: white;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+    font-family: system-ui, sans-serif;
+    animation: slideUp 0.3s ease;
+  }
+
+  .toast-success {
+    position: fixed;
     bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
     background: rgba(10, 10, 11, 0.9);
     backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     padding: 12px 24px;
     border-radius: 8px;
-    color: white;
+    color: #4ade80;
+    font-weight: 600;
     z-index: 1000;
     display: flex;
     align-items: center;
     gap: 14px;
     border: 1px solid rgba(255,255,255,0.1);
+    border-color: #4ade80;
     box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     font-family: system-ui, sans-serif;
     animation: slideUp 0.3s ease;
-  }
-
-  @keyframes slideUp {
-    from { opacity: 0; transform: translate(-50%, 20px); }
-    to { opacity: 1; transform: translate(-50%, 0); }
-  }
-
-  .toast-success {
-    border-color: #4ade80;
-    color: #4ade80;
-    font-weight: 600;
   }
 
   .toast-content {

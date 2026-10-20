@@ -190,7 +190,12 @@ export class MapManager {
       this.cancelarEsperaCarga();
     }
 
-    store.iniciarCargaCapas(capasPorAgregar.length > 1 ? "Downloading images..." : "Downloading image tiles...");
+    const hasWaterQuality = capasPorAgregar.some(([_, item]) => item.bandConfig.preset === 'water-quality');
+    const msgCarga = hasWaterQuality
+      ? "Processing Water Quality Analysis..."
+      : (capasPorAgregar.length > 1 ? "Downloading images..." : "Downloading image tiles...");
+
+    store.iniciarCargaCapas(msgCarga);
 
     for (const [layerKey, item] of capasPorAgregar) {
       await this.agregarEscenaConPreset(layerKey, item.feature, item.bandConfig, item.opacidad);
