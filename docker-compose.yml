@@ -101,7 +101,7 @@ services:
     container_name: water_quality_api
     image: ghcr.io/tonilogardev/water-quality-api:latest
     build:
-      context: ./008_water_quality_api
+      context: ./008_water_quality_api_rust
       dockerfile: Dockerfile
     restart: always
     expose:
