@@ -84,12 +84,11 @@
   - **Cache Speed**: Deterministic MD5 key lookup serves repeated queries in <20 ms.
   - **API Contract**: 100% backward-compatible with TiTiler and Svelte frontend (`POST /api/analyze`, `/public/{filename}`).
 - **AOI Clipping**: Computation runs only on the selected bounding box, reducing memory pressure and server cost on Hetzner VPS.
-- **Pixel-Perfect AOI Raster Tile Clipping (`clipped://` custom protocol)**:
-  - Solved visual raster overflow where MapLibre rendered whole 20–40 km tiles beyond the red AOI bounding box.
-  - Implemented `registerClippedProtocol` in [clippedProtocol.ts](../005_sentinel_viewer/src/lib/clippedProtocol.ts):
-    - Tiles strictly outside the AOI return an in-memory 1x1 transparent PNG buffer immediately (0 network calls).
-    - Tiles completely inside the AOI stream directly from TiTiler (0ms canvas overhead).
-    - Boundary-intersecting tiles are cropped on the client GPU via `OffscreenCanvas` (`ctx.clip()`), guaranteeing 0 pixels spill outside the red rectangle.
+- **Tile Streaming & Refresh Latency Optimizations**:
+  - **TiTiler Multi-Worker Parallelism**: Increased `WEB_CONCURRENCY` from 1 (serialized) to 8 workers in [docker-compose.yml](../docker-compose.yml), allowing parallel streaming across multiple CPU cores.
+  - **GDAL VSI Cache & HTTP/2 Multiplexing**: Enabled `VSI_CACHE=TRUE`, `VSI_CACHE_SIZE=536870912` (512MB RAM), `GDAL_CACHEMAX=512`, `GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR`, `GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=YES`, and `GDAL_HTTP_MULTIPLEX=YES` to minimize remote AWS S3 roundtrips.
+  - **Client-Side LRU Memory Tile Cache**: Added a 500-tile in-memory cache in [clippedProtocol.ts](../005_sentinel_viewer/src/lib/clippedProtocol.ts) so panning, zooming, and layer toggles return cached tiles in **0 ms**.
+  - **Fast WebP Hardware Encoding**: Switched boundary tile canvas rendering from CPU PNG compression to hardware-accelerated WebP (`image/webp`, quality 0.95).
 - **UI Responsiveness**: Toggling layer visibility does not trigger re-downloads thanks to client cache keys.
 - ***File References***:
   - Clipped Tile Protocol: [clippedProtocol.ts](../005_sentinel_viewer/src/lib/clippedProtocol.ts)
