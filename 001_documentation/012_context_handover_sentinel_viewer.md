@@ -100,13 +100,14 @@
 
 [←Index](#index)
 
-## 5 Next steps
+## 5 Next steps (Unified Rust Backend - Retirement of TiTiler)
 
-- Test Sentinel Viewer at `http://sentinel.localhost:8001/` to visually verify the pixel-perfect AOI crop.
-- Once verified, merge `main_dev_pro_rust` into `main_dev_pro`.
-- Deploy to Hetzner VPS and verify low RAM footprint in production.
-- When opening a new conversation with the AI agent, prompt:
-  > *"Hi, please read `@001_documentation/012_context_handover_sentinel_viewer.md` to load the full context, role, and current progress. Let's continue from there."*
+- **Active Milestone Specification**: [013_rust_unified_backend_spec.md](./013_rust_unified_backend_spec.md)
+  - **Phase 1**: GDAL global configuration & Tokio `spawn_blocking` pool auditing in `008_water_quality_api_rust`.
+  - **Phase 2**: High-performance XYZ raster tile server (`/api/tiles/{z}/{x}/{y}.png`) in Rust using GDAL warper/overview reader, SIMD/Rayon pixel math, and fast PNG encoding.
+  - **Phase 3**: STAC search proxy and in-memory cache endpoint (`/api/stac/search`) in Rust.
+  - **Phase 4**: Frontend integration in `005_sentinel_viewer` (`titilerApi.ts` -> Rust tile endpoint, `stacApi.ts` -> Rust STAC proxy).
+  - **Phase 5**: Complete retirement of TiTiler (Python) from `docker-compose.yml` to save RAM and simplify stack ("Less is More").
 
 [←Index](#index)
 
