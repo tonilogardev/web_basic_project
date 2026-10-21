@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl';
 import type { StacFeature } from './stacApi';
 import { getTitilerTileUrlAsync } from './titilerApi';
 import { store, type BandPreset } from './store.svelte';
+import { registerClippedProtocol } from './clippedProtocol';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 export class MapManager {
@@ -13,6 +14,8 @@ export class MapManager {
   private ultimasBandasCustom: string = '';
 
   constructor(container: HTMLElement) {
+    registerClippedProtocol();
+
     this.map = new maplibregl.Map({
       container,
       style: 'https://tiles.openfreemap.org/styles/liberty',

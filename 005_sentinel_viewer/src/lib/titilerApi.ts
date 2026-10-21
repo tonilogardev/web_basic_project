@@ -51,6 +51,11 @@ export function getTitilerTileUrlTemplate(
     }
   }
 
+  if (userBoundingBox) {
+    const aoiStr = userBoundingBox.map(n => n.toFixed(6)).join(',');
+    tileUrl = `clipped://${tileUrl}&aoi=${aoiStr}`;
+  }
+
   return { tileUrl, bounds: layerBounds };
 }
 
@@ -111,7 +116,11 @@ export async function getTitilerTileUrlAsync(
     const colormapStr = encodeURIComponent(JSON.stringify(customColormap));
 
     // Dynamic tile endpoint for classification GeoTIFF
-    const tileUrl = `${TITILER_BASE_URL}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodeURIComponent(classificationUrl)}&colormap=${colormapStr}`;
+    let tileUrl = `${TITILER_BASE_URL}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodeURIComponent(classificationUrl)}&colormap=${colormapStr}`;
+    if (userBoundingBox) {
+      const aoiStr = userBoundingBox.map(n => n.toFixed(6)).join(',');
+      tileUrl = `clipped://${tileUrl}&aoi=${aoiStr}`;
+    }
 
     const config: TileLayerConfig = { tileUrl, bounds: layerBounds };
     waterQualityConfigCache.set(cacheKey, config);
