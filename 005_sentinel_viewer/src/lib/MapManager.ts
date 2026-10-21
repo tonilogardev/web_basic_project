@@ -264,7 +264,7 @@ export class MapManager {
     } catch (error) {
       console.error("Error adding scene:", error);
       store.finalizarCargaCapas();
-      alert("Error loading satellite tiles. Ensure TiTiler is running.");
+      alert("Error loading satellite tiles. Ensure Geospatial Backend is running.");
     }
   }
 

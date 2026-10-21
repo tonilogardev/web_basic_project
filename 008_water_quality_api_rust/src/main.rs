@@ -1,5 +1,6 @@
 mod processor;
 mod stac;
+mod tiler;
 
 use axum::{
     extract::State,
@@ -10,17 +11,21 @@ use axum::{
 };
 use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 use tracing::{error, info};
 
 #[derive(Clone)]
-struct AppState {
-    output_dir: PathBuf,
+pub struct AppState {
+    pub output_dir: PathBuf,
+    pub http_client: reqwest::Client,
+    pub tile_cache: tiler::TileCache,
+    pub stac_cache: stac::StacCache,
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,7 +69,7 @@ fn cleanup_old_files(dir: &Path) {
 }
 
 async fn analyze_handler(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppState>,
     Json(payload): Json<AnalyzeRequest>,
 ) -> Result<Json<AnalyzeResponse>, (StatusCode, Json<ErrorResponse>)> {
     let bbox_str = format!(
@@ -100,8 +105,8 @@ async fn analyze_handler(
         }));
     }
 
-    // Fetch STAC assets
-    let hrefs = stac::get_asset_hrefs(&payload.stac_item_id)
+    // Fetch STAC assets using pooled client
+    let hrefs = stac::get_asset_hrefs(&state.http_client, &payload.stac_item_id)
         .await
         .map_err(|e| {
             error!("STAC fetch error: {}", e);
@@ -158,9 +163,15 @@ async fn analyze_handler(
 
 async fn root_handler() -> impl IntoResponse {
     Json(serde_json::json!({
-        "status": "Water Quality Rust API is running",
+        "status": "Unified Geospatial Rust API is running",
         "engine": "Pure Rust Axum + GDAL + Rayon",
-        "version": "1.0.0"
+        "endpoints": [
+            "POST /api/analyze",
+            "GET  /api/tiles/:z/:x/:y",
+            "POST /api/stac/search",
+            "GET  /public/*"
+        ],
+        "version": "2.0.0"
     }))
 }
 
@@ -170,15 +181,29 @@ async fn main() {
         .with_env_filter("info,water_quality_api_rust=debug")
         .init();
 
+    processor::init_gdal_options();
+    info!("✅ GDAL global COG and VSI caching options initialized");
+
     let output_dir = std::env::var("OUTPUT_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("./public"));
 
     std::fs::create_dir_all(&output_dir).expect("Failed to create public output directory");
 
-    let state = Arc::new(AppState {
+    let http_client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .expect("Failed to build HTTP client");
+
+    let tile_cache = Arc::new(RwLock::new(HashMap::new()));
+    let stac_cache = Arc::new(RwLock::new(HashMap::new()));
+
+    let state = AppState {
         output_dir: output_dir.clone(),
-    });
+        http_client,
+        tile_cache,
+        stac_cache,
+    };
 
     // Spawn background task to delete files older than 1 hour
     let cleanup_dir = output_dir.clone();
@@ -198,12 +223,14 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root_handler))
         .route("/api/analyze", post(analyze_handler))
+        .route("/api/tiles/:z/:x/:y", get(tiler::tile_handler))
+        .route("/api/stac/search", post(stac::stac_search_handler))
         .nest_service("/public", ServeDir::new(&output_dir))
         .layer(cors)
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8000));
-    info!("🚀 Water Quality Rust API starting on {}", addr);
+    info!("🚀 Unified Geospatial Rust API starting on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();

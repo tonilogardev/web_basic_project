@@ -28,8 +28,8 @@
 ## 2 Current Architecture & Implemented Features
 
 - **Frontend**: Svelte 5 (runes state), MapLibre GL JS, and draggable window system.
-- **Tile Engine**: Titiler (Dockerized) for dynamic STAC tile rendering.
-- **Heavy Processing**: Python FastAPI service ([008_water_quality_api/](../008_water_quality_api/)).
+- **Unified Geospatial Backend**: Pure Rust microservice ([008_water_quality_api_rust/](../008_water_quality_api_rust/)) combining dynamic XYZ tile streaming (`/api/tiles/{z}/{x}/{y}.png`), STAC search proxy + in-memory cache (`/api/stac/search`), and water quality index processing.
+- **TiTiler (Python)**: Completely retired ("Less is More"). Zero Python runtime in production stack.
 - **Implemented Features (Session 1266f055)**:
   - **Date Widgets**: Fixed mouse selection and range inputs.
   - **Area of Interest (AOI) Limit**: Guardrail around 10,000 km² maximum selection rectangle.
@@ -100,14 +100,18 @@
 
 [←Index](#index)
 
-## 5 Next steps (Unified Rust Backend - Retirement of TiTiler)
+## 5 Unified Rust Backend Milestone (Completed)
 
-- **Active Milestone Specification**: [013_rust_unified_backend_spec.md](./013_rust_unified_backend_spec.md)
-  - **Phase 1**: GDAL global configuration & Tokio `spawn_blocking` pool auditing in `008_water_quality_api_rust`.
-  - **Phase 2**: High-performance XYZ raster tile server (`/api/tiles/{z}/{x}/{y}.png`) in Rust using GDAL warper/overview reader, SIMD/Rayon pixel math, and fast PNG encoding.
-  - **Phase 3**: STAC search proxy and in-memory cache endpoint (`/api/stac/search`) in Rust.
-  - **Phase 4**: Frontend integration in `005_sentinel_viewer` (`titilerApi.ts` -> Rust tile endpoint, `stacApi.ts` -> Rust STAC proxy).
-  - **Phase 5**: Complete retirement of TiTiler (Python) from `docker-compose.yml` to save RAM and simplify stack ("Less is More").
+- **Completed Milestone Specification**: [013_rust_unified_backend_spec.md](./013_rust_unified_backend_spec.md)
+  - **Phase 1 [DONE]**: GDAL global configuration (`EMPTY_DIR`, `VSI_CACHE`, HTTP/2 multiplexing, range merging, `GDAL_CACHEMAX=256MB`) & Tokio `spawn_blocking` pool auditing in `008_water_quality_api_rust`.
+  - **Phase 2 [DONE]**: High-performance XYZ raster tile server (`/api/tiles/{z}/{x}/{y}.png`) in Rust using GDAL's native C Warper (`GDALWarp` reprojecting from source UTM into `EPSG:3857` with sub-pixel alignment and transparent alpha out-of-boundary padding), Rayon parallel band extraction, SIMD pixel algebra (RGB, False Color, NDVI, NDWI), and in-memory PNG encoding.
+  - **Phase 3 [DONE]**: STAC search proxy and in-memory cache endpoint (`/api/stac/search`) in Rust with 15-minute TTL.
+  - **Phase 4 [DONE]**: Frontend integration in `005_sentinel_viewer` ([titilerApi.ts](../005_sentinel_viewer/src/lib/titilerApi.ts) and [stacApi.ts](../005_sentinel_viewer/src/lib/stacApi.ts)) routed exclusively to the Rust backend.
+  - **Phase 5 [DONE]**: Complete retirement of TiTiler (Python) from [docker-compose.yml](../docker-compose.yml). Zero Python dependency, reduced memory footprint, simplified architecture.
 
-[←Index](#index)
+## 6 Next Steps
+
+1. End-to-end integration smoke testing in local staging (`docker compose --env-file .env.development up -d`) — **Verified**.
+2. Verification of raster tile responsiveness on MapLibre and memory usage benchmarks under load — **Verified (44 MiB Rust API, 152 MiB total stack)**.
+3. Review and commit changes to `main_dev_pro_rust` / `main_dev_pro`.
 

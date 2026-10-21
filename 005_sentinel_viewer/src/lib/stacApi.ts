@@ -32,7 +32,13 @@ export interface SearchParams {
   maxResults?: number;
 }
 
-const STAC_API = "https://earth-search.aws.element84.com/v1/search";
+const RUST_API_BASE_URL = import.meta.env.VITE_RUST_API_URL
+  ?? import.meta.env.VITE_WATER_API_URL
+  ?? (window.location.hostname.includes('localhost')
+    ? 'http://water-api.localhost:8001'
+    : 'https://water-api.tonilogar.com');
+
+const STAC_SEARCH_API = `${RUST_API_BASE_URL}/api/stac/search`;
 export const STAC_COLLECTION = "https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a";
 
 export async function searchSentinel2(params: SearchParams): Promise<StacFeature[]> {
@@ -45,7 +51,7 @@ export async function searchSentinel2(params: SearchParams): Promise<StacFeature
     query: { "eo:cloud_cover": { lt: params.maxCloudCover } },
   };
 
-  const resp = await fetch(STAC_API, {
+  const resp = await fetch(STAC_SEARCH_API, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(query),

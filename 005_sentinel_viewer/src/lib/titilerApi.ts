@@ -1,12 +1,8 @@
-import { STAC_COLLECTION, type StacFeature } from './stacApi';
+import type { StacFeature } from './stacApi';
 import type { BandPreset } from './store.svelte';
 
-const TITILER_BASE_URL = import.meta.env.VITE_TITILER_URL
-  ?? (window.location.hostname.includes('localhost')
-    ? 'http://titiler.localhost:8001'
-    : 'https://titiler.tonilogar.com');
-
-const WATER_API_BASE_URL = import.meta.env.VITE_WATER_API_URL
+const RUST_API_BASE_URL = import.meta.env.VITE_RUST_API_URL
+  ?? import.meta.env.VITE_WATER_API_URL
   ?? (window.location.hostname.includes('localhost')
     ? 'http://water-api.localhost:8001'
     : 'https://water-api.tonilogar.com');
@@ -36,16 +32,21 @@ export function getTitilerTileUrlTemplate(
     }
   }
 
-  const stacItemUrl = `${STAC_COLLECTION}/items/${feature.id}`;
-  const baseUrl = `${TITILER_BASE_URL}/stac/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodeURIComponent(stacItemUrl)}`;
-
+  const baseUrl = `${RUST_API_BASE_URL}/api/tiles/{z}/{x}/{y}.png`;
   let tileUrl = '';
+
   if (bandConfig.type === 'rgb') {
-    const assetsStr = bandConfig.assets.map(a => `assets=${a}`).join('&');
-    tileUrl = `${baseUrl}&${assetsStr}&rescale=${bandConfig.rescale.join(',')}`;
+    const b1 = feature.assets[bandConfig.assets[0]]?.href || '';
+    const b2 = feature.assets[bandConfig.assets[1]]?.href || '';
+    const b3 = feature.assets[bandConfig.assets[2]]?.href || '';
+    const rescale = bandConfig.rescale ? bandConfig.rescale.join(',') : '0,3000';
+    tileUrl = `${baseUrl}?b1=${encodeURIComponent(b1)}&b2=${encodeURIComponent(b2)}&b3=${encodeURIComponent(b3)}&rescale=${rescale}`;
   } else if (bandConfig.type === 'expression') {
-    const assetsStr = bandConfig.assets.map(a => `assets=${a}`).join('&');
-    tileUrl = `${baseUrl}&${assetsStr}&expression=${encodeURIComponent(bandConfig.expression)}&rescale=${bandConfig.rescale.join(',')}`;
+    const b1 = feature.assets[bandConfig.assets[0]]?.href || '';
+    const b2 = feature.assets[bandConfig.assets[1]]?.href || '';
+    const rescale = bandConfig.rescale ? bandConfig.rescale.join(',') : '-1,1';
+    const preset = bandConfig.id || 'ndvi';
+    tileUrl = `${baseUrl}?b1=${encodeURIComponent(b1)}&b2=${encodeURIComponent(b2)}&preset=${preset}&rescale=${rescale}`;
     if (bandConfig.colormap_name) {
       tileUrl += `&colormap_name=${bandConfig.colormap_name}`;
     }
@@ -66,7 +67,6 @@ export async function getTitilerTileUrlAsync(
   bandConfig: BandPreset, 
   userBoundingBox: [number, number, number, number] | null
 ): Promise<TileLayerConfig> {
-  
   if (bandConfig.type === 'external_api') {
     const { bbox } = feature;
     let layerBounds: [number, number, number, number] = bbox;
@@ -92,7 +92,7 @@ export async function getTitilerTileUrlAsync(
       bbox: layerBounds
     };
 
-    const resp = await fetch(`${WATER_API_BASE_URL}/api/analyze`, {
+    const resp = await fetch(`${RUST_API_BASE_URL}/api/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -115,8 +115,8 @@ export async function getTitilerTileUrlAsync(
     };
     const colormapStr = encodeURIComponent(JSON.stringify(customColormap));
 
-    // Dynamic tile endpoint for classification GeoTIFF
-    let tileUrl = `${TITILER_BASE_URL}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodeURIComponent(classificationUrl)}&colormap=${colormapStr}`;
+    // Dynamic tile endpoint for classification GeoTIFF served by Rust backend
+    let tileUrl = `${RUST_API_BASE_URL}/api/tiles/{z}/{x}/{y}.png?url=${encodeURIComponent(classificationUrl)}&colormap=${colormapStr}`;
     if (userBoundingBox) {
       const aoiStr = userBoundingBox.map(n => n.toFixed(6)).join(',');
       tileUrl = `clipped://${tileUrl}&aoi=${aoiStr}`;

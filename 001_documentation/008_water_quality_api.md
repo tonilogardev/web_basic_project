@@ -16,16 +16,20 @@
 
 ## 1 Architecture Overview
 
-- **Runtime**: Python 3.11 with FastAPI + Uvicorn.
-- **Dependencies**: `rasterio` (GDAL), `numpy`, `requests`, `pydantic`.
-- **Communication**: Reads Sentinel-2 COGs directly from AWS S3 (Element 84 STAC). Returns GeoTIFF paths consumed by Titiler for rendering.
-- **Deployment**: Multi-stage Docker container, routed through Traefik at `water-api.tonilogar.com`.
+- **Runtime**: Native Rust microservice with Axum 0.7 + Tokio + GDAL 0.17 + Rayon 1.10.
+- **Unified Responsibilities**:
+  1. Water Quality analysis calculation (NDWI, MNDWI, FAI, NDTI, NDCI) on AOI bounding boxes.
+  2. Dynamic XYZ tile rendering engine (`GET /api/tiles/:z/:x/:y.png`) with RGB composites, false color, spectral indices, and color mapping.
+  3. STAC search proxy and in-memory cache (`POST /api/stac/search`) with 15-minute TTL.
+- **Communication**: Reads Sentinel-2 COGs directly from AWS S3 via `/vsicurl/` with GDAL internal overview selection. Completely replaces TiTiler.
+- **Deployment**: Multi-stage Docker container (`FROM rust:bookworm` -> `debian:bookworm-slim`), routed through Traefik at `water-api.tonilogar.com`.
 - ***File References***:
-  - Module Root: [008_water_quality_api/](../008_water_quality_api/)
-  - API Entry: [main.py](../008_water_quality_api/main.py)
-  - Processing Logic: [processor.py](../008_water_quality_api/processor.py)
-  - Dependencies: [requirements.txt](../008_water_quality_api/requirements.txt)
-  - Dockerfile: [Dockerfile](../008_water_quality_api/Dockerfile)
+  - Module Root: [008_water_quality_api_rust/](../008_water_quality_api_rust/)
+  - API Entry & Router: [main.rs](../008_water_quality_api_rust/src/main.rs)
+  - Tile Server: [tiler.rs](../008_water_quality_api_rust/src/tiler.rs)
+  - STAC Proxy & Cache: [stac.rs](../008_water_quality_api_rust/src/stac.rs)
+  - Water Quality Processor: [processor.rs](../008_water_quality_api_rust/src/processor.rs)
+  - Dockerfile: [Dockerfile](../008_water_quality_api_rust/Dockerfile)
 
 [←Index](#index)
 
@@ -78,11 +82,28 @@
   ```
   | Field | Type | Description |
   |-------|------|-------------|
-  | `classification_url` | `string` | Internal URL for Titiler (Docker DNS) |
-  | `rgb_url` | `string` | Internal URL for Titiler (Docker DNS) |
+  | `classification_url` | `string` | Internal URL for analysis GeoTIFF |
+  | `rgb_url` | `string` | Internal URL for RGB GeoTIFF |
   | `job_id` | `string` | Unique identifier for the generated files |
-- ***File References***:
-  - Request model: [main.py](../008_water_quality_api/main.py#L28-L30)
+
+### `GET /api/tiles/:z/:x/:y.png`
+
+- **Purpose**: Dynamic XYZ raster tile server replacing TiTiler.
+- **Parameters**:
+  - Path: `z` (zoom level), `x` (tile column), `y` (tile row).
+  - Query:
+    - `b1`, `b2`, `b3`: URLs of band COGs (e.g., Red, Green, Blue or NIR).
+    - `url`: Direct COG URL (e.g., classification TIFF).
+    - `preset`: `"true_color"`, `"false_color"`, `"ndvi"`, `"ndwi"`.
+    - `rescale`: Reflectance scale range (default `"0,3000"` for Sentinel-2, or `"-1,1"` for NDVI/NDWI).
+    - `colormap`: JSON dictionary of hex colors for index/classification values.
+- **Response**: Binary PNG (`image/png`) with HTTP caching headers (`Cache-Control: public, max-age=86400`).
+
+### `POST /api/stac/search`
+
+- **Purpose**: Proxied STAC search to Earth Search API with 15-minute in-memory caching.
+- **Request Body**: STAC query payload (`collections`, `bbox`, `datetime`, `query`, `limit`, `sortby`).
+- **Response**: Standard STAC GeoJSON feature collection.
 
 [←Index](#index)
 

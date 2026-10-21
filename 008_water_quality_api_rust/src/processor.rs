@@ -8,9 +8,12 @@ use rayon::prelude::*;
 pub fn init_gdal_options() {
     gdal::config::set_config_option("AWS_NO_SIGN_REQUEST", "YES").ok();
     gdal::config::set_config_option("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR").ok();
-    gdal::config::set_config_option("CPL_VSIL_CURL_ALLOWED_EXTENSIONS", ".tif,.TIF").ok();
+    gdal::config::set_config_option("CPL_VSIL_CURL_ALLOWED_EXTENSIONS", ".tif,.tiff,.TIF,.TIFF").ok();
+    gdal::config::set_config_option("GDAL_HTTP_MERGE_CONSECUTIVE_RANGES", "YES").ok();
+    gdal::config::set_config_option("GDAL_HTTP_MULTIPLEX", "YES").ok();
     gdal::config::set_config_option("VSI_CACHE", "TRUE").ok();
     gdal::config::set_config_option("VSI_CACHE_SIZE", "50000000").ok();
+    gdal::config::set_config_option("GDAL_CACHEMAX", "256").ok();
 }
 
 struct WindowInfo {
@@ -211,9 +214,10 @@ fn write_classification_geotiff(
         .map_err(|e| format!("Error getting GTiff driver: {}", e))?;
 
     let options = RasterCreationOptions::from_iter(["COMPRESS=LZW"]);
+    let path_str = path.to_str().ok_or_else(|| "Invalid output path for classification GeoTIFF".to_string())?;
     let mut ds = driver
         .create_with_band_type_with_options::<u8, _>(
-            path.to_str().unwrap(),
+            path_str,
             width,
             height,
             1,
@@ -248,9 +252,10 @@ fn write_rgb_geotiff(
         .map_err(|e| format!("Error getting GTiff driver: {}", e))?;
 
     let options = RasterCreationOptions::from_iter(["COMPRESS=LZW", "PHOTOMETRIC=RGB"]);
+    let path_str = path.to_str().ok_or_else(|| "Invalid output path for RGB GeoTIFF".to_string())?;
     let mut ds = driver
         .create_with_band_type_with_options::<u8, _>(
-            path.to_str().unwrap(),
+            path_str,
             width,
             height,
             3,
@@ -331,15 +336,18 @@ pub fn process_water_quality(
     .collect();
 
     let mut bands = bands_res?;
-    let scl = bands.pop().unwrap();
-    let b11 = bands.pop().unwrap();
-    let _b8a = bands.pop().unwrap();
-    let _b06 = bands.pop().unwrap();
-    let b05 = bands.pop().unwrap();
-    let b08 = bands.pop().unwrap();
-    let b04 = bands.pop().unwrap();
-    let b03 = bands.pop().unwrap();
-    let _b02 = bands.pop().unwrap();
+    if bands.len() != 9 {
+        return Err(format!("Expected 9 bands for water quality processing, got {}", bands.len()));
+    }
+    let scl = bands.remove(8);
+    let b11 = bands.remove(7);
+    let _b8a = bands.remove(6);
+    let _b06 = bands.remove(5);
+    let b05 = bands.remove(4);
+    let b08 = bands.remove(3);
+    let b04 = bands.remove(2);
+    let b03 = bands.remove(1);
+    let _b02 = bands.remove(0);
 
     // Parallel calculation of water indices and masks
     struct PixelCalc {
