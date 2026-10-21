@@ -89,6 +89,20 @@ services:
     environment:
       # CORS necesario porque el frontend (sentinel.*) pide tiles a titiler.*
       - TITILER_CORS_ORIGINS=*
+      # Parallelism: 8 workers to process multiple map tiles simultaneously instead of serialized 1 by 1
+      - WEB_CONCURRENCY=8
+      # GDAL & AWS S3 High Performance Streaming settings
+      - GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR
+      - GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=YES
+      - GDAL_HTTP_MULTIPLEX=YES
+      - GDAL_HTTP_VERSION=2
+      - GDAL_CACHEMAX=512
+      - VSI_CACHE=TRUE
+      - VSI_CACHE_SIZE=536870912
+      - CPL_VSIL_CURL_ALLOWED_EXTENSIONS=.tif,.TIF,.tiff
+      - AWS_NO_SIGN_REQUEST=YES
+      - MOSAIC_CONCURRENCY=4
+      - TITILER_MOSAIC_CONCURRENCY=4
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.titiler.rule=Host(`titiler.${DOMAIN_NAME:-localhost}`)"

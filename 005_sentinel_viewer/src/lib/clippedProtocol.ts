@@ -15,6 +15,29 @@ function getEmptyTileBuffer(): ArrayBuffer {
   return emptyTileBuffer;
 }
 
+// LRU tile cache to make pan, zoom, and layer toggles instantaneous (0ms)
+const TILE_CACHE_LIMIT = 500;
+const tileCache = new Map<string, ArrayBuffer>();
+
+function getCachedTile(key: string): ArrayBuffer | null {
+  const data = tileCache.get(key);
+  if (data) {
+    // refresh recency
+    tileCache.delete(key);
+    tileCache.set(key, data);
+    return data;
+  }
+  return null;
+}
+
+function setCachedTile(key: string, data: ArrayBuffer) {
+  if (tileCache.size >= TILE_CACHE_LIMIT) {
+    const oldestKey = tileCache.keys().next().value;
+    if (oldestKey) tileCache.delete(oldestKey);
+  }
+  tileCache.set(key, data);
+}
+
 let protocolRegistered = false;
 
 /**
@@ -28,6 +51,12 @@ export function registerClippedProtocol() {
   protocolRegistered = true;
 
   maplibregl.addProtocol('clipped', async (params, abortController) => {
+    // 0. Check in-memory LRU cache for 0ms refresh on pan/zoom/toggle
+    const cachedBuffer = getCachedTile(params.url);
+    if (cachedBuffer) {
+      return { data: cachedBuffer.slice(0) };
+    }
+
     // 1. Remove the custom protocol prefix
     const rawUrl = params.url.replace(/^clipped:\/\//, '');
 
@@ -47,6 +76,7 @@ export function registerClippedProtocol() {
       const resp = await fetch(fetchUrl, { signal: abortController.signal });
       if (!resp.ok) throw new Error(`Tile fetch error: ${resp.status}`);
       const buffer = await resp.arrayBuffer();
+      setCachedTile(params.url, buffer);
       return { data: buffer };
     }
 
@@ -74,7 +104,9 @@ export function registerClippedProtocol() {
 
     // A. Tile is completely outside the AOI: return transparent tile immediately (0 network calls)
     if (pxMax <= 0 || pxMin >= tileSize || pyMax <= 0 || pyMin >= tileSize) {
-      return { data: getEmptyTileBuffer() };
+      const emptyBuf = getEmptyTileBuffer();
+      setCachedTile(params.url, emptyBuf);
+      return { data: emptyBuf };
     }
 
     // B. Tile is completely inside the AOI: fetch and return directly (0 canvas overhead)
@@ -82,6 +114,7 @@ export function registerClippedProtocol() {
       const resp = await fetch(fetchUrl, { signal: abortController.signal });
       if (!resp.ok) throw new Error(`Tile fetch error: ${resp.status}`);
       const buffer = await resp.arrayBuffer();
+      setCachedTile(params.url, buffer);
       return { data: buffer };
     }
 
@@ -101,7 +134,9 @@ export function registerClippedProtocol() {
 
     if (clipW <= 0 || clipH <= 0) {
       bitmap.close();
-      return { data: getEmptyTileBuffer() };
+      const emptyBuf = getEmptyTileBuffer();
+      setCachedTile(params.url, emptyBuf);
+      return { data: emptyBuf };
     }
 
     let buffer: ArrayBuffer;
@@ -115,8 +150,13 @@ export function registerClippedProtocol() {
         ctx.rect(clipX, clipY, clipW, clipH);
         ctx.clip();
         ctx.drawImage(bitmap, 0, 0, actualTileSize, actualTileSize);
-        const clippedBlob = await canvas.convertToBlob({ type: 'image/png' });
-        buffer = await clippedBlob.arrayBuffer();
+        try {
+          const clippedBlob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.95 });
+          buffer = await clippedBlob.arrayBuffer();
+        } catch {
+          const clippedBlob = await canvas.convertToBlob({ type: 'image/png' });
+          buffer = await clippedBlob.arrayBuffer();
+        }
       } else {
         buffer = await blob.arrayBuffer();
       }
@@ -134,7 +174,7 @@ export function registerClippedProtocol() {
         buffer = await new Promise<ArrayBuffer>((resolve) => {
           canvas.toBlob(async (b) => {
             resolve(await b!.arrayBuffer());
-          }, 'image/png');
+          }, 'image/webp', 0.95);
         });
       } else {
         buffer = await blob.arrayBuffer();
@@ -142,6 +182,7 @@ export function registerClippedProtocol() {
     }
 
     bitmap.close();
+    setCachedTile(params.url, buffer);
     return { data: buffer };
   });
 }
