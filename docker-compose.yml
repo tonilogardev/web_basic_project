@@ -114,6 +114,20 @@ services:
     networks:
       - traefik-net
 
+  base-viewer:
+    container_name: base_viewer
+    image: ghcr.io/tonilogardev/base-viewer:latest
+    build:
+      context: ./012_base_project
+      dockerfile: Dockerfile
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.baseviewer.rule=Host(`base-viewer.${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.baseviewer.entrypoints=web,websecure"
+    networks:
+      - traefik-net
+
 networks:
   traefik-net:
     driver: bridge

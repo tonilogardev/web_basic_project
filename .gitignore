@@ -79,5 +79,13 @@ target/
 **/target/
 008_water_quality_api_rust/public/*.tif
 
+# Node.js dependencies and build output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.svelte-kit/
+**/.svelte-kit/
+
 # Archivos temporales y obsoletos de la documentación
 011_tfb/000_doc_tfb/utils/
