@@ -1,8 +1,10 @@
 export interface DraggableOptions {
   handle?: string;
+  handleSelector?: string;
   ignore?: string;
   initialX?: number;
   initialY?: number;
+  initialPosition?: { x: number; y: number };
   disabled?: boolean;
 }
 
@@ -14,16 +16,15 @@ export function bringToFront(node: HTMLElement) {
 }
 
 export function draggable(node: HTMLElement, options: DraggableOptions = {}) {
-  let {
-    handle = '.panel-header',
-    ignore = 'button, input, select, label, a',
-    initialX = 24,
-    initialY = 72,
-    disabled = false,
-  } = options;
+  const handle = options.handle ?? options.handleSelector ?? '.panel-header';
+  const ignore = options.ignore ?? 'button, input, select, label, a';
+  const disabled = options.disabled ?? false;
 
-  let x = initialX;
-  let y = initialY;
+  const rawX = options.initialX ?? options.initialPosition?.x ?? 24;
+  const rawY = options.initialY ?? options.initialPosition?.y ?? 72;
+
+  let x = rawX;
+  let y = rawY;
   let startPointerX = 0;
   let startPointerY = 0;
   let startX = 0;

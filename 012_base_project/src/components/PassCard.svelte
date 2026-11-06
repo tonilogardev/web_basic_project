@@ -1,13 +1,15 @@
 <script lang="ts">
   import type { SatellitePass } from '../models/pass.model';
+  import { PRESETS } from '../lib/types';
 
   interface Props {
     pass: SatellitePass;
     onToggle: (id: string) => void;
     onOpacityChange: (id: string, opacity: number) => void;
+    onPresetChange?: (id: string, preset: string) => void;
   }
 
-  let { pass, onToggle, onOpacityChange }: Props = $props();
+  let { pass, onToggle, onOpacityChange, onPresetChange }: Props = $props();
 
   function getCloudBadgeClass(cloud: number): string {
     if (cloud < 10) return 'cloud-low';
@@ -43,14 +45,35 @@
 
   <div class="pass-details">
     <span class="badge {getCloudBadgeClass(pass.meanCloudCover)}">
-      ☁️ {pass.meanCloudCover}% Cloud
+      {pass.meanCloudCover}% Cloud
     </span>
     <span class="badge granule-badge" title="Constituent MGRS tiles rendered seamlessly">
-      🧩 {pass.granulesCount} {pass.granulesCount === 1 ? 'granule' : 'granules'} (10m)
+      {pass.granulesCount} {pass.granulesCount === 1 ? 'granule' : 'granules'} (10m)
     </span>
     <span class="badge provider-badge {pass.provider}">
       {pass.provider.toUpperCase()}
     </span>
+  </div>
+
+  <!-- Individual Per-Pass Band Recipe Selector -->
+  <div class="pass-preset-row" onclick={(e) => e.stopPropagation()} role="presentation">
+    <div class="preset-row-header">
+      <span class="preset-row-label">Combination</span>
+      {#if pass.isVisible}
+        <span class="preset-live-badge">Live &lt;10ms</span>
+      {/if}
+    </div>
+    <select
+      id="preset-select-{pass.id}"
+      class="card-preset-select"
+      value={pass.preset}
+      onchange={(e) => onPresetChange?.(pass.id, (e.target as HTMLSelectElement).value)}
+      title="Select band combination for this individual pass"
+    >
+      {#each PRESETS as p}
+        <option value={p.id}>[{p.badge}] {p.label}</option>
+      {/each}
+    </select>
   </div>
 
   {#if pass.isVisible}
@@ -214,6 +237,65 @@
     background: rgba(56, 189, 248, 0.15);
     color: #7dd3fc;
     border: 1px solid rgba(56, 189, 248, 0.3);
+  }
+
+  /* Individual Per-Pass Band Recipe Row */
+  .pass-preset-row {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .preset-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .preset-row-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .preset-live-badge {
+    font-size: 9px;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .card-preset-select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 6px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+    color: #f1f5f9;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.15s ease;
+  }
+
+  .card-preset-select:hover {
+    border-color: rgba(56, 189, 248, 0.5);
+  }
+
+  .card-preset-select:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
   }
 
   .pass-opacity-control {

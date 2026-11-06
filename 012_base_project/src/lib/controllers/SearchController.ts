@@ -1,7 +1,7 @@
 import { store } from '../store.svelte';
 import { memoryCache } from '../services/MemoryCacheService';
 import { searchEsaPasses } from '../services/esaStacService';
-import type { SearchFilters } from '../types';
+import { getPresetById, type SearchFilters } from '../types';
 
 /**
  * Search Controller (Decoupled MVC Controller)
@@ -24,6 +24,20 @@ export class SearchController {
       store.searchError = `Date range cannot exceed ${store.maxDateRangeDays} days (selected: ${store.dateRangeDays} days).`;
       return;
     }
+
+    // Freeze the chosen parameters snapshot for the results window
+    store.activeResultPreset = store.selectedPreset;
+    const presetObj = getPresetById(store.selectedPreset);
+    store.searchSnapshot = {
+      startDate: store.startDate,
+      endDate: store.endDate,
+      dateRangeDays: store.dateRangeDays,
+      preset: store.selectedPreset,
+      presetLabel: presetObj?.label || store.selectedPreset,
+      presetBadge: presetObj?.badge || 'RGB',
+      boundingBox: [...store.boundingBox],
+      areaKm2: store.areaKm2 ?? 0,
+    };
 
     const filters: SearchFilters = {
       provider: store.provider,
@@ -99,6 +113,16 @@ export class SearchController {
     const pass = store.passes.find((p) => p.id === passId);
     if (pass) {
       pass.opacity = Math.max(0, Math.min(1, opacity));
+    }
+  }
+
+  public static setPassPreset(passId: string, presetId: string): void {
+    const pass = store.passes.find((p) => p.id === passId);
+    if (pass) {
+      pass.preset = presetId;
+      if (store.activePassId !== passId) {
+        this.selectPass(passId);
+      }
     }
   }
 }

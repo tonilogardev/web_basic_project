@@ -1,6 +1,17 @@
-import type { DataProvider } from './types';
+import { getPresetById, type DataProvider } from './types';
 
 export const MAX_AREA_KM2 = 10000;
+
+export interface SearchSnapshot {
+  startDate: string;
+  endDate: string;
+  dateRangeDays: number;
+  preset: string;
+  presetLabel: string;
+  presetBadge: string;
+  boundingBox: [number, number, number, number] | null;
+  areaKm2: number;
+}
 
 export function calculateAreaKm2(bbox: [number, number, number, number]): number {
   const [minLng, minLat, maxLng, maxLat] = bbox;
@@ -12,6 +23,9 @@ export function calculateAreaKm2(bbox: [number, number, number, number]): number
 }
 
 class AppStore {
+  // Snapshot of parameters when search was executed
+  searchSnapshot = $state<SearchSnapshot | null>(null);
+
   // Map drawing state
   isDrawing = $state(false);
   boundingBox = $state<[number, number, number, number] | null>(null);
@@ -76,7 +90,24 @@ class AppStore {
   isCachedResult = $state(false);
   cacheHitRatio = $state('0%');
 
+  // Active preset dedicated specifically to the Results Window
+  activeResultPreset = $state('true-color');
+
   // Actions
+  setResultPreset(presetId: string) {
+    this.activeResultPreset = presetId;
+    if (this.searchSnapshot) {
+      const pObj = getPresetById(presetId);
+      this.searchSnapshot.preset = presetId;
+      this.searchSnapshot.presetLabel = pObj?.label || presetId;
+      this.searchSnapshot.presetBadge = pObj?.badge || 'RGB';
+    }
+    const activePass = this.passes.find((p) => p.id === this.activePassId);
+    if (activePass) {
+      activePass.preset = presetId;
+    }
+  }
+
   toggleDrawing() {
     this.isDrawing = !this.isDrawing;
   }
@@ -104,6 +135,7 @@ class AppStore {
     this.passes = [];
     this.activePassId = null;
     this.activeBenchmark = null;
+    this.searchSnapshot = null;
   }
 }
 

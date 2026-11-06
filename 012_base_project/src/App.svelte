@@ -77,14 +77,18 @@
     }
   });
 
-  // Synchronize MapLibre GPU raster layers with the single active pass and selected preset
+  // Synchronize MapLibre GPU raster layers with the active pass and its snapshot bounds
   $effect(() => {
     if (!mapLoaded) return;
     const activePass = store.passes.find((p) => p.id === store.activePassId) || null;
-    if (activePass && activePass.preset !== store.selectedPreset) {
-      activePass.preset = store.selectedPreset;
+    const effectiveBbox = store.searchSnapshot?.boundingBox ?? store.boundingBox;
+    // Explicitly read reactive properties to guarantee Svelte 5 dependency tracking
+    if (activePass) {
+      void activePass.preset;
+      void activePass.opacity;
+      void activePass.isVisible;
     }
-    mapLayerController.syncActivePass(activePass, store.boundingBox);
+    mapLayerController.syncActivePass(activePass, effectiveBbox);
   });
 
   function handleSearchTrigger() {

@@ -2,9 +2,49 @@
   import { store } from '../lib/store.svelte';
   import { SearchController } from '../lib/controllers/SearchController';
   import { draggable } from '../lib/draggable';
+  import { PRESETS } from '../lib/types';
   import PassCard from './PassCard.svelte';
 
   let isCollapsed = $state(false);
+
+  /**
+   * Calculate non-overlapping coordinates relative to "Sentinel Pass Viewer".
+   * Sentinel Pass Viewer is located at x: 20, y: 76, width: 330px (reaches x: 350px).
+   * - Wide desktop (>= 1100px): opens on the right side of the screen.
+   * - Medium desktop (740px - 1099px): opens immediately to the right at x: 360px.
+   * - Narrow screens (< 740px): opens stacked below at x: 20px, y: 460px.
+   */
+  function getNonOverlappingPosition() {
+    if (typeof window === 'undefined') {
+      return { x: 360, y: 76 };
+    }
+    const w = window.innerWidth;
+    if (w >= 1100) {
+      return { x: w - 370, y: 76 };
+    } else if (w >= 740) {
+      return { x: 360, y: 76 };
+    } else {
+      return { x: 20, y: 460 };
+    }
+  }
+
+  // Snapshot of chosen properties (falls back to current store if snapshot not yet set)
+  let displaySnapshot = $derived.by(() => {
+    if (store.searchSnapshot) {
+      return store.searchSnapshot;
+    }
+    const preset = PRESETS.find((p) => p.id === store.selectedPreset);
+    return {
+      startDate: store.startDate,
+      endDate: store.endDate,
+      dateRangeDays: store.dateRangeDays,
+      preset: store.selectedPreset,
+      presetLabel: preset?.label || store.selectedPreset,
+      presetBadge: preset?.badge || 'RGB',
+      boundingBox: store.boundingBox ? ([...store.boundingBox] as [number, number, number, number]) : null,
+      areaKm2: store.areaKm2 ?? 0,
+    };
+  });
 
   function handleToggle(passId: string) {
     SearchController.selectPass(passId);
@@ -14,19 +54,27 @@
     SearchController.setPassOpacity(passId, opacity);
   }
 
+  function handlePresetChange(passId: string, preset: string) {
+    SearchController.setPassPreset(passId, preset);
+  }
+
   function hideImagery() {
     SearchController.hideActivePass();
   }
 </script>
 
 {#if store.passes.length > 0 || store.isSearching || store.searchError}
+  {@const pos = getNonOverlappingPosition()}
   <aside
     class="pass-list-panel"
-    use:draggable={{ handleSelector: '.panel-drag-handle', initialPosition: { x: window.innerWidth - 370, y: 70 } }}
+    use:draggable={{
+      handle: '.panel-header',
+      initialX: pos.x,
+      initialY: pos.y,
+    }}
   >
     <div class="panel-header panel-drag-handle">
       <div class="header-title">
-        <span class="icon">🛰️</span>
         <h2>Passes ({store.passes.length})</h2>
       </div>
       <div class="header-actions">
@@ -34,14 +82,45 @@
           type="button"
           class="btn-icon-tiny"
           onclick={() => (isCollapsed = !isCollapsed)}
+          aria-label={isCollapsed ? 'Expand panel' : 'Collapse panel'}
           title={isCollapsed ? 'Expand panel' : 'Collapse panel'}
         >
-          {isCollapsed ? '➕' : '➖'}
+          {isCollapsed ? '+' : '−'}
         </button>
       </div>
     </div>
 
     {#if !isCollapsed}
+      <!-- Search Criteria & Properties Snapshot Banner -->
+      <div class="search-properties-card">
+        <!-- Date Range -->
+        <div class="prop-row">
+          <span class="prop-label">Date Range</span>
+          <div class="prop-value">
+            <span class="prop-dates">{displaySnapshot.startDate} <span class="arrow">→</span> {displaySnapshot.endDate}</span>
+            <span class="days-badge">{displaySnapshot.dateRangeDays}d</span>
+          </div>
+        </div>
+
+        <!-- Coordinates of Rectangle (AOI) -->
+        <div class="prop-row aoi-row">
+          <div class="prop-label aoi-header">
+            <span>Rectangle (AOI)</span>
+            {#if displaySnapshot.areaKm2}
+              <span class="area-tag">{displaySnapshot.areaKm2.toLocaleString()} km²</span>
+            {/if}
+          </div>
+          {#if displaySnapshot.boundingBox}
+            <div class="coords-box">
+              <span class="coord-item">SW: [{displaySnapshot.boundingBox[0].toFixed(3)}, {displaySnapshot.boundingBox[1].toFixed(3)}]</span>
+              <span class="coord-item">NE: [{displaySnapshot.boundingBox[2].toFixed(3)}, {displaySnapshot.boundingBox[3].toFixed(3)}]</span>
+            </div>
+          {:else}
+            <span class="coord-empty">No rectangle defined</span>
+          {/if}
+        </div>
+      </div>
+
       <!-- Telemetry banner ("Dato mata relato") -->
       {#if store.activeBenchmark}
         <div class="telemetry-bar">
@@ -49,9 +128,9 @@
             <span class="t-label">Speed</span>
             <span class="t-val highlight">
               {#if store.isCachedResult}
-                ⚡ 0ms (In-Memory Cache)
+                0ms (Cache Hit)
               {:else}
-                ⏱️ {store.activeBenchmark.stacLatencyMs}ms STAC
+                {store.activeBenchmark.stacLatencyMs}ms STAC
               {/if}
             </span>
           </div>
@@ -68,7 +147,7 @@
 
       {#if store.searchError}
         <div class="error-banner">
-          ⚠️ {store.searchError}
+          {store.searchError}
         </div>
       {/if}
 
@@ -81,11 +160,11 @@
         <div class="quick-toolbar">
           {#if store.activePassId}
             <button type="button" class="btn-subtle active-action" onclick={hideImagery}>
-              ✕ Hide Imagery
+              Hide Imagery
             </button>
-            <span class="active-indicator">Single Active Pass (100% Speed)</span>
+            <span class="active-indicator">Active Pass Visible</span>
           {:else}
-            <span class="hint-text">Click any pass below to view</span>
+            <span class="hint-text">Select a pass to view</span>
           {/if}
           <span class="provider-tag">{store.provider.toUpperCase()}</span>
         </div>
@@ -96,6 +175,7 @@
               {pass}
               onToggle={handleToggle}
               onOpacityChange={handleOpacity}
+              onPresetChange={handlePresetChange}
             />
           {/each}
         </div>
@@ -155,6 +235,110 @@
     color: #94a3b8;
     cursor: pointer;
     font-size: 12px;
+  }
+
+  /* Search Criteria & Properties Snapshot Card */
+  .search-properties-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(30, 41, 59, 0.75);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 11px;
+  }
+
+  .prop-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .prop-row.aoi-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+
+  .prop-label {
+    color: #94a3b8;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.2px;
+  }
+
+  .prop-label.aoi-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .prop-value {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 68%;
+  }
+
+  .prop-dates {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10.5px;
+    color: #f1f5f9;
+    letter-spacing: -0.2px;
+  }
+
+  .arrow {
+    color: #38bdf8;
+    font-weight: bold;
+    margin: 0 1px;
+  }
+
+  .days-badge {
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #38bdf8;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .area-tag {
+    background: rgba(148, 163, 184, 0.15);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    color: #cbd5e1;
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: auto;
+  }
+
+  .coords-box {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    box-sizing: border-box;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10px;
+    color: #cbd5e1;
+  }
+
+  .coord-item {
+    letter-spacing: 0.2px;
+  }
+
+  .coord-empty {
+    font-style: italic;
+    color: #64748b;
+    font-size: 10.5px;
   }
 
   .telemetry-bar {
