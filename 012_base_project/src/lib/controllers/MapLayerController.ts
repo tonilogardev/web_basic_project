@@ -93,15 +93,22 @@ export function buildGranuleTileUrl(
   return queryUrl;
 }
 
+import type { SearchSession } from '../models/session.model';
+
 /**
  * MapLayerController (Decoupled Map Rendering Controller)
  * Manages GPU raster sources and layers inside MapLibre GL JS for satellite passes.
- * Implements the Single Active Pass pattern to ensure zero network contention and 60-FPS rendering.
+ * Supports multi-session simultaneous rendering across independent geographic regions.
  */
 export class MapLayerController {
   private map: MapLibreMap | null = null;
-  private activePassLayers = new Map<string, string[]>(); // passId -> layerIds[]
-  private activePassKey: string | null = null; // Invalidation key: passId + preset + bbox
+  // sessionId -> { passId, passKey, layerIds[] }
+  private sessionLayers = new Map<
+    string,
+    { passId: string; passKey: string; layerIds: string[] }
+  >();
+  private activePassLayers = new Map<string, string[]>(); // legacy passId -> layerIds[]
+  private activePassKey: string | null = null; // legacy key
 
   public attachMap(map: MapLibreMap): void {
     this.map = map;
@@ -113,8 +120,145 @@ export class MapLayerController {
   }
 
   /**
-   * Synchronizes MapLibre with the single active pass.
-   * Immediately unmounts any other pass layers to guarantee 100% bandwidth for the active pass.
+   * Synchronizes MapLibre GPU raster layers with all active search sessions.
+   * Renders each session's active pass clipped cleanly to its respective bounding box.
+   */
+  public syncSessions(sessions: SearchSession[]): void {
+    if (!this.map) return;
+
+    const currentSessionIds = new Set(sessions.map((s) => s.id));
+
+    // 1. Purge any layers from sessions that no longer exist (e.g. closed by user [X])
+    for (const sessionId of Array.from(this.sessionLayers.keys())) {
+      if (!currentSessionIds.has(sessionId)) {
+        this.removeSessionLayers(sessionId);
+      }
+    }
+
+    // 2. Synchronize each active session
+    for (const session of sessions) {
+      if (!session.activePassId) {
+        // Session has no active pass (hidden), purge its layers if previously rendered
+        if (this.sessionLayers.has(session.id)) {
+          this.removeSessionLayers(session.id);
+        }
+        continue;
+      }
+
+      const activePass = session.passes.find((p) => p.id === session.activePassId);
+      if (!activePass) {
+        this.removeSessionLayers(session.id);
+        continue;
+      }
+
+      const userBbox = session.snapshot.boundingBox;
+      this.renderSessionPass(session.id, activePass, userBbox);
+    }
+  }
+
+  /**
+   * Adds or updates raster layers for a session pass.
+   * Granules render seamlessly with zero visible tile borders.
+   */
+  public renderSessionPass(
+    sessionId: string,
+    pass: SatellitePass,
+    userBbox: [number, number, number, number] | null
+  ): void {
+    if (!this.map) return;
+
+    const passKey = `${sessionId}_${pass.id}_${pass.preset}_${userBbox ? userBbox.map((n) => n.toFixed(4)).join(',') : 'full'}`;
+    const existing = this.sessionLayers.get(sessionId);
+
+    // If identical configuration already rendered, only update opacity
+    if (existing && existing.passKey === passKey) {
+      for (const layerId of existing.layerIds) {
+        if (this.map.getLayer(layerId)) {
+          this.map.setPaintProperty(layerId, 'raster-opacity', pass.opacity);
+        }
+      }
+      return;
+    }
+
+    // If pass, preset, or AOI changed, purge previous session layers before remounting
+    if (existing) {
+      this.removeSessionLayers(sessionId);
+    }
+
+    const createdLayerIds: string[] = [];
+    const beforeId = this.map.getLayer('draw-selection-fill') ? 'draw-selection-fill' : undefined;
+
+    pass.granules.forEach((granule, idx) => {
+      if (!this.map) return;
+
+      const effectiveBounds = userBbox ? intersectBbox(granule.bbox, userBbox) : granule.bbox;
+      if (!effectiveBounds) return;
+
+      const sourceId = `source-${sessionId}-${pass.id}-${idx}`;
+      const layerId = `layer-${sessionId}-${pass.id}-${idx}`;
+
+      const tileUrl = buildGranuleTileUrl(granule, pass.preset, userBbox);
+
+      if (!this.map.getSource(sourceId)) {
+        this.map.addSource(sourceId, {
+          type: 'raster',
+          tiles: [tileUrl],
+          tileSize: 256,
+          bounds: effectiveBounds,
+          minzoom: granule.minZoom,
+          maxzoom: granule.maxZoom,
+        });
+      }
+
+      if (!this.map.getLayer(layerId)) {
+        this.map.addLayer(
+          {
+            id: layerId,
+            type: 'raster',
+            source: sourceId,
+            paint: {
+              'raster-opacity': pass.opacity,
+              'raster-fade-duration': 200,
+            },
+          },
+          beforeId
+        );
+      }
+
+      createdLayerIds.push(layerId);
+    });
+
+    this.sessionLayers.set(sessionId, {
+      passId: pass.id,
+      passKey,
+      layerIds: createdLayerIds,
+    });
+  }
+
+  /**
+   * Removes raster layers and sources for a specific session.
+   */
+  public removeSessionLayers(sessionId: string): void {
+    if (!this.map) return;
+
+    const existing = this.sessionLayers.get(sessionId);
+    if (!existing) return;
+
+    for (const layerId of existing.layerIds) {
+      if (this.map.getLayer(layerId)) {
+        this.map.removeLayer(layerId);
+      }
+      const sourceId = layerId.replace('layer-', 'source-');
+      if (this.map.getSource(sourceId)) {
+        this.map.removeSource(sourceId);
+      }
+    }
+
+    this.sessionLayers.delete(sessionId);
+  }
+
+  /**
+   * Legacy single-pass synchronization method
    */
   public syncActivePass(
     activePass: SatellitePass | null,
@@ -127,21 +271,15 @@ export class MapLayerController {
       return;
     }
 
-    // Unmount any passes that are NOT the active pass
     for (const passId of Array.from(this.activePassLayers.keys())) {
       if (passId !== activePass.id) {
         this.removePass(passId);
       }
     }
 
-    // Render or update opacity of the active pass
     this.renderPass(activePass, userBbox);
   }
 
-  /**
-   * Adds or updates raster layers for all granules in a pass.
-   * Granules render seamlessly with zero visible tile borders (Option 1).
-   */
   public renderPass(
     pass: SatellitePass,
     userBbox: [number, number, number, number] | null
@@ -151,7 +289,6 @@ export class MapLayerController {
     const passKey = `${pass.id}_${pass.preset}_${userBbox ? userBbox.map((n) => n.toFixed(4)).join(',') : 'full'}`;
     const existingLayerIds = this.activePassLayers.get(pass.id);
 
-    // If identical configuration already rendered, only update opacity
     if (existingLayerIds && this.activePassKey === passKey) {
       for (const layerId of existingLayerIds) {
         if (this.map.getLayer(layerId)) {
@@ -161,26 +298,19 @@ export class MapLayerController {
       return;
     }
 
-    // If AOI or preset changed, purge previous pass layers before remounting
     if (existingLayerIds) {
       this.removePass(pass.id);
     }
     this.activePassKey = passKey;
 
     const createdLayerIds: string[] = [];
-
-    // Identify beforeId to keep drawing layers and vectors on top
     const beforeId = this.map.getLayer('draw-selection-fill') ? 'draw-selection-fill' : undefined;
 
     pass.granules.forEach((granule, idx) => {
       if (!this.map) return;
 
-      // Restrict source bounds to the intersection of the granule and user's AOI
       const effectiveBounds = userBbox ? intersectBbox(granule.bbox, userBbox) : granule.bbox;
-      if (!effectiveBounds) {
-        // Granule does not intersect the user's AOI, skip completely
-        return;
-      }
+      if (!effectiveBounds) return;
 
       const sourceId = `source-pass-${pass.id}-${idx}`;
       const layerId = `layer-pass-${pass.id}-${idx}`;
@@ -219,9 +349,6 @@ export class MapLayerController {
     this.activePassLayers.set(pass.id, createdLayerIds);
   }
 
-  /**
-   * Removes raster layers and sources for a pass.
-   */
   public removePass(passId: string): void {
     if (!this.map) return;
 
@@ -244,27 +371,13 @@ export class MapLayerController {
     }
   }
 
-  /**
-   * Updates opacity across all constituent granules of a pass.
-   */
-  public setPassOpacity(passId: string, opacity: number): void {
-    if (!this.map) return;
-
-    const layerIds = this.activePassLayers.get(passId);
-    if (!layerIds) return;
-
-    for (const layerId of layerIds) {
-      if (this.map.getLayer(layerId)) {
-        this.map.setPaintProperty(layerId, 'raster-opacity', opacity);
-      }
-    }
-  }
-
-  /**
-   * Cleans up all active pass layers.
-   */
   public removeAllPassLayers(): void {
     if (!this.map) return;
+
+    for (const sessionId of Array.from(this.sessionLayers.keys())) {
+      this.removeSessionLayers(sessionId);
+    }
+    this.sessionLayers.clear();
 
     for (const passId of Array.from(this.activePassLayers.keys())) {
       this.removePass(passId);

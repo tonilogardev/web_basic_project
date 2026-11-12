@@ -3,16 +3,37 @@
   import { SearchController } from '../lib/controllers/SearchController';
   import { draggable } from '../lib/draggable';
   import { PRESETS } from '../lib/types';
+  import type { SearchSession } from '../lib/models/session.model';
   import PassCard from './PassCard.svelte';
 
-  let isCollapsed = $state(false);
+  interface Props {
+    session?: SearchSession;
+  }
+
+  let { session }: Props = $props();
+
+  let localCollapsed = $state(false);
+
+  let isCollapsed = $derived.by(() => {
+    return session ? session.isCollapsed : localCollapsed;
+  });
+
+  function toggleCollapse() {
+    if (session) {
+      store.toggleSessionCollapse(session.id);
+    } else {
+      localCollapsed = !localCollapsed;
+    }
+  }
+
+  function handleClose() {
+    if (session) {
+      SearchController.closeSession(session.id);
+    }
+  }
 
   /**
-   * Calculate non-overlapping coordinates relative to "Sentinel Pass Viewer".
-   * Sentinel Pass Viewer is located at x: 20, y: 76, width: 330px (reaches x: 350px).
-   * - Wide desktop (>= 1100px): opens on the right side of the screen.
-   * - Medium desktop (740px - 1099px): opens immediately to the right at x: 360px.
-   * - Narrow screens (< 740px): opens stacked below at x: 20px, y: 460px.
+   * Fallback position calculation for standalone mode
    */
   function getNonOverlappingPosition() {
     if (typeof window === 'undefined') {
@@ -28,8 +49,18 @@
     }
   }
 
-  // Snapshot of chosen properties (falls back to current store if snapshot not yet set)
+  let initialPos = $derived.by(() => {
+    if (session) {
+      return session.position;
+    }
+    return getNonOverlappingPosition();
+  });
+
+  // Snapshot of chosen properties
   let displaySnapshot = $derived.by(() => {
+    if (session) {
+      return session.snapshot;
+    }
     if (store.searchSnapshot) {
       return store.searchSnapshot;
     }
@@ -46,47 +77,101 @@
     };
   });
 
+  let passes = $derived.by(() => {
+    return session ? session.passes : store.passes;
+  });
+
+  let activePassId = $derived.by(() => {
+    return session ? session.activePassId : store.activePassId;
+  });
+
+  let activeBenchmark = $derived.by(() => {
+    return session ? session.activeBenchmark : store.activeBenchmark;
+  });
+
+  let isSearching = $derived.by(() => {
+    return session ? session.isSearching : store.isSearching;
+  });
+
+  let searchError = $derived.by(() => {
+    return session ? session.searchError : store.searchError;
+  });
+
+  let isCachedResult = $derived.by(() => {
+    return session ? session.isCachedResult : store.isCachedResult;
+  });
+
+  let cacheHitRatio = $derived.by(() => {
+    return session ? session.cacheHitRatio : store.cacheHitRatio;
+  });
+
   function handleToggle(passId: string) {
-    SearchController.selectPass(passId);
+    if (session) {
+      SearchController.selectSessionPass(session.id, passId);
+    } else {
+      SearchController.selectPass(passId);
+    }
   }
 
   function handleOpacity(passId: string, opacity: number) {
-    SearchController.setPassOpacity(passId, opacity);
+    if (session) {
+      SearchController.setSessionPassOpacity(session.id, passId, opacity);
+    } else {
+      SearchController.setPassOpacity(passId, opacity);
+    }
   }
 
   function handlePresetChange(passId: string, preset: string) {
-    SearchController.setPassPreset(passId, preset);
+    if (session) {
+      SearchController.setSessionPassPreset(session.id, passId, preset);
+    } else {
+      SearchController.setPassPreset(passId, preset);
+    }
   }
 
   function hideImagery() {
-    SearchController.hideActivePass();
+    if (session) {
+      SearchController.hideSessionPass(session.id);
+    } else {
+      SearchController.hideActivePass();
+    }
   }
 </script>
 
-{#if store.passes.length > 0 || store.isSearching || store.searchError}
-  {@const pos = getNonOverlappingPosition()}
+{#if passes.length > 0 || isSearching || searchError}
   <aside
     class="pass-list-panel"
     use:draggable={{
       handle: '.panel-header',
-      initialX: pos.x,
-      initialY: pos.y,
+      initialX: initialPos.x,
+      initialY: initialPos.y,
     }}
   >
     <div class="panel-header panel-drag-handle">
       <div class="header-title">
-        <h2>Passes ({store.passes.length})</h2>
+        <h2>{session ? session.title : 'Passes'} ({passes.length})</h2>
       </div>
       <div class="header-actions">
         <button
           type="button"
           class="btn-icon-tiny"
-          onclick={() => (isCollapsed = !isCollapsed)}
+          onclick={toggleCollapse}
           aria-label={isCollapsed ? 'Expand panel' : 'Collapse panel'}
           title={isCollapsed ? 'Expand panel' : 'Collapse panel'}
         >
           {isCollapsed ? '+' : '−'}
         </button>
+        {#if session}
+          <button
+            type="button"
+            class="btn-icon-tiny btn-close-session"
+            onclick={handleClose}
+            aria-label="Close session window"
+            title="Close this search window"
+          >
+            ✕
+          </button>
+        {/if}
       </div>
     </div>
 
@@ -122,43 +207,43 @@
       </div>
 
       <!-- Telemetry banner ("Dato mata relato") -->
-      {#if store.activeBenchmark}
+      {#if activeBenchmark}
         <div class="telemetry-bar">
           <div class="telemetry-item">
             <span class="t-label">Speed</span>
             <span class="t-val highlight">
-              {#if store.isCachedResult}
+              {#if isCachedResult}
                 0ms (Cache Hit)
               {:else}
-                {store.activeBenchmark.stacLatencyMs}ms STAC
+                {activeBenchmark.stacLatencyMs}ms STAC
               {/if}
             </span>
           </div>
           <div class="telemetry-item">
             <span class="t-label">Group Engine</span>
-            <span class="t-val">{store.activeBenchmark.groupingLatencyMs}ms</span>
+            <span class="t-val">{activeBenchmark.groupingLatencyMs}ms</span>
           </div>
           <div class="telemetry-item">
             <span class="t-label">Cache Hit Ratio</span>
-            <span class="t-val">{store.cacheHitRatio}</span>
+            <span class="t-val">{cacheHitRatio}</span>
           </div>
         </div>
       {/if}
 
-      {#if store.searchError}
+      {#if searchError}
         <div class="error-banner">
-          {store.searchError}
+          {searchError}
         </div>
       {/if}
 
-      {#if store.isSearching}
+      {#if isSearching}
         <div class="searching-state">
           <span class="spinner"></span>
           <span>Querying STAC & synthesizing passes...</span>
         </div>
       {:else}
         <div class="quick-toolbar">
-          {#if store.activePassId}
+          {#if activePassId}
             <button type="button" class="btn-subtle active-action" onclick={hideImagery}>
               Hide Imagery
             </button>
@@ -170,7 +255,7 @@
         </div>
 
         <div class="card-scroll-area">
-          {#each store.passes as pass (pass.id)}
+          {#each passes as pass (pass.id)}
             <PassCard
               {pass}
               onToggle={handleToggle}
@@ -229,12 +314,36 @@
     color: #38bdf8;
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
   .btn-icon-tiny {
     background: transparent;
     border: none;
     color: #94a3b8;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 13px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+
+  .btn-icon-tiny:hover {
+    color: #f1f5f9;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .btn-close-session {
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .btn-close-session:hover {
+    color: #f87171;
+    background: rgba(239, 68, 68, 0.2);
   }
 
   /* Search Criteria & Properties Snapshot Card */

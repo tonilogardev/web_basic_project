@@ -1,17 +1,8 @@
 import { getPresetById, type DataProvider } from './types';
+import type { SearchSnapshot, SearchSession } from './models/session.model';
+export type { SearchSnapshot, SearchSession };
 
 export const MAX_AREA_KM2 = 10000;
-
-export interface SearchSnapshot {
-  startDate: string;
-  endDate: string;
-  dateRangeDays: number;
-  preset: string;
-  presetLabel: string;
-  presetBadge: string;
-  boundingBox: [number, number, number, number] | null;
-  areaKm2: number;
-}
 
 export function calculateAreaKm2(bbox: [number, number, number, number]): number {
   const [minLng, minLat, maxLng, maxLat] = bbox;
@@ -23,7 +14,11 @@ export function calculateAreaKm2(bbox: [number, number, number, number]): number
 }
 
 class AppStore {
-  // Snapshot of parameters when search was executed
+  // Collection of independent search sessions / windows
+  sessions = $state<SearchSession[]>([]);
+  sessionCounter = $state(0);
+
+  // Snapshot of parameters when search was executed (most recent session)
   searchSnapshot = $state<SearchSnapshot | null>(null);
 
   // Map drawing state
@@ -127,6 +122,94 @@ class AppStore {
     for (const p of this.passes) {
       p.isVisible = p.id === this.activePassId;
     }
+  }
+
+  // Multi-Session Actions
+  createSession(
+    snapshot: SearchSnapshot,
+    position: { x: number; y: number }
+  ): SearchSession {
+    this.sessionCounter += 1;
+    const num = this.sessionCounter;
+    const newSession: SearchSession = {
+      id: `session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      sessionNumber: num,
+      title: `Passes #${num}`,
+      createdAt: new Date(),
+      snapshot,
+      passes: [],
+      activePassId: null,
+      isCollapsed: false,
+      position,
+      activeBenchmark: null,
+      isSearching: true,
+      searchError: null,
+      isCachedResult: false,
+      cacheHitRatio: '0%',
+    };
+    this.sessions.push(newSession);
+    return newSession;
+  }
+
+  removeSession(sessionId: string): void {
+    const idx = this.sessions.findIndex((s) => s.id === sessionId);
+    if (idx !== -1) {
+      this.sessions.splice(idx, 1);
+    }
+  }
+
+  setSessionActivePass(sessionId: string, passId: string | null): void {
+    const session = this.sessions.find((s) => s.id === sessionId);
+    if (!session) return;
+
+    if (session.activePassId === passId) {
+      session.activePassId = null;
+    } else {
+      session.activePassId = passId;
+    }
+
+    for (const p of session.passes) {
+      p.isVisible = p.id === session.activePassId;
+    }
+  }
+
+  setSessionPassPreset(sessionId: string, passId: string, presetId: string): void {
+    const session = this.sessions.find((s) => s.id === sessionId);
+    if (!session) return;
+    const pass = session.passes.find((p) => p.id === passId);
+    if (pass) {
+      pass.preset = presetId;
+      if (session.activePassId !== passId) {
+        this.setSessionActivePass(sessionId, passId);
+      }
+    }
+  }
+
+  setSessionPassOpacity(sessionId: string, passId: string, opacity: number): void {
+    const session = this.sessions.find((s) => s.id === sessionId);
+    if (!session) return;
+    const pass = session.passes.find((p) => p.id === passId);
+    if (pass) {
+      pass.opacity = Math.max(0, Math.min(1, opacity));
+    }
+  }
+
+  toggleSessionCollapse(sessionId: string): void {
+    const session = this.sessions.find((s) => s.id === sessionId);
+    if (session) {
+      session.isCollapsed = !session.isCollapsed;
+    }
+  }
+
+  updateSessionPosition(sessionId: string, pos: { x: number; y: number }): void {
+    const session = this.sessions.find((s) => s.id === sessionId);
+    if (session) {
+      session.position = pos;
+    }
+  }
+
+  clearAllSessions(): void {
+    this.sessions = [];
   }
 
   clearBoundingBox() {

@@ -69,26 +69,45 @@
     }
   });
 
-  // React to bbox clear
+  // React to bbox clear in the query builder
   $effect(() => {
     if (!store.boundingBox && drawManager) {
       drawManager.clear();
-      mapLayerController.removeAllPassLayers();
+      // Only purge raster layers if no independent session windows exist
+      if (store.sessions.length === 0) {
+        mapLayerController.removeAllPassLayers();
+      }
     }
   });
 
-  // Synchronize MapLibre GPU raster layers with the active pass and its snapshot bounds
+  // Synchronize MapLibre GPU raster layers with all active search sessions
   $effect(() => {
     if (!mapLoaded) return;
-    const activePass = store.passes.find((p) => p.id === store.activePassId) || null;
-    const effectiveBbox = store.searchSnapshot?.boundingBox ?? store.boundingBox;
-    // Explicitly read reactive properties to guarantee Svelte 5 dependency tracking
-    if (activePass) {
-      void activePass.preset;
-      void activePass.opacity;
-      void activePass.isVisible;
+
+    const sessions = store.sessions;
+    // Explicitly read reactive properties to guarantee Svelte 5 dependency tracking across all sessions
+    for (const session of sessions) {
+      void session.activePassId;
+      const activePass = session.passes.find((p) => p.id === session.activePassId);
+      if (activePass) {
+        void activePass.preset;
+        void activePass.opacity;
+        void activePass.isVisible;
+      }
     }
-    mapLayerController.syncActivePass(activePass, effectiveBbox);
+
+    if (sessions.length > 0) {
+      mapLayerController.syncSessions(sessions);
+    } else {
+      const activePass = store.passes.find((p) => p.id === store.activePassId) || null;
+      const effectiveBbox = store.searchSnapshot?.boundingBox ?? store.boundingBox;
+      if (activePass) {
+        void activePass.preset;
+        void activePass.opacity;
+        void activePass.isVisible;
+      }
+      mapLayerController.syncActivePass(activePass, effectiveBbox);
+    }
   });
 
   function handleSearchTrigger() {
@@ -126,8 +145,14 @@
   <!-- Selection / Search Floating Window -->
   <ControlPanel onSearch={handleSearchTrigger} />
 
-  <!-- Grouped Pass List Floating Window -->
-  <PassList />
+  <!-- Independent Session Results Windows -->
+  {#if store.sessions.length > 0}
+    {#each store.sessions as session (session.id)}
+      <PassList {session} />
+    {/each}
+  {:else if store.passes.length > 0 || store.isSearching || store.searchError}
+    <PassList />
+  {/if}
 </main>
 
 <style>
