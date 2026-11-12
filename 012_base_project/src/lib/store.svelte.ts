@@ -148,7 +148,15 @@ class AppStore {
       cacheHitRatio: '0%',
     };
     this.sessions.push(newSession);
-    return newSession;
+    return this.sessions[this.sessions.length - 1];
+  }
+
+  updateSession(sessionId: string, updates: Partial<SearchSession>): void {
+    const session = this.sessions.find((s) => s.id === sessionId);
+    if (!session) return;
+    for (const [key, val] of Object.entries(updates)) {
+      (session as Record<string, unknown>)[key] = val;
+    }
   }
 
   removeSession(sessionId: string): void {

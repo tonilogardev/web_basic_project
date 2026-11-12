@@ -99,31 +99,35 @@ export class SearchController {
     const cached = memoryCache.get(cacheKey);
     if (cached) {
       // Clone passes so each session can toggle/change recipes independently
-      session.passes = cached.passes.map((p) => ({ ...p, isVisible: false }));
-      session.activeBenchmark = cached.benchmark;
-      session.isCachedResult = true;
-      session.cacheHitRatio = memoryCache.getStats().hitRatio;
-      session.isSearching = false;
-      session.searchError = null;
+      const clonedPasses = cached.passes.map((p) => ({ ...p, isVisible: false }));
+      const hitRatio = memoryCache.getStats().hitRatio;
+
+      store.updateSession(session.id, {
+        passes: clonedPasses,
+        activeBenchmark: cached.benchmark,
+        isCachedResult: true,
+        cacheHitRatio: hitRatio,
+        isSearching: false,
+        searchError: null,
+      });
 
       // Auto-activate the first pass for this session
-      if (session.passes.length > 0) {
-        store.setSessionActivePass(session.id, session.passes[0].id);
+      if (clonedPasses.length > 0) {
+        store.setSessionActivePass(session.id, clonedPasses[0].id);
       }
 
       // Sync legacy store properties for backward compatibility
-      store.passes = session.passes;
+      store.passes = clonedPasses;
       store.activeBenchmark = cached.benchmark;
       store.isCachedResult = true;
-      store.cacheHitRatio = session.cacheHitRatio;
+      store.cacheHitRatio = hitRatio;
       store.searchError = null;
-      if (session.activePassId) store.setActivePass(session.activePassId);
+      if (clonedPasses.length > 0) store.setActivePass(clonedPasses[0].id);
       return;
     }
 
     // 4. Cache miss -> execute asynchronous STAC query
-    session.isSearching = true;
-    session.searchError = null;
+    store.updateSession(session.id, { isSearching: true, searchError: null });
     store.isSearching = true;
     store.searchError = null;
 
@@ -133,30 +137,41 @@ export class SearchController {
       // Save to in-memory cache
       memoryCache.set(cacheKey, result.passes, result.benchmark);
 
-      // Populate session state
-      session.passes = result.passes.map((p) => ({ ...p, isVisible: false }));
-      session.activeBenchmark = result.benchmark;
-      session.isCachedResult = false;
-      session.cacheHitRatio = memoryCache.getStats().hitRatio;
+      const clonedPasses = result.passes.map((p) => ({ ...p, isVisible: false }));
+      const hitRatio = memoryCache.getStats().hitRatio;
+
+      store.updateSession(session.id, {
+        passes: clonedPasses,
+        activeBenchmark: result.benchmark,
+        isCachedResult: false,
+        cacheHitRatio: hitRatio,
+        isSearching: false,
+        searchError: null,
+      });
 
       // Auto-activate the first pass for immediate visual feedback
-      if (session.passes.length > 0) {
-        store.setSessionActivePass(session.id, session.passes[0].id);
+      if (clonedPasses.length > 0) {
+        store.setSessionActivePass(session.id, clonedPasses[0].id);
       }
 
       // Sync legacy store properties for backward compatibility
-      store.passes = session.passes;
+      store.passes = clonedPasses;
       store.activeBenchmark = result.benchmark;
       store.isCachedResult = false;
-      store.cacheHitRatio = session.cacheHitRatio;
-      if (session.activePassId) store.setActivePass(session.activePassId);
+      store.cacheHitRatio = hitRatio;
+      if (clonedPasses.length > 0) store.setActivePass(clonedPasses[0].id);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to search satellite passes';
-      session.searchError = msg;
+      store.updateSession(session.id, {
+        searchError: msg,
+        isSearching: false,
+      });
       store.searchError = msg;
       console.error('[SearchController Error]:', err);
     } finally {
-      session.isSearching = false;
+      store.updateSession(session.id, {
+        isSearching: false,
+      });
       store.isSearching = false;
     }
   }
