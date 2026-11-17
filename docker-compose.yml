@@ -128,7 +128,28 @@ services:
     networks:
       - traefik-net
 
+  water-detector:
+    container_name: water_detector
+    image: ghcr.io/tonilogardev/water-detector:latest
+    build:
+      context: ./013_detect_contaminated_water
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "${WATER_DETECTOR_PORT:-8013}:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.waterdetector.rule=Host(`aqua.${DOMAIN_NAME:-localhost}`) || Host(`water-detector.${DOMAIN_NAME:-localhost}`)"
+      - "traefik.http.routers.waterdetector.entrypoints=web,websecure"
+    networks:
+      - traefik-net
+
+
 networks:
   traefik-net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
 

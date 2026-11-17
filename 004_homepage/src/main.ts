@@ -14,7 +14,10 @@ if (!baseUrl) {
   const isLocal = window.location.hostname.includes('localhost') || window.location.hostname === '127.0.0.1';
   baseUrl = isLocal ? 'http://{subdomain}.localhost:8001' : 'https://{subdomain}.tonilogar.com';
 }
-const getUrl = (subdomain: string) => baseUrl.replace('{subdomain}', subdomain);
+const getUrl = (subdomain: string) => {
+  const url = baseUrl.replace('{subdomain}', subdomain);
+  return url.endsWith('/') ? url : `${url}/`;
+};
 
 document.addEventListener('DOMContentLoaded', () => {
   const sentinelLink = document.getElementById('link-sentinel');
@@ -25,4 +28,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const tfbLink = document.getElementById('link-tfb');
   if (tfbLink) tfbLink.setAttribute('href', getUrl('tfb-viewer'));
+
+  const waterLink = document.getElementById('link-water');
+  if (waterLink) waterLink.setAttribute('href', getUrl('aqua'));
+
+  const baseViewerLink = document.getElementById('link-base-viewer');
+  if (baseViewerLink) baseViewerLink.setAttribute('href', getUrl('base-viewer'));
 });
+

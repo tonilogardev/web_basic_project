@@ -1,0 +1,175 @@
+/* ==========================================================================
+   Design Tokens & Theme Variables - tonilogar Aqua
+   ========================================================================== */
+:root {
+  --color-bg-deep: #0b1120;
+  --color-bg-card: rgba(15, 23, 42, 0.88);
+  --color-bg-card-solid: #0f172a;
+  --color-border-subtle: rgba(56, 189, 248, 0.22);
+  --color-border-glass: rgba(255, 255, 255, 0.15);
+  
+  --color-primary: #0284c7;
+  --color-primary-hover: #0369a1;
+  --color-accent: #38bdf8;
+  --color-accent-glow: rgba(56, 189, 248, 0.25);
+  
+  --color-text-main: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-text-subtle: #64748b;
+
+  --color-success: #10b981;
+  --color-success-bg: rgba(16, 185, 129, 0.15);
+  --color-warn: #f59e0b;
+  --color-danger: #ef4444;
+
+  --font-family-sans: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --shadow-floating: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.1);
+  --shadow-card: 0 4px 14px rgba(0, 0, 0, 0.35);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+}
+
+/* ==========================================================================
+   Global Resets
+   ========================================================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-bg-deep);
+  font-family: var(--font-family-sans);
+  color: var(--color-text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+/* ==========================================================================
+   MapLibre GL Controls Theming
+   ========================================================================== */
+.maplibregl-ctrl-bottom-right {
+  right: 1.25rem !important;
+  bottom: 1.25rem !important;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+  margin: 0 0 8px 0 !important;
+  box-shadow: var(--shadow-card) !important;
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+  border: 1px solid var(--color-border-glass) !important;
+}
+
+/* Attribution Control: Circular Badge by default */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib.maplibregl-compact {
+  margin: 0 !important;
+  min-height: 28px !important;
+  height: 28px !important;
+  width: 28px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  background-color: var(--color-bg-card) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: var(--shadow-card) !important;
+  border: 1px solid var(--color-border-glass) !important;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box !important;
+  transition: width 0.2s ease, border-radius 0.2s ease, padding 0.2s ease;
+}
+
+/* Hide text when collapsed */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-inner {
+  display: none !important;
+}
+
+/* Centered Circular Attribution Button Icon */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-button {
+  background-color: transparent !important;
+  background-position: center center !important;
+  background-repeat: no-repeat !important;
+  background-size: 22px 22px !important;
+  filter: invert(1);
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  cursor: pointer;
+  display: block !important;
+  outline: none !important;
+}
+
+/* Attribution Expanded Pill Mode */
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib.maplibregl-compact.maplibregl-compact-show {
+  width: auto !important;
+  height: auto !important;
+  min-height: 24px !important;
+  border-radius: var(--radius-md) !important;
+  padding: 4px 32px 4px 12px !important;
+  color: var(--color-text-muted) !important;
+  font-size: 0.72rem !important;
+  max-width: 80vw;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib.maplibregl-compact.maplibregl-compact-show .maplibregl-ctrl-attrib-button {
+  width: 24px !important;
+  height: 100% !important;
+  left: auto !important;
+  right: 4px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  border-radius: 0 !important;
+  background-size: 18px 18px !important;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib.maplibregl-compact.maplibregl-compact-show a {
+  color: var(--color-accent) !important;
+}
+
+/* Metric Scale Control */
+.maplibregl-ctrl-scale {
+  background-color: var(--color-bg-card) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid var(--color-border-glass) !important;
+  border-top: none !important;
+  color: var(--color-text-muted) !important;
+  border-radius: 0 0 4px 4px !important;
+  font-family: var(--font-family-mono) !important;
+  font-size: 0.7rem !important;
+  padding: 2px 6px !important;
+}
+
+/* ==========================================================================
+   Responsive Map Rules
+   ========================================================================== */
+@media (max-width: 768px), (pointer: coarse) {
+  /* On touch/mobile screens, hide persistent zoom controls; users rely on pinch-to-zoom */
+  .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+    display: none !important;
+  }
+}
