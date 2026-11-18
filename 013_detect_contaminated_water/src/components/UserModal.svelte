@@ -13,15 +13,15 @@
     errorMessage = '';
 
     if (!name.trim()) {
-      errorMessage = 'Por favor, ingresa el nombre de usuario.';
+      errorMessage = 'Please enter your full name.';
       return;
     }
     if (!email.trim() || !email.includes('@')) {
-      errorMessage = 'Por favor, ingresa un correo electrónico válido.';
+      errorMessage = 'Please enter a valid email address.';
       return;
     }
     if (password.length < 6) {
-      errorMessage = 'La contraseña debe tener al menos 6 caracteres.';
+      errorMessage = 'Password must be at least 6 characters long.';
       return;
     }
 
@@ -60,17 +60,11 @@
   <div class="modal-backdrop" onclick={handleBackdropClick}>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-header">
-        <div class="header-icon">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-          </svg>
-        </div>
         <div>
-          <h2 id="modal-title">Crear Nuevo Usuario</h2>
-          <p class="subtitle">Acceso a la plataforma tonilogar Aqua</p>
+          <h2 id="modal-title">Create New User</h2>
+          <p class="subtitle">Access tonilogar Aqua platform</p>
         </div>
-        <button class="btn-close" aria-label="Cerrar modal" onclick={() => store.closeUserModal()}>
+        <button class="btn-close" aria-label="Close modal" onclick={() => store.closeUserModal()}>
           &times;
         </button>
       </div>
@@ -83,51 +77,51 @@
 
       <form onsubmit={handleSubmit} class="modal-form">
         <div class="form-group">
-          <label for="user-name">Nombre Completo</label>
+          <label for="user-name">Full Name</label>
           <input
             id="user-name"
             type="text"
             bind:value={name}
-            placeholder="Ej. Dra. Marta Costa"
+            placeholder="e.g. Dr. Jane Doe"
             required
             autocomplete="name"
           />
         </div>
 
         <div class="form-group">
-          <label for="user-email">Correo Electrónico</label>
+          <label for="user-email">Email Address</label>
           <input
             id="user-email"
             type="email"
             bind:value={email}
-            placeholder="ejemplo@agencia.cat"
+            placeholder="jane.doe@water-agency.org"
             required
             autocomplete="email"
           />
         </div>
 
         <div class="form-group">
-          <label for="user-password">Contraseña</label>
+          <label for="user-password">Password</label>
           <input
             id="user-password"
             type="password"
             bind:value={password}
-            placeholder="Mínimo 6 caracteres"
+            placeholder="At least 6 characters"
             required
             autocomplete="new-password"
           />
         </div>
 
         <div class="form-group">
-          <span id="tier-label" class="group-label">Nivel de Suscripción</span>
+          <span id="tier-label" class="group-label">Subscription Tier</span>
           <div class="tier-options" role="radiogroup" aria-labelledby="tier-label">
             <label class="tier-card" class:selected={tier === 'freemium'}>
               <input type="radio" name="tier" value="freemium" bind:group={tier} />
               <div class="tier-info">
                 <div class="tier-title">
-                  <span class="badge free">Gratis</span> Freemium
+                  <span class="badge free">Free</span> Freemium
                 </div>
-                <p>Acceso global con Sentinel-2 y polígonos libres de hasta 25 km².</p>
+                <p>Global access with Sentinel-2 and custom AOI polygons up to 25 km².</p>
               </div>
             </label>
 
@@ -135,9 +129,9 @@
               <input type="radio" name="tier" value="pro" bind:group={tier} />
               <div class="tier-info">
                 <div class="tier-title">
-                  <span class="badge pro">290 €/mes</span> Pro
+                  <span class="badge pro">€290 / mo</span> Pro
                 </div>
-                <p>Monitorización automatizada en zonas críticas (Delta del Ebro, Tarragona, Llobregat/Besòs).</p>
+                <p>Automated monitoring over critical water bodies (Delta, bays, coastal lagoons).</p>
               </div>
             </label>
 
@@ -145,9 +139,9 @@
               <input type="radio" name="tier" value="enterprise" bind:group={tier} />
               <div class="tier-info">
                 <div class="tier-title">
-                  <span class="badge enterprise">1.250 €/mes</span> Enterprise
+                  <span class="badge enterprise">€1,250 / mo</span> Enterprise
                 </div>
-                <p>Analítica histórica retrospectiva desde 2015, cuotas ampliadas y descarga de rásteres.</p>
+                <p>Retrospective historical analytics since 2015, high quotas, and full GeoTIFF downloads.</p>
               </div>
             </label>
           </div>
@@ -155,13 +149,13 @@
 
         <div class="modal-actions">
           <button type="button" class="btn-cancel" onclick={() => store.closeUserModal()} disabled={isSubmitting}>
-            Cancelar
+            Cancel
           </button>
           <button type="submit" class="btn-submit" disabled={isSubmitting}>
             {#if isSubmitting}
-              <span class="spinner"></span> Creando usuario...
+              <span class="spinner"></span> Creating user...
             {:else}
-              Registrar Usuario
+              Register User
             {/if}
           </button>
         </div>
@@ -229,19 +223,6 @@
     margin-bottom: 1.5rem;
     border-bottom: 1px solid rgba(148, 163, 184, 0.12);
     padding-bottom: 1rem;
-  }
-
-  .header-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(6, 182, 212, 0.1));
-    border: 1px solid rgba(56, 189, 248, 0.35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #38bdf8;
-    flex-shrink: 0;
   }
 
   h2 {

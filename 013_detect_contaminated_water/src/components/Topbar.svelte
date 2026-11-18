@@ -1,54 +1,16 @@
 <script lang="ts">
   import { store } from '../lib/store.svelte';
-  import type { BasemapKey } from '../lib/mapStyles';
-
-  const basemaps: { key: BasemapKey; label: string; icon: string; title: string }[] = [
-    { key: 'esritopo', label: 'Esri Topo', icon: '🏔️', title: 'Esri World Topographic Map (Global HD)' },
-    { key: 'opentopo', label: 'OpenTopo', icon: '🗺️', title: 'OpenTopoMap (Curvas de nivel)' },
-    { key: 'liberty', label: 'Liberty', icon: '🌐', title: 'OpenFreeMap Liberty Vector' },
-  ];
 </script>
 
 <header class="topbar">
   <!-- Brand Identity -->
   <div class="brand">
     <div class="brand-badge">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-      </svg>
+      <span>AQ</span>
     </div>
     <div class="brand-text">
       <h1>tonilogar Aqua</h1>
       <span class="brand-tag">Water Contamination Analytics</span>
-    </div>
-  </div>
-
-  <!-- Center Metrics & Layer Selector -->
-  <div class="center-metrics">
-    <div class="coords-display">
-      <span class="coord-item">
-        <span class="coord-label">LAT</span> {store.coords.lat.toFixed(4)}
-      </span>
-      <span class="coord-item">
-        <span class="coord-label">LON</span> {store.coords.lng.toFixed(4)}
-      </span>
-      <span class="coord-item">
-        <span class="coord-label">ZOOM</span> {store.coords.zoom.toFixed(1)}
-      </span>
-    </div>
-
-    <!-- Basemap Selector Switcher -->
-    <div class="style-switcher" role="group" aria-label="Seleccionar capa base">
-      {#each basemaps as bm}
-        <button
-          class="btn-style"
-          class:active={store.currentBasemap === bm.key}
-          onclick={() => store.setBasemap(bm.key)}
-          title={bm.title}
-        >
-          <span>{bm.icon}</span> {bm.label}
-        </button>
-      {/each}
     </div>
   </div>
 
@@ -70,16 +32,10 @@
       id="btn-create-user"
       class="btn-primary"
       onclick={() => store.openUserModal()}
-      title="Crear un nuevo usuario en tonilogar Aqua"
-      aria-label="Crear un nuevo usuario en tonilogar Aqua"
+      title="Create a new user in tonilogar Aqua"
+      aria-label="Create a new user in tonilogar Aqua"
     >
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-        <circle cx="8.5" cy="7" r="4"></circle>
-        <line x1="20" y1="8" x2="20" y2="14"></line>
-        <line x1="23" y1="11" x2="17" y2="11"></line>
-      </svg>
-      <span>Crear Usuario</span>
+      <span>Create User</span>
     </button>
   </div>
 </header>
@@ -138,69 +94,6 @@
     font-weight: 500;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-  }
-
-  .center-metrics {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-  }
-
-  .coords-display {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-  }
-
-  .coord-item {
-    font-family: var(--font-family-mono);
-    font-size: 0.78rem;
-    color: #e2e8f0;
-    background: rgba(30, 41, 59, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 0.25rem 0.55rem;
-    border-radius: var(--radius-sm);
-  }
-
-  .coord-label {
-    color: var(--color-accent);
-    font-weight: 700;
-    margin-right: 0.2rem;
-  }
-
-  .style-switcher {
-    display: flex;
-    background: rgba(30, 41, 59, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 0.2rem;
-    border-radius: var(--radius-md);
-    gap: 0.25rem;
-  }
-
-  .btn-style {
-    background: transparent;
-    border: none;
-    color: var(--color-text-muted);
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.35rem 0.65rem;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all 0.18s ease;
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .btn-style:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .btn-style.active {
-    background: linear-gradient(135deg, rgba(2, 132, 199, 0.9), rgba(56, 189, 248, 0.9));
-    color: #ffffff;
-    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
   }
 
   .actions {
@@ -279,9 +172,6 @@
 
   /* Responsive Rules */
   @media (max-width: 860px) {
-    .center-metrics {
-      display: none;
-    }
     .topbar {
       padding: 0 0.85rem;
     }

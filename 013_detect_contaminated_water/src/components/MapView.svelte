@@ -2,27 +2,61 @@
   import { onMount } from 'svelte';
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
+  import { DEFAULT_BASEMAP_STYLE } from '../lib/mapStyles';
+  import { PolygonDrawManager } from '../lib/PolygonDrawManager';
+  import { mapLayerController } from '../lib/controllers/MapLayerController';
   import { store } from '../lib/store.svelte';
-  import { getStyleSpec } from '../lib/mapStyles';
+
+  const DEFAULT_CENTER: [number, number] = [1.74, 41.69];
+  const DEFAULT_ZOOM = 8;
 
   let mapContainer: HTMLElement;
   let map: maplibregl.Map | null = null;
-  let isMapLoaded = $state(false);
+  let drawManager = $state<PolygonDrawManager | null>(null);
+  let mapLoaded = $state(false);
 
-  // Synchronize basemap style changes reactively via Svelte 5 rune
+  // Reactively sync drawing cursor and modes with store
   $effect(() => {
-    const selectedStyle = store.currentBasemap;
-    if (map && isMapLoaded) {
-      map.setStyle(getStyleSpec(selectedStyle));
+    drawManager?.syncCursor(store.isDrawing);
+  });
+
+  // Reactively handle external polygon clearing
+  $effect(() => {
+    if (drawManager && !store.polygon && !store.isDrawing) {
+      drawManager.clear();
+    }
+  });
+
+  // Reactively synchronize MapLibre GPU raster layers with all active sessions
+  $effect(() => {
+    if (!mapLoaded) return;
+
+    const sessions = store.sessions;
+    for (const session of sessions) {
+      void session.activePassId;
+      void session.isImageryHidden;
+      void session.activeAnalysis;
+      for (const pass of session.passes) {
+        void pass.opacity;
+        void pass.viewMode;
+        void pass.isVisible;
+        void pass.waterAnalysis;
+      }
+    }
+
+    if (sessions.length > 0) {
+      mapLayerController.syncSessions(sessions);
+    } else {
+      mapLayerController.removeAllLayers();
     }
   });
 
   onMount(() => {
     map = new maplibregl.Map({
       container: mapContainer,
-      style: getStyleSpec(store.currentBasemap),
-      center: [store.coords.lng, store.coords.lat],
-      zoom: store.coords.zoom,
+      style: DEFAULT_BASEMAP_STYLE,
+      center: DEFAULT_CENTER,
+      zoom: DEFAULT_ZOOM,
       attributionControl: { compact: true },
     });
 
@@ -37,27 +71,29 @@
       }
     };
 
-    // Keep attribution collapsed into a clean circular icon by default
+    // Keep attribution collapsed into a clean circular badge
     collapseAttribution();
     map.on('load', () => {
-      isMapLoaded = true;
       collapseAttribution();
+      if (map) {
+        drawManager = new PolygonDrawManager(map);
+        mapLayerController.attachMap(map);
+        mapLoaded = true;
+      }
     });
     map.on('idle', collapseAttribution);
     map.on('styledata', collapseAttribution);
 
-    // Sync map coordinates to global store
-    map.on('move', () => {
-      if (!map) return;
-      const center = map.getCenter();
-      store.coords = {
-        lng: Number(center.lng.toFixed(4)),
-        lat: Number(center.lat.toFixed(4)),
-        zoom: Number(map.getZoom().toFixed(2)),
-      };
+    const unsubscribeClear = store.onClear(() => {
+      drawManager?.clear();
+      mapLayerController.removeAllLayers();
     });
 
     return () => {
+      unsubscribeClear();
+      mapLayerController.detachMap();
+      drawManager?.destroy();
+      drawManager = null;
       map?.remove();
       map = null;
     };

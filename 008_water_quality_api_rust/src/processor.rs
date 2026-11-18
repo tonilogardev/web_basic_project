@@ -370,9 +370,10 @@ pub fn process_water_quality(
 
             let ndwi = safe_div(p_b03 - p_b08, p_b03 + p_b08);
             let mndwi = safe_div(p_b03 - p_b11, p_b03 + p_b11);
-            let water_mask = ndwi > 0.05 || mndwi > 0.10;
+            let is_scl_water = p_scl == 6;
+            let is_index_water = (ndwi > 0.02 || mndwi > 0.05) && !matches!(p_scl, 4 | 5);
             let cloud_mask = matches!(p_scl, 3 | 8 | 9 | 10 | 11);
-            let valid_water = water_mask && !cloud_mask;
+            let valid_water = (is_scl_water || is_index_water) && !cloud_mask;
 
             let nir2 = p_b04 + (p_b11 - p_b04) * ((832.8 - 664.6) / (1613.7 - 664.6));
             let fai = p_b08 - nir2;
