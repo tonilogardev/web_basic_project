@@ -21,7 +21,7 @@ const getUrl = (subdomain: string) => {
 
 document.addEventListener('DOMContentLoaded', () => {
   const sentinelLink = document.getElementById('link-sentinel');
-  if (sentinelLink) sentinelLink.setAttribute('href', getUrl('sentinel'));
+  if (sentinelLink) sentinelLink.setAttribute('href', getUrl('base-viewer'));
 
   const cassiniLink = document.getElementById('link-cassini');
   if (cassiniLink) cassiniLink.setAttribute('href', getUrl('cassini'));
@@ -31,8 +31,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const waterLink = document.getElementById('link-water');
   if (waterLink) waterLink.setAttribute('href', getUrl('aqua'));
-
-  const baseViewerLink = document.getElementById('link-base-viewer');
-  if (baseViewerLink) baseViewerLink.setAttribute('href', getUrl('base-viewer'));
 });
 
