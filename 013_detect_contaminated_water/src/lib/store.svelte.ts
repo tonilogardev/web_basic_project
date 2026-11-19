@@ -1,7 +1,9 @@
 import type { SearchSession } from './models/session.model';
 import type { WaterAnalysisResult } from './models/water.model';
+import { getSatelliteSpec } from './models/satellite.model';
 
 export type UserTier = 'freemium' | 'pro' | 'enterprise';
+export type SatelliteSource = 'sentinel-2' | 'menut';
 
 export interface UserProfile {
   name: string;
@@ -11,7 +13,7 @@ export interface UserProfile {
 }
 
 export const MAX_AREA_KM2 = 50;
-export const MAX_DATE_RANGE_DAYS = 30;
+export const MAX_DATE_RANGE_DAYS = 90;
 
 /**
  * Calculates the surface area of a polygon in km² using planar projection
@@ -71,6 +73,25 @@ class AppStore {
   activeUser = $state<UserProfile | null>(null);
   notification = $state<{ text: string; type: 'info' | 'success' | 'warn' } | null>(null);
 
+  // Satellite Constellation (Sentinel-2 vs Menut)
+  selectedSatellite = $state<SatelliteSource>('sentinel-2');
+
+  // Temporal range dynamically derived from active satellite
+  temporalCoverage = $derived.by(() => {
+    return getSatelliteSpec(this.selectedSatellite).temporalCoverage;
+  });
+
+  minDate = $derived.by(() => this.temporalCoverage.minDate);
+  maxDate = $derived.by(() => this.temporalCoverage.maxDate);
+
+  selectSatellite(satellite: SatelliteSource) {
+    if (this.selectedSatellite === satellite) return;
+    this.selectedSatellite = satellite;
+    const spec = getSatelliteSpec(satellite);
+    this.startDate = spec.temporalCoverage.defaultStartDate;
+    this.endDate = spec.temporalCoverage.defaultEndDate;
+  }
+
   // Drawing & Polygon Area of Interest (AOI)
   isDrawing = $state(false);
   polygon = $state<[number, number][] | null>(null);
@@ -100,7 +121,7 @@ class AppStore {
   // Date Range (Default: Last 30 days, Limit: 30 days)
   maxDateRangeDays = MAX_DATE_RANGE_DAYS;
   startDate = $state(
-    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   );
   endDate = $state(new Date().toISOString().slice(0, 10));
 
@@ -112,7 +133,14 @@ class AppStore {
     return diff > 0 ? diff : 0;
   });
 
+  isDateOutOfSensorRange = $derived.by(() => {
+    if (!this.startDate || !this.endDate) return false;
+    return this.startDate < this.minDate || this.endDate > this.maxDate;
+  });
+
   isDateRangeValid = $derived.by(() => {
+    if (!this.startDate || !this.endDate) return false;
+    if (this.isDateOutOfSensorRange) return false;
     return this.dateRangeDays > 0 && this.dateRangeDays <= this.maxDateRangeDays;
   });
 

@@ -65,7 +65,7 @@
         <span class="live-dot"></span>
         <span class="status-text">ACTIVE</span>
       {:else}
-        <span class="status-text idle">SHOW S2 IMAGE</span>
+        <span class="status-text idle">{pass.satellite === 'menut' ? 'SHOW MENUT IMAGE' : 'SHOW S2 IMAGE'}</span>
       {/if}
     </div>
   </div>
@@ -74,10 +74,12 @@
     <span class="badge {getCloudBadgeClass(pass.meanCloudCover)}">
       {pass.meanCloudCover}% Cloud
     </span>
-    <span class="badge granule-badge" title="Constituent MGRS tiles rendered seamlessly">
-      {pass.granulesCount} {pass.granulesCount === 1 ? 'granule' : 'granules'} (10m)
+    <span class="badge granule-badge" title={pass.satellite === 'menut' ? 'Menut 4.75m ground sampling distance' : 'Constituent MGRS tiles rendered seamlessly'}>
+      {pass.granulesCount} {pass.granulesCount === 1 ? (pass.satellite === 'menut' ? 'scene' : 'granule') : (pass.satellite === 'menut' ? 'scenes' : 'granules')} ({pass.satellite === 'menut' ? '4.75m' : '10m'})
     </span>
-    <span class="badge provider-badge">ESA</span>
+    <span class="badge provider-badge" class:menut={pass.satellite === 'menut'}>
+      {pass.satellite === 'menut' ? 'ICGC / NEWSPACE' : 'ESA'}
+    </span>
   </div>
 
   <!-- Water Pollution Detection Action -->
@@ -300,6 +302,12 @@
     background: rgba(14, 165, 233, 0.15);
     color: #38bdf8;
     border: 1px solid rgba(14, 165, 233, 0.3);
+  }
+
+  .provider-badge.menut {
+    background: rgba(168, 85, 247, 0.15);
+    color: #c084fc;
+    border-color: rgba(168, 85, 247, 0.35);
   }
 
   .pass-action-row {

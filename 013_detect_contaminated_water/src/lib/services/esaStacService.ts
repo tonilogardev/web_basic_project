@@ -1,6 +1,8 @@
 import type { StacFeatureCollection } from '../models/stac.model';
 import type { SatellitePass, ProviderBenchmark } from '../models/pass.model';
 import { groupGranulesIntoPasses } from './GroupingEngine';
+import type { ISatelliteProvider, SearchPassesParams, SearchPassesResult } from './ISatelliteProvider';
+import { getSatelliteSpec } from '../models/satellite.model';
 
 const RUST_API_BASE_URL =
   import.meta.env.VITE_RUST_API_URL ??
@@ -50,7 +52,7 @@ export async function searchSentinelPasses(
   const stacLatencyMs = Math.round(stacReqEnd - stacReqStart);
 
   const groupStart = performance.now();
-  const passes = groupGranulesIntoPasses(data.features || []);
+  const passes = groupGranulesIntoPasses(data.features || [], 'sentinel-2');
   const groupEnd = performance.now();
   const groupingLatencyMs = Math.round(groupEnd - groupStart);
 
@@ -67,3 +69,15 @@ export async function searchSentinelPasses(
 
   return { passes, benchmark };
 }
+
+export class Sentinel2StacService implements ISatelliteProvider {
+  readonly satelliteId = 'sentinel-2' as const;
+  readonly spec = getSatelliteSpec('sentinel-2');
+
+  public async searchPasses(params: SearchPassesParams): Promise<SearchPassesResult> {
+    return searchSentinelPasses(params);
+  }
+}
+
+export const sentinel2StacService = new Sentinel2StacService();
+

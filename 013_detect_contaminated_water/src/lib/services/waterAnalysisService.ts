@@ -14,11 +14,22 @@ export async function executeWaterPollutionAnalysis(
   stacItemId: string,
   date: string,
   polygon: [number, number][],
-  bbox: [number, number, number, number]
+  bbox: [number, number, number, number],
+  satellite: 'sentinel-2' | 'menut' = 'sentinel-2',
+  assets?: Record<string, { href: string; [key: string]: unknown }>
 ): Promise<WaterAnalysisResult> {
+  const assetMap: Record<string, string> = {};
+  if (assets) {
+    for (const [k, v] of Object.entries(assets)) {
+      if (v?.href) assetMap[k] = v.href;
+    }
+  }
+
   const payload: AnalyzeWaterRequest = {
     stac_item_id: stacItemId,
     bbox,
+    satellite,
+    ...(Object.keys(assetMap).length > 0 ? { assets: assetMap } : {}),
   };
 
   const resp = await fetch(ANALYZE_ENDPOINT, {

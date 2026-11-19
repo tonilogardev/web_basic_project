@@ -1,200 +1,193 @@
-# Water Quality API
+# Water Quality API (Rust Microservice)
 
 ## Index
 
 1. [Architecture Overview](#1-architecture-overview)
-2. [Local Development](#2-local-development)
+2. [Local Development & Docker](#2-local-development--docker)
 3. [API Endpoints](#3-api-endpoints)
-4. [Spectral Indexes](#4-spectral-indexes)
-5. [Water Classification](#5-water-classification)
-6. [Output Format](#6-output-format)
-7. [Image Cleanup](#7-image-cleanup)
-8. [Integration with Sentinel Viewer](#8-integration-with-sentinel-viewer)
+4. [Satellite Platforms: Sentinel-2 vs Menut](#4-satellite-platforms-sentinel-2-vs-menut)
+5. [Cloud Masking & Water Screening](#5-cloud-masking--water-screening)
+6. [Spectral Pollution Indexes](#6-spectral-pollution-indexes)
+7. [Water Classification Engine](#7-water-classification-engine)
+8. [Output Format & Tile Rendering](#8-output-format--tile-rendering)
 9. [Next steps](#9-next-steps)
 
 ---
 
 ## 1 Architecture Overview
 
-- **Runtime**: Native Rust microservice with Axum 0.7 + Tokio + GDAL 0.17 + Rayon 1.10.
-- **Unified Responsibilities**:
-  1. Water Quality analysis calculation (NDWI, MNDWI, FAI, NDTI, NDCI) on AOI bounding boxes.
-  2. Dynamic XYZ tile rendering engine (`GET /api/tiles/:z/:x/:y.png`) with RGB composites, false color, spectral indices, and color mapping.
-  3. STAC search proxy and in-memory cache (`POST /api/stac/search`) with 15-minute TTL.
-- **Communication**: Reads Sentinel-2 COGs directly from AWS S3 via `/vsicurl/` with GDAL internal overview selection. Completely replaces TiTiler.
-- **Deployment**: Multi-stage Docker container (`FROM rust:bookworm` -> `debian:bookworm-slim`), routed through Traefik at `water-api.tonilogar.com`.
+- **Core Engine**: Pure Rust microservice built with Axum 0.7, Tokio, GDAL 0.17 (C++ FFI), Rayon 1.10 multithreading, and `image`/`png` encoders.
+- **Unified Services**:
+  1. **Water Quality Analysis**: Computes spectral pollution indices and pixel classification over user AOI bounding boxes.
+  2. **Dynamic Tile Server**: Serves fast XYZ PNG tiles (`GET /api/tiles/:z/:x/:y.png`) with RGB true color, false color, single-band indexes, and discrete color mapping.
+  3. **STAC Proxy & Cache**: High-performance in-memory cache (`POST /api/stac/search`) with sub-millisecond repeat latency.
+- **Band Streaming**: Direct windowed reading from Cloud-Optimized GeoTIFFs (COGs) via GDAL `/vsicurl/` and HTTP 206 partial content range requests.
 - ***File References***:
-  - Module Root: [008_water_quality_api_rust/](../008_water_quality_api_rust/)
-  - API Entry & Router: [main.rs](../008_water_quality_api_rust/src/main.rs)
-  - Tile Server: [tiler.rs](../008_water_quality_api_rust/src/tiler.rs)
-  - STAC Proxy & Cache: [stac.rs](../008_water_quality_api_rust/src/stac.rs)
-  - Water Quality Processor: [processor.rs](../008_water_quality_api_rust/src/processor.rs)
-  - Dockerfile: [Dockerfile](../008_water_quality_api_rust/Dockerfile)
+  - Entrypoint & Routes: [main.rs](../008_water_quality_api_rust/src/main.rs)
+  - Raster Processing: [processor.rs](../008_water_quality_api_rust/src/processor.rs)
+  - Tile Engine: [tiler.rs](../008_water_quality_api_rust/src/tiler.rs)
+  - STAC Resolver: [stac.rs](../008_water_quality_api_rust/src/stac.rs)
+  - Container Definition: [Dockerfile](../008_water_quality_api_rust/Dockerfile)
 
 [←Index](#index)
 
-## 2 Local Development
+## 2 Local Development & Docker
 
-- ***Instruction***: Build and run the API container in isolation.
-- Run from project root:
+- ***Instruction***: Build and launch the container using Docker Compose with environment variables.
+  ```bash
+  docker compose --env-file .env.development up -d --build water-quality-api
   ```
-  docker compose up water-quality-api --build
-  ```
-- The API starts at `http://water-quality-api:8000` (internal Docker network) or `http://localhost:8001` (if Traefik is running).
-- ***Instruction***: Test the health endpoint.
-  ```
+- ***Instruction***: Test the health status endpoint.
+  ```bash
   curl http://localhost:8001/water-api/
   ```
-  Expected response: `{"status":"Water Quality API is running"}`
+  Expected output:
+  ```json
+  {
+    "status": "Unified Geospatial Rust API is running",
+    "engine": "Pure Rust Axum + GDAL + Rayon",
+    "version": "2.0.0"
+  }
+  ```
 - ***File References***:
-  - Orchestrator: [docker-compose.yml](../docker-compose.yml)
+  - Compose Orchestrator: [docker-compose.yml](../docker-compose.yml)
+  - Local Env Config: [.env.development](../.env.development)
 
 [←Index](#index)
 
 ## 3 API Endpoints
 
 ### `GET /`
-
-- Health check. Returns `{"status": "Water Quality API is running"}`.
+- **Purpose**: Microservice health check and engine capabilities verification.
 
 ### `POST /api/analyze`
-
-- **Purpose**: Trigger water quality analysis on a Sentinel-2 scene.
+- **Purpose**: Analyze water pollution across a satellite scene within an AOI bounding box.
 - **Request Body** (JSON):
   ```json
   {
-    "stac_item_id": "S2B_L2A_20250411T100559_R008",
-    "bbox": [-0.35, 39.30, -0.20, 39.45]
+    "stac_item_id": "geneo01a_0002900_20260302120322_20260302120404_l2a",
+    "bbox": [0.720, 40.640, 0.760, 40.655],
+    "satellite": "menut"
   }
   ```
-  | Field | Type | Description |
-  |-------|------|-------------|
-  | `stac_item_id` | `string` | Sentinel-2 L2A item ID from Element 84 STAC |
-  | `bbox` | `[number, number, number, number]` | `[minLng, minLat, maxLng, maxLat]` in EPSG:4326 |
-- **Response**:
+  | Field | Type | Required | Description |
+  | :--- | :--- | :--- | :--- |
+  | `stac_item_id` | `string` | Yes | STAC feature ID (Sentinel-2 L2A or Menut L2A) |
+  | `bbox` | `[f64; 4]` | Yes | `[minLng, minLat, maxLng, maxLat]` in EPSG:4326 |
+  | `satellite` | `string` | No | `"sentinel-2"` (default) or `"menut"` |
+  | `assets` | `object` | No | Optional dictionary of direct band asset URLs |
+
+- **Response Body** (JSON):
   ```json
   {
     "status": "success",
-    "classification_url": "http://water-quality-api:8000/public/classification_abc123.tif",
-    "rgb_url": "http://water-quality-api:8000/public/rgb_abc123.tif",
-    "job_id": "S2B_4521"
+    "classification_url": "http://water-quality-api:8000/public/classification_abc.tif",
+    "rgb_url": "http://water-quality-api:8000/public/rgb_abc.tif",
+    "job_id": "classification_abc.tif",
+    "cached": false
   }
   ```
-  | Field | Type | Description |
-  |-------|------|-------------|
-  | `classification_url` | `string` | Internal URL for analysis GeoTIFF |
-  | `rgb_url` | `string` | Internal URL for RGB GeoTIFF |
-  | `job_id` | `string` | Unique identifier for the generated files |
 
 ### `GET /api/tiles/:z/:x/:y.png`
-
-- **Purpose**: Dynamic XYZ raster tile server replacing TiTiler.
-- **Parameters**:
-  - Path: `z` (zoom level), `x` (tile column), `y` (tile row).
-  - Query:
-    - `b1`, `b2`, `b3`: URLs of band COGs (e.g., Red, Green, Blue or NIR).
-    - `url`: Direct COG URL (e.g., classification TIFF).
-    - `preset`: `"true_color"`, `"false_color"`, `"ndvi"`, `"ndwi"`.
-    - `rescale`: Reflectance scale range (default `"0,3000"` for Sentinel-2, or `"-1,1"` for NDVI/NDWI).
-    - `colormap`: JSON dictionary of hex colors for index/classification values.
-- **Response**: Binary PNG (`image/png`) with HTTP caching headers (`Cache-Control: public, max-age=86400`).
-
-### `POST /api/stac/search`
-
-- **Purpose**: Proxied STAC search to Earth Search API with 15-minute in-memory caching.
-- **Request Body**: STAC query payload (`collections`, `bbox`, `datetime`, `query`, `limit`, `sortby`).
-- **Response**: Standard STAC GeoJSON feature collection.
+- **Purpose**: Direct XYZ tile streaming reprojected to Web Mercator (`EPSG:3857`).
+- **Query Parameters**:
+  - `url`: Direct GeoTIFF URL (e.g. `classification_url`).
+  - `b1`, `b2`, `b3`: Individual band COG URLs (e.g. Red, Green, Blue).
+  - `b1_idx`, `b2_idx`, `b3_idx`: Specific channel indices for multiband COGs (e.g. Menut).
+  - `colormap`: JSON-encoded mapping of pixel values to hex color codes.
 
 [←Index](#index)
 
-## 4 Spectral Indexes
+## 4 Satellite Platforms: Sentinel-2 vs Menut
 
-- ***Instruction***: All computations happen in [processor.py](../008_water_quality_api/processor.py).
-
-| Index | Formula | Bands Used | Purpose |
-|-------|---------|------------|---------|
-| NDWI | `(GREEN - NIR) / (GREEN + NIR)` | B03, B08 | Water detection |
-| MNDWI | `(GREEN - SWIR) / (GREEN + SWIR)` | B03, B11 | Built-up area suppression |
-| FAI | `NIR - NIR2` (baseline interpolation) | B04, B08, B11 | Floating algae blooms |
-| NDCI | `(REDEDGE1 - RED) / (REDEDGE1 + RED)` | B04, B05 | Chlorophyll concentration |
-| NDTI | `(RED - GREEN) / (RED + GREEN)` | B03, B04 | Turbidity |
-
-- **Water mask**: Pixels where `NDWI > 0.05` or `MNDWI > 0.10`.
-- **Cloud mask**: Pixels excluded if SCL band is in `[3, 8, 9, 10, 11]` (clouds, shadows, cirrus).
-- **Band scaling**: All raw DN values divided by 10000 to obtain reflectance.
-- **20m resampling**: B05, B06, B8A, B11, SCL resampled to 10m via `rasterio.warp.reproject`. SCL uses nearest neighbor; others use bilinear.
+| Parameter | Sentinel-2 (Copernicus / ESA) | Menut (NewSpace / ICGC) |
+| :--- | :--- | :--- |
+| **Catalog Provider** | AWS Element 84 Earth Search | ICGC NewSpace STAC Catalog |
+| **STAC Endpoint** | `https://earth-search.aws.element84.com/v1` | `https://geoserveis.icgc.cat/.../stac-api` |
+| **Ground Resolution** | 10 meters | **4.75 meters** |
+| **COG Structure** | Multiple individual files (`B02.tif`, `B03.tif`, etc.) | **Single 7-band COG** (`visual.tif`) |
+| **Spectral Coverage** | VNIR + SWIR1/2 + Cirrus (12 bands) | VNIR only (7 bands: B, G, R, RE1-3, NIR) |
+| **Processor Routing** | `process_water_quality` in [processor.rs](../008_water_quality_api_rust/src/processor.rs#L293) | `process_menut_water_quality` in [processor.rs](../008_water_quality_api_rust/src/processor.rs#L515) |
 
 [←Index](#index)
 
-## 5 Water Classification
+## 5 Cloud Masking & Water Screening
 
-- ***Instruction***: Pixels are classified into 5 categories using percentile-based adaptive thresholds.
+### Sentinel-2 Cloud Masking
+- Uses ESA Sen2Cor **Scene Classification Layer (SCL)** band.
+- Pixels with SCL values `[3, 8, 9, 10, 11]` (cloud shadows, high/medium cloud probability, thin cirrus) are automatically masked out as invalid.
+- Water validity: `scl == 6` OR `(ndwi > 0.02 || mndwi > 0.05)`.
 
-| Class | Value | Criteria |
-|-------|-------|----------|
-| **Clear water** | 1 | Valid water pixel, no anomaly detected |
-| **Turbid** | 2 | `NDTI > P85(NDTI)` |
-| **Chlorophyll** | 3 | `NDCI > P85(NDCI)` |
-| **Algae bloom** | 4 | `FAI > P95(FAI)` |
-| **Anomaly** | 5 | `NDTI > P85(NDTI)` AND `RED_EXCESS > P85(RED_EXCESS)` AND `NDCI < P85(NDCI)` |
-
-- **Adaptive thresholds**: Each percentile threshold is computed per-scene from the valid water pixels (`numpy.nanpercentile`). This makes classification robust across different water bodies and illumination conditions.
-- ***File References***:
-  - Classification logic: [processor.py](../008_water_quality_api/processor.py#L190-L197)
-
-[←Index](#index)
-
-## 6 Output Format
-
-- **Purpose**: Two GeoTIFFs per request, stored in the `public/` directory and served as static files.
-- ***File References***:
-  - Output directory: [public/](../008_water_quality_api/public/)
-
-### `classification_<job_id>.tif`
-- **Type**: Single-band uint8, LZW compression.
-- **Values**: 0 (no-data), 1–5 (water classes).
-- **Usage**: Loaded by Titiler with a discrete colormap for the map overlay.
-
-### `rgb_<job_id>.tif`
-- **Type**: 3-band uint8 RGB, LZW compression.
-- **Composition**:
-  - R: Turbidity (NDTI normalized)
-  - G: Chlorophyll (NDCI normalized)
-  - B: Algae (FAI normalized)
-- **Usage**: Visual diagnostic composite.
-
-- ***File References***:
-  - Export functions: [processor.py](../008_water_quality_api/processor.py#L87-L115)
+### Menut Optical Cloud Masking
+Menut lacks a dedicated SCL layer or Cirrus band. Our engine applies **physics-based deterministic optical screening**:
+1. **Whiteness / Color Flatness Test**:
+   $$\text{VisMean} = \frac{R_{\text{Blue}} + R_{\text{Green}} + R_{\text{Red}}}{3}$$
+   $$\text{Whiteness} = \frac{\sum_{i \in \{B, G, R\}} |R_i - \text{VisMean}|}{\text{VisMean}}$$
+   - Thick clouds reflect all visible light symmetrically without color tint: $\text{VisMean} > 0.25$ and $\text{Whiteness} < 0.18$.
+2. **NIR Absorption Contrast**:
+   - Liquid water strongly absorbs NIR ($R_{\text{NIR}} < 0.10$).
+   - Clouds reflect NIR strongly ($R_{\text{NIR}} > 0.20 - 0.50$).
+   - Pixels with $R_{\text{NIR}} \ge 0.15$ are rejected.
+3. **Thin Cirrus / Haze Test (HOT)**:
+   $$\text{HOT} = R_{\text{Blue}} - 0.5 \times R_{\text{Red}}$$
+   - Detected when $\text{HOT} > 0.15$ and $R_{\text{Blue}} > 0.28$.
+4. **Final Water Mask**:
+   ```rust
+   let valid_water = ndwi > 0.02 && p_nir < 0.15 && !is_cloud;
+   ```
 
 [←Index](#index)
 
-## 7 Image Cleanup
+## 6 Spectral Pollution Indexes
 
-- **Problem**: On-demand TIF generation fills disk space over time.
-- **Solution**: Background garbage collector triggered on each request.
-- **How it works**: A `BackgroundTasks` task calls `cleanup_old_files()`, deleting any `.tif` file in `public/` older than 1 hour.
-- ***File References***:
-  - Cleanup function: [main.py](../008_water_quality_api/main.py#L32-L43)
-  - Background task registration: [main.py](../008_water_quality_api/main.py#L53)
+- Raw digital values are divided by 10,000 to convert to Bottom-of-Atmosphere (BOA) surface reflectance $[0.0 \dots 1.0]$.
+
+| Index | Formula | Sentinel-2 Bands | Menut Channels | Target Indicator |
+| :--- | :--- | :--- | :--- | :--- |
+| **NDWI** | $\frac{\text{Green} - \text{NIR}}{\text{Green} + \text{NIR}}$ | B03, B08 | Canal 2, Canal 7 | Water body delineation |
+| **MNDWI** | $\frac{\text{Green} - \text{SWIR}}{\text{Green} + \text{SWIR}}$ | B03, B11 | N/A (falls back to NDWI) | Built-up terrain suppression |
+| **NDTI** | $\frac{\text{Red} - \text{Green}}{\text{Red} + \text{Green}}$ | B04, B03 | Canal 3, Canal 2 | Turbidity & Suspended Solids |
+| **NDCI** | $\frac{\text{RedEdge1} - \text{Red}}{\text{RedEdge1} + \text{Red}}$ | B05, B04 | Canal 4, Canal 3 | Chlorophyll-a / Eutrophication |
+| **FAI** | $\text{NIR} - \text{NIR}_{\text{baseline}}$ | B08, B04, B11 | Canal 7, Canal 3 | Floating Algae / Cyanobacteria |
+| **Red Excess** | $\text{Red} - \text{Green}$ | B04, B03 | Canal 3, Canal 2 | Chemical spill / Atypical anomaly |
 
 [←Index](#index)
 
-## 8 Integration with Sentinel Viewer
+## 7 Water Classification Engine
 
-- **Frontend**: The [Sentinel Viewer](../005_sentinel_viewer/) selects the "Water Quality Analysis" band preset.
-- **Flow**:
-  1. User selects Water Quality band preset and clicks Search.
-  2. [titilerApi.ts](../005_sentinel_viewer/src/lib/titilerApi.ts) detects `external_api` mode.
-  3. Frontend calls `POST /api/analyze` with the STAC item ID and bbox.
-  4. API returns `classification_url` and `rgb_url`.
-  5. Frontend passes the classification URL to Titiler, which applies a colormap and renders tiles.
-  6. [Legend.svelte](../005_sentinel_viewer/src/components/Legend.svelte) displays the class legend.
+- Pixels are categorized into 6 distinct classes ($0 \dots 5$) using scene-adaptive statistical percentiles over valid water pixels:
+
+| Class ID | Label | Badge Class | Detection Logic | Color Hex |
+| :---: | :--- | :--- | :--- | :---: |
+| **0** | **Background / Land** | `badge-bg` | Non-water, terrain, clouds, shadows | Transparent |
+| **1** | **Clean Water** | `badge-clean` | Valid water with normal optical baseline | `#2196F3` |
+| **2** | **High Turbidity** | `badge-turbid` | $\text{NDTI} > P_{85}(\text{NDTI})$ | `#E8430F` |
+| **3** | **Chlorophyll / Eutrophication** | `badge-chl` | $\text{NDCI} > P_{85}(\text{NDCI})$ | `#BEFF6B` |
+| **4** | **Surface Algae Bloom** | `badge-algae` | $\text{FAI} > P_{95}(\text{FAI})$ | `#1B8A0A` |
+| **5** | **Critical Anomaly** | `badge-anomaly` | $\text{NDTI} > P_{85} \land \text{RedExcess} > P_{85} \land \text{NDCI} < P_{85}$ | `#7A0000` |
+
+- Adaptive thresholds ($P_{85}, P_{95}$) are computed dynamically using Rayon parallel reduction on `f32` slices with `select_nth_unstable_by`.
+
+[←Index](#index)
+
+## 8 Output Format & Tile Rendering
+
+- **Classification Raster** (`classification_<id>.tif`):
+  - Type: Single-band `uint8`, LZW compression.
+  - Spatial Reference: Native UTM zone (e.g. `EPSG:32631`).
+  - Values: Integers $0 \dots 5$.
+- **Diagnostic RGB Raster** (`rgb_<id>.tif`):
+  - Type: 3-band `uint8` composite (Normalized Turbidity, Chlorophyll, and Algae).
+- **MapLibre Integration**:
+  - Tiles are delivered via `http://water-quality-api:8000/api/tiles/{z}/{x}/{y}.png?url=...&colormap=...`.
+  - Frontend crops tiles seamlessly to the exact AOI polygon using the custom `clipped://` protocol.
 - ***File References***:
-  - API integration: [titilerApi.ts](../005_sentinel_viewer/src/lib/titilerApi.ts)
-  - Legend: [Legend.svelte](../005_sentinel_viewer/src/components/Legend.svelte)
+  - Protocol Handler: [clippedProtocol.ts](../013_detect_contaminated_water/src/lib/services/clippedProtocol.ts)
+  - Map Layer Controller: [MapLayerController.ts](../013_detect_contaminated_water/src/lib/controllers/MapLayerController.ts)
 
 [←Index](#index)
 
 ## 9 Next steps
 
-- [Back to Main README](../README.md)
+- [Detailed Pipeline Specification (015)](./015_water_quality_sentinel_menut_pipeline.md)
+- [Context Handover & Status (012)](./012_context_handover_sentinel_viewer.md)

@@ -144,6 +144,47 @@ fn read_band(
     Ok(buf.data().to_vec())
 }
 
+fn read_band_from_ds(
+    ds: &Dataset,
+    band_idx: usize,
+    window: &WindowInfo,
+    resample: ResampleAlg,
+) -> Result<Vec<f32>, String> {
+    let gt = ds
+        .geo_transform()
+        .map_err(|e| format!("Error getting geotransform: {}", e))?;
+    let (ds_w, ds_h) = ds.raster_size();
+
+    let px_min = ((window.utm_min_x - gt[0]) / gt[1]).floor();
+    let py_min = ((window.utm_max_y - gt[3]) / gt[5]).floor();
+    let px_max = ((window.utm_max_x - gt[0]) / gt[1]).ceil();
+    let py_max = ((window.utm_min_y - gt[3]) / gt[5]).ceil();
+
+    let win_x = (px_min as isize).clamp(0, ds_w as isize - 1);
+    let win_y = (py_min as isize).clamp(0, ds_h as isize - 1);
+    let win_w = ((px_max - px_min) as usize)
+        .max(1)
+        .min((ds_w as isize - win_x) as usize);
+    let win_h = ((py_max - py_min) as usize)
+        .max(1)
+        .min((ds_h as isize - win_y) as usize);
+
+    let band = ds
+        .rasterband(band_idx)
+        .map_err(|e| format!("Failed to get band {}: {}", band_idx, e))?;
+
+    let buf = band
+        .read_as::<f32>(
+            (win_x, win_y),
+            (win_w, win_h),
+            (window.target_w, window.target_h),
+            Some(resample),
+        )
+        .map_err(|e| format!("Failed to read band {} window: {}", band_idx, e))?;
+
+    Ok(buf.data().to_vec())
+}
+
 #[inline(always)]
 fn safe_div(a: f32, b: f32) -> f32 {
     if b.abs() < 1e-6 {
@@ -470,3 +511,168 @@ pub fn process_water_quality(
 
     Ok(())
 }
+
+/// Specialized water quality analysis engine for Catalonia's Menut 6U CubeSat (4.75m VNIR).
+/// Demultiplexes channels directly from a single Cloud-Optimized GeoTIFF:
+/// Band 1: Blue, Band 2: Green, Band 3: Red, Band 4: RedEdge 1, Band 7: NIR.
+pub fn process_menut_water_quality(
+    _item_id: &str,
+    bbox: &[f64; 4],
+    hrefs: &HashMap<String, String>,
+    output_dir: &Path,
+    class_file: &str,
+    rgb_file: &str,
+) -> Result<(), String> {
+    init_gdal_options();
+
+    let visual_href = hrefs
+        .get("visual")
+        .or_else(|| hrefs.get("data"))
+        .or_else(|| hrefs.get("blue"))
+        .ok_or("Missing asset: visual for Menut")?;
+
+    let vsi_visual = if visual_href.starts_with("http://") || visual_href.starts_with("https://") {
+        format!("/vsicurl/{}", visual_href)
+    } else {
+        visual_href.to_string()
+    };
+
+    let ds = Dataset::open(&vsi_visual)
+        .map_err(|e| format!("Error opening Menut COG {}: {}", vsi_visual, e))?;
+
+    let window_info = calculate_window_for_bbox(&ds, bbox)?;
+    let target_size = (window_info.target_w, window_info.target_h);
+    let num_pixels = target_size.0 * target_size.1;
+
+    // Read Menut VNIR channels from single dataset:
+    // Band 1: Blue (BLU)
+    // Band 2: Green (GRN)
+    // Band 3: Red (RED)
+    // Band 4: RedEdge 1 (RE1)
+    // Band 7: Near Infrared (NIR)
+    let b_blue = read_band_from_ds(&ds, 1, &window_info, ResampleAlg::Bilinear)?;
+    let b_green = read_band_from_ds(&ds, 2, &window_info, ResampleAlg::Bilinear)?;
+    let b_red = read_band_from_ds(&ds, 3, &window_info, ResampleAlg::Bilinear)?;
+    let b_re1 = read_band_from_ds(&ds, 4, &window_info, ResampleAlg::Bilinear)?;
+    let b_nir = read_band_from_ds(&ds, 7, &window_info, ResampleAlg::Bilinear)?;
+
+    struct MenutPixelCalc {
+        valid_water: bool,
+        ndti: f32,
+        ndci: f32,
+        fai: f32,
+        red_excess: f32,
+    }
+
+    let calcs: Vec<MenutPixelCalc> = (0..num_pixels)
+        .into_par_iter()
+        .map(|i| {
+            let _p_blue = b_blue[i] / 10000.0;
+            let p_grn = b_green[i] / 10000.0;
+            let p_red = b_red[i] / 10000.0;
+            let p_re1 = b_re1[i] / 10000.0;
+            let p_nir = b_nir[i] / 10000.0;
+
+            // McFeeters NDWI: (Green - NIR) / (Green + NIR)
+            let ndwi = safe_div(p_grn - p_nir, p_grn + p_nir);
+            // In Menut VNIR (no SCL cloud mask band), water is determined optically
+            let valid_water = ndwi > 0.02 && p_nir < 0.25;
+
+            // NDCI (Chlorophyll-a / Eutrophication): (RedEdge1 - Red) / (RedEdge1 + Red)
+            let ndci = safe_div(p_re1 - p_red, p_re1 + p_red);
+            // NDTI (Turbidity / Suspended Sediments): (Red - Green) / (Red + Green)
+            let ndti = safe_div(p_red - p_grn, p_red + p_grn);
+            // Floating Vegetation / Algae Bloom contrast in VNIR: NIR - Red
+            let fai = p_nir - p_red;
+            let red_excess = p_red - p_grn;
+
+            MenutPixelCalc {
+                valid_water,
+                ndti,
+                ndci,
+                fai,
+                red_excess,
+            }
+        })
+        .collect();
+
+    // Calculate dynamic statistical thresholds over valid water pixels
+    let mut fai_water: Vec<f32> = calcs
+        .iter()
+        .filter_map(|c| if c.valid_water && c.fai.is_finite() { Some(c.fai) } else { None })
+        .collect();
+    let mut ndci_water: Vec<f32> = calcs
+        .iter()
+        .filter_map(|c| if c.valid_water && c.ndci.is_finite() { Some(c.ndci) } else { None })
+        .collect();
+    let mut ndti_water: Vec<f32> = calcs
+        .iter()
+        .filter_map(|c| if c.valid_water && c.ndti.is_finite() { Some(c.ndti) } else { None })
+        .collect();
+    let mut red_water: Vec<f32> = calcs
+        .iter()
+        .filter_map(|c| if c.valid_water && c.red_excess.is_finite() { Some(c.red_excess) } else { None })
+        .collect();
+
+    let thr_algae = percentile(&mut fai_water, 95.0);
+    let thr_chl = percentile(&mut ndci_water, 85.0);
+    let thr_turb = percentile(&mut ndti_water, 85.0);
+    let thr_red = percentile(&mut red_water, 85.0);
+
+    // Classification mapping (0=Background, 1=Clean, 2=Turbid, 3=Chlorophyll, 4=Algae, 5=Anomaly)
+    let classification: Vec<u8> = calcs
+        .par_iter()
+        .map(|c| {
+            if !c.valid_water {
+                0
+            } else if c.ndti > thr_turb && c.red_excess > thr_red && c.ndci < thr_chl {
+                5
+            } else if c.fai > thr_algae {
+                4
+            } else if c.ndci > thr_chl {
+                3
+            } else if c.ndti > thr_turb {
+                2
+            } else {
+                1
+            }
+        })
+        .collect();
+
+    // Normalizations for RGB visualization
+    let valid_water_flags: Vec<bool> = calcs.iter().map(|c| c.valid_water).collect();
+    let ndti_all: Vec<f32> = calcs.iter().map(|c| c.ndti).collect();
+    let ndci_all: Vec<f32> = calcs.iter().map(|c| c.ndci).collect();
+    let fai_all: Vec<f32> = calcs.iter().map(|c| c.fai).collect();
+
+    let turb_norm = normalize_percentile(&ndti_all, &valid_water_flags, 2.0, 98.0);
+    let chl_norm = normalize_percentile(&ndci_all, &valid_water_flags, 2.0, 98.0);
+    let algae_norm = normalize_percentile(&fai_all, &valid_water_flags, 2.0, 98.0);
+
+    // Save GeoTIFFs
+    let class_path = output_dir.join(class_file);
+    let rgb_path = output_dir.join(rgb_file);
+
+    write_classification_geotiff(
+        &class_path,
+        &classification,
+        target_size.0,
+        target_size.1,
+        &window_info.new_gt,
+        &window_info.projection,
+    )?;
+
+    write_rgb_geotiff(
+        &rgb_path,
+        &turb_norm,
+        &chl_norm,
+        &algae_norm,
+        target_size.0,
+        target_size.1,
+        &window_info.new_gt,
+        &window_info.projection,
+    )?;
+
+    Ok(())
+}
+

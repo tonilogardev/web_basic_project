@@ -13,6 +13,7 @@ use tracing::{error, info};
 
 const STAC_SEARCH_URL: &str = "https://earth-search.aws.element84.com/v1/search";
 const STAC_COLLECTION_URL: &str = "https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a/items";
+const ICGC_MENUT_ITEMS_URL: &str = "https://geoserveis.icgc.cat/servei/catalunya/newspace/stac-api/collections/menut-l2a/items";
 
 pub type StacCache = Arc<RwLock<HashMap<String, (SystemTime, Value)>>>;
 
@@ -28,10 +29,24 @@ struct StacItem {
 }
 
 /// Retrieve direct band asset URLs for a specific STAC Item ID
-pub async fn get_asset_hrefs(client: &reqwest::Client, item_id: &str) -> Result<HashMap<String, String>, String> {
-    let url = format!("{}/{}", STAC_COLLECTION_URL, item_id);
+pub async fn get_asset_hrefs(
+    client: &reqwest::Client,
+    item_id: &str,
+    satellite: Option<&str>,
+) -> Result<HashMap<String, String>, String> {
+    let is_menut = satellite == Some("menut")
+        || item_id.starts_with("menut_")
+        || item_id.starts_with("geneo");
+
+    let url = if is_menut {
+        format!("{}/{}", ICGC_MENUT_ITEMS_URL, item_id)
+    } else {
+        format!("{}/{}", STAC_COLLECTION_URL, item_id)
+    };
+
     let resp = client
         .get(&url)
+        .header("User-Agent", "Mozilla/5.0")
         .send()
         .await
         .map_err(|e| format!("Failed to request STAC item {}: {}", item_id, e))?;

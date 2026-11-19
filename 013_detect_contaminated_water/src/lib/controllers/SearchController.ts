@@ -1,5 +1,5 @@
 import { store } from '../store.svelte';
-import { searchSentinelPasses } from '../services/esaStacService';
+import { getSatelliteProvider } from '../services/SatelliteProviderFactory';
 import type { SearchSnapshot, SearchSession } from '../models/session.model';
 import { mapLayerController } from './MapLayerController';
 
@@ -35,17 +35,35 @@ export class SearchController {
       startDate: store.startDate,
       endDate: store.endDate,
       dateRangeDays: store.dateRangeDays,
+      satellite: store.selectedSatellite,
     };
 
+    const isMenut = store.selectedSatellite === 'menut';
+    const provider = getSatelliteProvider(store.selectedSatellite);
+    const satelliteLabel = provider.spec.shortName;
+
     try {
-      const { passes, benchmark } = await searchSentinelPasses({
+      const result = await provider.searchPasses({
         boundingBox: snapshot.boundingBox,
         startDate: snapshot.startDate,
         endDate: snapshot.endDate,
       });
+      const { passes, benchmark } = result;
 
       if (passes.length === 0) {
-        store.showNotification('No satellite passes found for these dates', 'warn');
+        if (result.infoMessage) {
+          store.showNotification(result.infoMessage, 'warn');
+        } else if (isMenut) {
+          store.showNotification(
+            `No se encontraron pasadas de Menut entre ${snapshot.startDate} y ${snapshot.endDate}.`,
+            'warn'
+          );
+        } else {
+          store.showNotification(
+            `No se encontraron pasadas de Sentinel-2 entre ${snapshot.startDate} y ${snapshot.endDate}.`,
+            'warn'
+          );
+        }
         return;
       }
 
@@ -61,10 +79,11 @@ export class SearchController {
       const newSession: SearchSession = {
         id: `session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         sessionNumber: sessionCount,
-        title: `Passes #${sessionCount} (${passes.length})`,
+        title: `${satelliteLabel} #${sessionCount} (${passes.length})`,
         createdAt: new Date(),
         snapshot,
         passes,
+        satellite: store.selectedSatellite,
         activePassId: passes[0]?.id ?? null,
         activeAnalysis: null,
         benchmark,

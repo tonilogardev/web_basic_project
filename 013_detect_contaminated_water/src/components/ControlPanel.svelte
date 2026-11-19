@@ -12,10 +12,13 @@
   let collapsed = $state(false);
 
   function setQuickRange(days: number) {
-    const end = new Date();
+    const anchorDate = store.endDate ? new Date(store.endDate) : new Date(store.maxDate);
+    const end = isNaN(anchorDate.getTime()) ? new Date(store.maxDate) : anchorDate;
     const start = new Date(end.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
+    const minD = new Date(store.minDate);
+    const actualStart = start < minD ? minD : start;
     store.endDate = end.toISOString().slice(0, 10);
-    store.startDate = start.toISOString().slice(0, 10);
+    store.startDate = actualStart.toISOString().slice(0, 10);
   }
 
   function handleDrawClick() {
@@ -41,8 +44,12 @@
     <div class="header-left">
       <span class="drag-grip" title="Drag window">⠿</span>
       <div class="title-wrap">
-        <h2>Aqua Sentinel Analysis</h2>
-        <span class="subtitle">Sentinel-2 L2A (BOA Surface Reflectance)</span>
+        <h2>{store.selectedSatellite === 'sentinel-2' ? 'Aqua Sentinel Analysis' : 'Aqua Menut Analysis'}</h2>
+        <span class="subtitle">
+          {store.selectedSatellite === 'sentinel-2'
+            ? 'Sentinel-2 L2A (BOA Surface Reflectance)'
+            : 'Menut 6U CubeSat (4.75m VNIR Reflectance)'}
+        </span>
       </div>
     </div>
 
@@ -60,6 +67,80 @@
   <!-- Window Content -->
   {#if !collapsed}
     <div class="panel-content">
+      <!-- 0. Satellite Platform Selector -->
+      <section class="section-group">
+        <div class="label-row">
+          <span class="section-label">Satellite Platform</span>
+          <span class="satellite-tag">
+            {store.selectedSatellite === 'sentinel-2' ? 'Copernicus 10m' : 'NewSpace 4.75m'}
+          </span>
+        </div>
+
+        <div class="satellite-grid">
+          <button
+            type="button"
+            class="satellite-card"
+            class:active={store.selectedSatellite === 'sentinel-2'}
+            onclick={() => store.selectSatellite('sentinel-2')}
+            title="Switch to Sentinel-2 MSI"
+          >
+            <div class="satellite-card-header">
+              <span class="satellite-name">Sentinel-2</span>
+              <span class="satellite-badge">10m</span>
+            </div>
+            <p class="satellite-desc">ESA Copernicus MSI (L2A BOA)</p>
+          </button>
+
+          <button
+            type="button"
+            class="satellite-card"
+            class:active={store.selectedSatellite === 'menut'}
+            onclick={() => store.selectSatellite('menut')}
+            title="Switch to Menut CubeSat"
+          >
+            <div class="satellite-card-header">
+              <span class="satellite-name">Menut</span>
+              <span class="satellite-badge menut">4.75m</span>
+            </div>
+            <p class="satellite-desc">Open Cosmos 6U (VNIR)</p>
+          </button>
+        </div>
+
+        {#if store.selectedSatellite === 'menut'}
+          <div class="menut-info-banner">
+            <span class="menut-info-title">Menut Catalunya OpenConstellation</span>
+            <span class="menut-info-text">
+              Payload VNIR submétrico (4.75m). Catálogo abierto del ICGC con tomas entre Junio de 2023 y Marzo de 2026.
+            </span>
+            <div class="menut-sample-row">
+              <span class="menut-sample-note">Tomas recomendadas:</span>
+              <button
+                type="button"
+                class="btn-menut-sample"
+                onclick={() => {
+                  store.startDate = '2025-05-01';
+                  store.endDate = '2025-05-30';
+                }}
+                title="Cargar campaña Mayo 2025 (Delta del Ebro)"
+              >
+                Delta Ebro (Mayo 2025)
+              </button>
+              <button
+                type="button"
+                class="btn-menut-sample"
+                onclick={() => {
+                  store.startDate = '2026-03-01';
+                  store.endDate = '2026-03-20';
+                }}
+                title="Cargar campaña Marzo 2026 (Roses / Costa Brava)"
+              >
+                Roses (Marzo 2026)
+              </button>
+            </div>
+          </div>
+        {/if}
+      </section>
+
       <!-- 1. Area of Interest (AOI) - Polygon -->
       <section class="section-group">
         <div class="label-row">
@@ -109,7 +190,7 @@
         </div>
       </section>
 
-      <!-- 2. Date Range (Max 30 Days) -->
+      <!-- 2. Date Range (Max 90 Days - Seasonal) -->
       <section class="section-group">
         <div class="label-row">
           <span class="section-label">Date Range</span>
@@ -119,49 +200,71 @@
               class="chip"
               class:active={store.dateRangeDays === 7}
               onclick={() => setQuickRange(7)}
-              title="Last 7 days"
+              title="Last 7 days (Episodio puntual)"
             >7d</button>
             <button
               type="button"
               class="chip"
               class:active={store.dateRangeDays === 15}
               onclick={() => setQuickRange(15)}
-              title="Last 15 days"
+              title="Last 15 days (Quincena)"
             >15d</button>
             <button
               type="button"
               class="chip"
               class:active={store.dateRangeDays === 30}
               onclick={() => setQuickRange(30)}
-              title="Last 30 days (Maximum allowed)"
+              title="Last 30 days (Mensual)"
             >30d</button>
+            <button
+              type="button"
+              class="chip"
+              class:active={store.dateRangeDays === 90}
+              onclick={() => setQuickRange(90)}
+              title="Last 90 days (Estación completa / Trimestre)"
+            >90d</button>
           </div>
         </div>
 
         <div class="dates-grid">
           <div class="date-field">
             <span class="input-caption">From</span>
-            <input type="date" class="custom-date" bind:value={store.startDate} />
+            <input
+              type="date"
+              class="custom-date"
+              min={store.minDate}
+              max={store.endDate || store.maxDate}
+              bind:value={store.startDate}
+            />
           </div>
           <div class="date-field">
             <span class="input-caption">To</span>
             <input
               type="date"
               class="custom-date"
-              min={store.startDate}
+              min={store.startDate || store.minDate}
+              max={store.maxDate}
               bind:value={store.endDate}
             />
           </div>
         </div>
 
-        {#if store.isDateRangeTooWide}
+        {#if store.isDateOutOfSensorRange}
           <div class="date-warning-banner">
-            Range too wide ({store.dateRangeDays} days). Maximum allowed is {store.maxDateRangeDays} days.
+            Fecha fuera del rango operativo de {store.selectedSatellite === 'sentinel-2' ? 'Sentinel-2 (Diciembre 2015 – Hoy)' : 'Menut (2023-06-24 – 2026-03-20)'}.
+          </div>
+        {:else if store.isDateRangeTooWide}
+          <div class="date-warning-banner">
+            Rango demasiado amplio ({store.dateRangeDays} días). Máximo permitido: {store.maxDateRangeDays} días (1 estación).
           </div>
         {:else}
           <div class="hint-text">
-            <span>{store.dateRangeDays} {store.dateRangeDays === 1 ? 'day' : 'days'} selected</span>
-            <span class="hint-rule">Max: {store.maxDateRangeDays} days</span>
+            <span>{store.dateRangeDays} {store.dateRangeDays === 1 ? 'día seleccionado' : 'días seleccionados'}</span>
+            <span class="hint-rule">
+              {store.selectedSatellite === 'sentinel-2'
+                ? 'Copernicus: Dic 2015 – Hoy (Máx 90d)'
+                : 'Menut ICGC: Jun 2023 – Mar 2026 (Máx 90d)'}
+            </span>
           </div>
         {/if}
       </section>
@@ -174,7 +277,7 @@
         onclick={() => onSearch?.()}
       >
         {#if store.isSearching}
-          Searching Sentinel Passes...
+          Searching {store.selectedSatellite === 'sentinel-2' ? 'Sentinel-2' : 'Menut'} Passes...
         {:else if !store.polygon}
           Create a Polygon to Search
         {:else if store.isAreaTooLarge}
@@ -182,7 +285,7 @@
         {:else if store.isDateRangeTooWide}
           Date Range Exceeds {store.maxDateRangeDays} Days
         {:else}
-          Search Sentinel Passes
+          Search {store.selectedSatellite === 'sentinel-2' ? 'Sentinel-2' : 'Menut'} Passes
         {/if}
       </button>
     </div>
@@ -313,6 +416,135 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: #94a3b8;
+  }
+
+  /* Satellite Platform Selection */
+  .satellite-tag {
+    font-size: 10px;
+    color: #22d3ee;
+    font-weight: 600;
+  }
+
+  .satellite-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .satellite-card {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 10px;
+    background: rgba(30, 41, 59, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    color: #f8fafc;
+    font-family: inherit;
+  }
+
+  .satellite-card:hover {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+  }
+
+  .satellite-card.active {
+    background: rgba(6, 182, 212, 0.12);
+    border-color: #22d3ee;
+    box-shadow: 0 0 16px -2px rgba(6, 182, 212, 0.35);
+  }
+
+  .satellite-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+
+  .satellite-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .satellite-badge {
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+  }
+
+  .satellite-badge.menut {
+    background: rgba(168, 85, 247, 0.2);
+    color: #c084fc;
+    border-color: rgba(168, 85, 247, 0.3);
+  }
+
+  .satellite-desc {
+    margin: 0;
+    font-size: 9.5px;
+    color: #94a3b8;
+    line-height: 1.25;
+  }
+
+  .menut-info-banner {
+    margin-top: 2px;
+    padding: 7px 9px;
+    background: rgba(168, 85, 247, 0.08);
+    border: 1px solid rgba(168, 85, 247, 0.25);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .menut-info-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: #e9d5ff;
+  }
+
+  .menut-info-text {
+    font-size: 9px;
+    color: #d8b4fe;
+    line-height: 1.35;
+  }
+
+  .menut-sample-row {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .menut-sample-note {
+    font-size: 8.5px;
+    color: #c084fc;
+    opacity: 0.9;
+  }
+
+  .btn-menut-sample {
+    font-size: 8.5px;
+    padding: 2px 6px;
+    background: rgba(168, 85, 247, 0.2);
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    color: #f3e8ff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-menut-sample:hover {
+    background: rgba(168, 85, 247, 0.35);
+    border-color: rgba(168, 85, 247, 0.6);
   }
 
   /* AOI Actions */

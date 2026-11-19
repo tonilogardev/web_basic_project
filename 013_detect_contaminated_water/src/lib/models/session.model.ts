@@ -8,6 +8,7 @@ export interface SearchSnapshot {
   startDate: string;
   endDate: string;
   dateRangeDays: number;
+  satellite?: 'sentinel-2' | 'menut';
 }
 
 export interface SearchSession {
@@ -17,6 +18,7 @@ export interface SearchSession {
   createdAt: Date;
   snapshot: SearchSnapshot;
   passes: SatellitePass[];
+  satellite?: 'sentinel-2' | 'menut';
   activePassId: string | null;
   activeAnalysis: WaterAnalysisResult | null;
   benchmark: ProviderBenchmark | null;

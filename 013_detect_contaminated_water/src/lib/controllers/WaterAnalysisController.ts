@@ -52,7 +52,9 @@ export class WaterAnalysisController {
             granule.id,
             pass.date,
             session.snapshot.polygon,
-            intersection
+            intersection,
+            pass.satellite ?? 'sentinel-2',
+            granule.assets
           );
         })
       );

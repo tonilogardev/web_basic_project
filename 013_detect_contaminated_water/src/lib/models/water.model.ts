@@ -60,6 +60,8 @@ export const WATER_QUALITY_CLASSES: Record<WaterQualityClassId, WaterClassDefini
 export interface AnalyzeWaterRequest {
   stac_item_id: string;
   bbox: [number, number, number, number];
+  satellite?: 'sentinel-2' | 'menut';
+  assets?: Record<string, string>;
 }
 
 export interface AnalyzeWaterResponse {

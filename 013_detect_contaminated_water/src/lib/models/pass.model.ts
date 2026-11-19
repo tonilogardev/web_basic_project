@@ -1,5 +1,6 @@
 import type { StacFeature, StacAsset } from './stac.model';
 import type { WaterAnalysisResult } from './water.model';
+import type { SatelliteId } from './satellite.model';
 
 export interface ProviderBenchmark {
   granulesFound: number;
@@ -11,8 +12,8 @@ export interface ProviderBenchmark {
 }
 
 export interface GranuleImage {
-  id: string; // e.g. "S2A_31TCF_20261104_0_L2A"
-  mgrsTile: string; // e.g. "31TCF"
+  id: string; // e.g. "S2A_31TCF_20261104_0_L2A" or "MENUT_20261104_001"
+  mgrsTile: string; // e.g. "31TCF" or scene identifier
   bbox: [number, number, number, number];
   cloudCover: number;
   nativeResolutionMeters: number;
@@ -25,10 +26,11 @@ export interface GranuleImage {
 export type PassViewMode = 'rgb' | 'water' | 'both';
 
 export interface SatellitePass {
-  id: string; // Composite: "YYYYMMDD_RXXX"
+  id: string; // Composite: "YYYYMMDD_RXXX" or "YYYYMMDD_MENUT_XXX"
+  satellite?: SatelliteId; // Constellation origin
   date: string; // "YYYY-MM-DD"
   orbitNumber: number;
-  orbitFormatted: string; // "R008"
+  orbitFormatted: string; // "R008" or "MENUT"
   meanCloudCover: number;
   granulesCount: number;
   granules: GranuleImage[];

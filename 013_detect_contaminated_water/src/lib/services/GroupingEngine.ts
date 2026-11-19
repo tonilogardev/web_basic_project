@@ -1,7 +1,11 @@
 import type { StacFeature } from '../models/stac.model';
 import type { SatellitePass, GranuleImage } from '../models/pass.model';
+import type { SatelliteId } from '../models/satellite.model';
 
 function extractRelativeOrbit(feature: StacFeature): number {
+  const menutMatch = feature.id.match(/(?:menut|geneo\w*)_0*(\d{3,7})_/i);
+  if (menutMatch && menutMatch[1]) return parseInt(menutMatch[1], 10);
+
   const productUri = feature.properties['s2:product_uri'] as string | undefined;
   if (productUri) {
     const match = productUri.match(/_R(\d{3})_/i);
@@ -39,6 +43,9 @@ function extractMgrsTile(feature: StacFeature): string {
   const match = feature.id.match(/_(\d{2}[A-Z]{3})_/i);
   if (match && match[1]) return match[1];
 
+  const menutMatch = feature.id.match(/(?:menut|geneo\w*)_0*(\d{3,7})_/i);
+  if (menutMatch && menutMatch[1]) return `#${menutMatch[1]}`;
+
   return 'MGRS';
 }
 
@@ -61,7 +68,10 @@ function calculateCombinedBbox(features: StacFeature[]): [number, number, number
   return [minX, minY, maxX, maxY];
 }
 
-export function groupGranulesIntoPasses(features: StacFeature[]): SatellitePass[] {
+export function groupGranulesIntoPasses(
+  features: StacFeature[],
+  satelliteId: SatelliteId = 'sentinel-2'
+): SatellitePass[] {
   const groups = new Map<string, StacFeature[]>();
 
   for (const feature of features) {
@@ -71,8 +81,14 @@ export function groupGranulesIntoPasses(features: StacFeature[]): SatellitePass[
     const isoDate = dt.slice(0, 10);
     const compactDate = isoDate.replace(/-/g, '');
     const orbitNumber = extractRelativeOrbit(feature);
-    const orbitFormatted = `R${orbitNumber.toString().padStart(3, '0')}`;
-    const compositeId = `${compactDate}_${orbitFormatted}`;
+    const orbitFormatted =
+      satelliteId === 'menut'
+        ? (orbitNumber > 0 ? `MENUT #${orbitNumber}` : 'MENUT')
+        : `R${orbitNumber.toString().padStart(3, '0')}`;
+    const compositeId =
+      satelliteId === 'menut' && orbitNumber > 0
+        ? `${compactDate}_MENUT_${orbitNumber}`
+        : `${compactDate}_${orbitFormatted}`;
 
     const existing = groups.get(compositeId);
     if (existing) {
@@ -88,6 +104,7 @@ export function groupGranulesIntoPasses(features: StacFeature[]): SatellitePass[
     const [compactDate, orbitFormatted] = compositeId.split('_');
     const isoDate = `${compactDate.slice(0, 4)}-${compactDate.slice(4, 6)}-${compactDate.slice(6, 8)}`;
     const orbitNumber = parseInt(orbitFormatted.replace('R', ''), 10) || 0;
+    const resMeters = satelliteId === 'menut' ? 4.75 : 10;
 
     const granules: GranuleImage[] = rawGranules.map((f) => {
       const tileCode = extractMgrsTile(f);
@@ -99,9 +116,9 @@ export function groupGranulesIntoPasses(features: StacFeature[]): SatellitePass[
         mgrsTile: tileCode,
         bbox: f.bbox,
         cloudCover: cloudVal,
-        nativeResolutionMeters: 10,
+        nativeResolutionMeters: resMeters,
         minZoom: 6,
-        maxZoom: 16,
+        maxZoom: 17,
         assets: f.assets,
         rawFeature: f,
       };
@@ -120,6 +137,7 @@ export function groupGranulesIntoPasses(features: StacFeature[]): SatellitePass[
 
     passes.push({
       id: compositeId,
+      satellite: satelliteId,
       date: isoDate,
       orbitNumber,
       orbitFormatted,

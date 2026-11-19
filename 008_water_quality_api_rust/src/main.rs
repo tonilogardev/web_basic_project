@@ -32,6 +32,10 @@ pub struct AppState {
 struct AnalyzeRequest {
     stac_item_id: String,
     bbox: [f64; 4], // [min_lng, min_lat, max_lng, max_lat]
+    #[serde(default)]
+    satellite: Option<String>,
+    #[serde(default)]
+    assets: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -105,16 +109,37 @@ async fn analyze_handler(
         }));
     }
 
-    // Fetch STAC assets using pooled client
-    let hrefs = stac::get_asset_hrefs(&state.http_client, &payload.stac_item_id)
-        .await
-        .map_err(|e| {
-            error!("STAC fetch error: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse { detail: e }),
-            )
-        })?;
+    // Determine target satellite platform
+    let is_menut = payload.satellite.as_deref() == Some("menut")
+        || payload.stac_item_id.starts_with("menut_")
+        || payload.stac_item_id.starts_with("geneo");
+
+    // Fetch or use direct STAC assets
+    let hrefs = if let Some(direct_assets) = payload.assets {
+        if !direct_assets.is_empty() {
+            direct_assets
+        } else {
+            stac::get_asset_hrefs(&state.http_client, &payload.stac_item_id, payload.satellite.as_deref())
+                .await
+                .map_err(|e| {
+                    error!("STAC fetch error: {}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse { detail: e }),
+                    )
+                })?
+        }
+    } else {
+        stac::get_asset_hrefs(&state.http_client, &payload.stac_item_id, payload.satellite.as_deref())
+            .await
+            .map_err(|e| {
+                error!("STAC fetch error: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse { detail: e }),
+                )
+            })?
+    };
 
     // Offload heavy raster processing to worker thread pool
     let output_dir_clone = state.output_dir.clone();
@@ -124,14 +149,25 @@ async fn analyze_handler(
     let r_file = rgb_file.clone();
 
     let process_res = tokio::task::spawn_blocking(move || {
-        processor::process_water_quality(
-            &item_id,
-            &bbox,
-            &hrefs,
-            &output_dir_clone,
-            &c_file,
-            &r_file,
-        )
+        if is_menut {
+            processor::process_menut_water_quality(
+                &item_id,
+                &bbox,
+                &hrefs,
+                &output_dir_clone,
+                &c_file,
+                &r_file,
+            )
+        } else {
+            processor::process_water_quality(
+                &item_id,
+                &bbox,
+                &hrefs,
+                &output_dir_clone,
+                &c_file,
+                &r_file,
+            )
+        }
     })
     .await
     .map_err(|e| {
