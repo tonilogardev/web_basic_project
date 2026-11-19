@@ -14,9 +14,7 @@
 
 Documentación científica formal sobre los sensores ópticos multiespectrales, formulación matemática de los índices bio-ópticos (NDWI, MNDWI, FAI, NDCI, NDTI, $\Delta\text{Red}$), filtrado atmosférico, calibración adaptativa por percentiles y referencias bibliográficas arbitradas:
 
-- 🇪🇸 [001_especificacion_cientifica_calidad_agua.md](./001_especificacion_cientifica_calidad_agua.md): Especificación científica completa multi-sensor (Sentinel-2 MSI y Menut VNIR) en español.
-- 🇬🇧 [001_water_quality_scientific_specification.md](./001_water_quality_scientific_specification.md): English version.
-- 🏴 [001_especificacio_cientifica_qualitat_aigua_catalan.md](./001_especificacio_cientifica_qualitat_aigua_catalan.md): Versió en català.
+- [001_especificacion_cientifica_calidad_agua.md](./001_especificacion_cientifica_calidad_agua.md): Especificación científica formal multi-sensor (Sentinel-2 MSI y Menut VNIR).
 
 [←Índice](#índice)
 
@@ -58,9 +56,6 @@ Guías detalladas para el equipo de desarrollo sobre el flujo de datos satelital
 Historial de post-mortems técnicos y resolución de casos de borde en producción:
 
 - [002_informe_tecnico_caso_roses_multigranulo.md](./002_informe_tecnico_caso_roses_multigranulo.md): Diagnóstico y resolución de la partición de cuadrículas MGRS en el Golfo de Roses (`31TDG` vs `31TEG`), revisión de la desconexión entre Sen2Cor SCL y NDWI, y habilitación del soporte multi-gránulo paralelo.
-- Históricos de trabajo anteriores:
-    - [001_water_quality_algorithm_and_scl_masking.md](./001_water_quality_algorithm_and_scl_masking.md) (Draft inglés).
-    - [001_water_quality_algorithm_and_scl_masking_catalan.md](./001_water_quality_algorithm_and_scl_masking_catalan.md) (Draft catalán).
 
 [←Índice](#índice)
 

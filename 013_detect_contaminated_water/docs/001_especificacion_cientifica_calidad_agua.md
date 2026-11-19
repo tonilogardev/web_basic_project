@@ -1,7 +1,3 @@
-🌐 **Idioma / Language:** [English](./001_water_quality_scientific_specification.md) · [Català](./001_especificacio_cientifica_qualitat_aigua_catalan.md) · **[Español (Activo)](#)**
-
----
-
 # Especificación Científica: Algoritmo de Detección de Calidad de Agua y Contaminación (Sentinel-2 y Menut)
 
 ## Índice
