@@ -21,7 +21,7 @@ const getUrl = (subdomain: string) => {
 
 document.addEventListener('DOMContentLoaded', () => {
   const sentinelLink = document.getElementById('link-sentinel');
-  if (sentinelLink) sentinelLink.setAttribute('href', getUrl('base-viewer'));
+  if (sentinelLink) sentinelLink.setAttribute('href', getUrl('sentinel'));
 
   const cassiniLink = document.getElementById('link-cassini');
   if (cassiniLink) cassiniLink.setAttribute('href', getUrl('cassini'));

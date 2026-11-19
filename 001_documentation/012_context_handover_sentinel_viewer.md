@@ -19,8 +19,8 @@
   - Avoid unnecessary technical idioms or long academic prose.
   - Use action-oriented commands and clear bullet points.
 - ***File References***:
-  - Viewer Source: [005_sentinel_viewer/](../005_sentinel_viewer/)
-  - Architecture Rules: [.agents/skills/frontend_005_sentinel_viewer/SKILL.md](../.agents/skills/frontend_005_sentinel_viewer/SKILL.md)
+  - Viewer Source (Migrated to 012): [012_base_project/](../012_base_project/)
+  - Architecture Rules: [.agents/skills/frontend_sentinel_viewer/SKILL.md](../.agents/skills/frontend_sentinel_viewer/SKILL.md)
   - Documentation Guide: [.agents/skills/documentation/SKILL.md](../.agents/skills/documentation/SKILL.md)
 
 [←Index](#index)

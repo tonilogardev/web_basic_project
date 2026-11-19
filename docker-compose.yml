@@ -69,7 +69,7 @@ services:
     container_name: sentinel_viewer
     image: ghcr.io/tonilogardev/sentinel-viewer:latest
     build:
-      context: ./005_sentinel_viewer
+      context: ./012_base_project
       dockerfile: Dockerfile
     restart: always
     labels:
@@ -111,20 +111,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.tfbviewer.rule=Host(`tfb-viewer.${DOMAIN_NAME:-localhost}`)"
       - "traefik.http.routers.tfbviewer.entrypoints=web,websecure"
-    networks:
-      - traefik-net
-
-  base-viewer:
-    container_name: base_viewer
-    image: ghcr.io/tonilogardev/base-viewer:latest
-    build:
-      context: ./012_base_project
-      dockerfile: Dockerfile
-    restart: always
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.baseviewer.rule=Host(`base-viewer.${DOMAIN_NAME:-localhost}`)"
-      - "traefik.http.routers.baseviewer.entrypoints=web,websecure"
     networks:
       - traefik-net
 
