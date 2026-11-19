@@ -55,13 +55,20 @@ Opera a resolución submétrica de $4.75\text{ m}$, empaquetando 7 bandas óptic
 
 | Banda | Canal VNIR | Longitud de Onda ($\lambda$) | Resolución Nativa | Función en el Algoritmo |
 | :--- | :--- | :--- | :--- | :--- |
-| **Banda 1** | Azul (BLU) | $\sim 490\text{ nm}$ | $4.75\text{ m}$ | Composición RGB, test de blancura y filtro de neblina (HOT) |
-| **Banda 2** | Verde (GRN) | $\sim 560\text{ nm}$ | $4.75\text{ m}$ | Pico de agua pura, NDWI y línea base de turbidez |
-| **Banda 3** | Rojo (RED) | $\sim 665\text{ nm}$ | $4.75\text{ m}$ | Absorción de clorofila, NDTI y exceso de rojo ($\Delta\text{Red}$) |
+| **Banda 1** | Azul (BLU) | $\sim 490\text{ nm}$ | $4.75\text{ m}$ | Canal Azul (RGB), test de blancura y filtro de neblina (HOT) |
+| **Banda 2** | Verde (GRN) | $\sim 560\text{ nm}$ | $4.75\text{ m}$ | Canal Verde (RGB), pico de agua pura, NDWI y turbidez |
+| **Banda 3** | Rojo (RED) | $\sim 665\text{ nm}$ | $4.75\text{ m}$ | Canal Rojo (RGB), absorción clorofila, NDTI y $\Delta\text{Red}$ |
 | **Banda 4** | RedEdge 1 (RE1) | $\sim 705\text{ nm}$ | $4.75\text{ m}$ | Reflectancia celular de fitoplancton para NDCI |
 | **Banda 5** | RedEdge 2 (RE2) | $\sim 740\text{ nm}$ | $4.75\text{ m}$ | Transición borde rojo |
 | **Banda 6** | RedEdge 3 (RE3) | $\sim 783\text{ nm}$ | $4.75\text{ m}$ | Transición al infrarrojo cercano |
 | **Banda 7** | Infrarrojo Cercano (NIR) | $\sim 842\text{ nm}$ | $4.75\text{ m}$ | Absorción hídrica, discriminación de nubes y FAI |
+
+#### Composición de Color Real (RGB True Color) para Contextualización Visual
+Para el renderizado de la imagen satelital base debajo de los píxeles bio-ópticos clasificados, el sistema extrae del archivo `visual.tif`:
+- **Canal Rojo ($R$)**: Banda 3 ($665\text{ nm}$)
+- **Canal Verde ($G$)**: Banda 2 ($560\text{ nm}$)
+- **Canal Azul ($B$)**: Banda 1 ($490\text{ nm}$)
+- **Rango dinámico de contraste**: Reescalado lineal en el intervalo $[0, 2500]$ para reflectancia BOA $\times 10.000$, generando una imagen nítida sin saturación.
 
 [←Índice](#índice)
 

@@ -45,6 +45,7 @@ Guías detalladas para el equipo de desarrollo sobre el flujo de datos satelital
 | **Índice de Algas (FAI)** | Contraste Rojo-SWIR con B11 ($1610\text{ nm}$) | Contraste espectral NIR - Rojo |
 | **Índice de Clorofila (NDCI)** | B05 ($705\text{ nm}$) vs B04 ($665\text{ nm}$) | Banda 4 RE1 ($705\text{ nm}$) vs Banda 3 RED ($665\text{ nm}$) |
 | **Catálogo STAC** | AWS Earth Search (`sentinel-2-l2a`) | ICGC STAC API (`menut-l2a`) |
+| **Composición RGB de Fondo** | B04 (R), B03 (G), B02 (B) (`rescale=0,3000`) | Banda 3 (R), Banda 2 (G), Banda 1 (B) (`rescale=0,2500`) |
 | **Rango Temporal Operativo** | Diciembre de 2015 – Actualidad | Junio de 2023 – Marzo de 2026 |
 
 [←Índice](#índice)

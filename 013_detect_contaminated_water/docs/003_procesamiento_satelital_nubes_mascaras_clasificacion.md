@@ -75,6 +75,9 @@
     - **Banda 3**: Rojo ($665\text{ nm}$)
     - **Banda 4**: Borde Rojo 1 ($705\text{ nm}$)
     - **Banda 7**: Infrarrojo Cercano ($842\text{ nm}$)
+- **Doble propósito de las bandas de Menut**:
+    - **Análisis de calidad de agua**: Se procesan los canales 1, 2, 3, 4 y 7 para el cálculo de NDTI, NDCI, FAI y $\Delta\text{Red}$.
+    - **Visualización RGB de Color Real de fondo**: Se extraen y componen los canales **Banda 3 (Rojo)**, **Banda 2 (Verde)** y **Banda 1 (Azul)** para renderizar la imagen satelital nítida debajo de la capa de píxeles clasificados.
     ```rust
     let b_blue = read_band_from_ds(&ds, 1, &window_info, ResampleAlg::Bilinear)?;
     let b_green = read_band_from_ds(&ds, 2, &window_info, ResampleAlg::Bilinear)?;
@@ -231,14 +234,50 @@ Cada píxel del área de interés se evalúa a través de un árbol de decisión
 
 ## 8 Generación de Salida GeoTIFF y Renderizado GPU en MapLibre
 
-1. **Escritura GeoTIFF en Backend**:
-   - `classification.tif`: Raster monotemático de 8 bits sin comprimir (`Byte`) con valores discretos del 0 al 5, georreferenciado con la geotransformación y proyección UTM exacta de la toma.
-   - `rgb.tif`: Raster de 3 canales normalizado mediante estiramiento de percentiles ($2\% - 98\%$) para visualización multiespectral en falso color.
-2. **Protocolo Personalizado MapLibre `clipped://`**:
-   - El frontend registra el protocolo `clipped://` en [MapLayerController.ts](../src/lib/controllers/MapLayerController.ts).
-   - Un Web Worker intercepta las teselas solicitadas por la GPU y recorta los píxeles estrictamente dentro del polígono GeoJSON dibujado por el cliente, transparentando el resto con aceleración de hardware.
-3. **Selector de Capas**:
-   - El usuario conmuta entre los modos `Both` (capa temática translúcida sobre RGB satelital), `Water` (máscara de clasificación opaca) y `RGB` (fondo multiespectral puro).
+### 8.1 Composición RGB de Color Real para Fondo Cartográfico
+
+Para que el usuario pueda interpretar y contextualizar geográficamente los píxeles de agua clasificados (clorofila, turbidez, floraciones y anomalías), el sistema proyecta como capa base una composición en Color Real (True Color RGB) directamente extraída de la escena satelital:
+
+#### Combinación de Canales Espectrales por Sensor
+
+| Canal Visual | Sentinel-2 L2A | Menut L2A (ICGC NewSpace) | Longitud de Onda Central ($\lambda$) |
+| :---: | :---: | :---: | :---: |
+| **Canal Rojo ($R$)** | **B04** (archivo `B04.tif`) | **Banda 3** (`band_idx = 3`) | $\sim 662 - 665\text{ nm}$ |
+| **Canal Verde ($G$)** | **B03** (archivo `B03.tif`) | **Banda 2** (`band_idx = 2`) | $\sim 560\text{ nm}$ |
+| **Canal Azul ($B$)** | **B02** (archivo `B02.tif`) | **Banda 1** (`band_idx = 1`) | $\sim 480 - 490\text{ nm}$ |
+
+- **Sentinel-2**: Al estar las bandas distribuidas en archivos COG separados en AWS S3, el Tiler solicita en paralelo los archivos individuales mediante `b1=B04&b2=B03&b3=B02` con un reescalado estándar `rescale=0,3000`.
+- **Menut**: Al empaquetar 7 bandas multiplexadas en un único archivo GeoTIFF (`visual.tif`), el Tiler recibe la misma URL para los 3 canales junto con los índices de banda específicos: `b1=visual.tif&b2=visual.tif&b3=visual.tif&b1_band=3&b2_band=2&b3_band=1&rescale=0,2500`.
+
+### 8.2 Desmultiplexado y Optimización Single-Pass en Rust (`tiler.rs`)
+
+En lugar de re-proyectar y desocluir el archivo de Menut 3 veces por cada tesela solicitada, el módulo [tiler.rs](../../008_water_quality_api_rust/src/tiler.rs) implementa `read_tile_multiband_warped`:
+1. **Un Solo Pase de Reproyección (`GDALWarp`)**: El dataset de 7 bandas se proyecta a memoria (`MEM`) en EPSG:3857 para el área de la tesela ($256 \times 256$ píxeles).
+2. **Extracción Directa en Memoria**: Desde el dataset temporal resultante, se leen de forma secuencial los buffers de las Bandas 3 (Rojo), 2 (Verde) y 1 (Azul) mediante `GDALGetRasterBand` y `GDALRasterIO`.
+3. **Ahorro de Cómputo**: Reduce en un $66\%$ el tiempo de reproyección GDAL y el ancho de banda transferido mediante HTTP Range requests (`/vsicurl/`).
+4. **Reescalado Dinámico**: Se aplica la normalización a 8 bits:
+   $$\text{Pixel}_{\text{byte}} = \left( \frac{\text{Reflectancia} - \text{min}}{\text{max} - \text{min}} \times 255 \right)$$
+   Para Menut, $\text{min}=0$ y $\text{max}=2500$ ($0.0 - 0.25$ de reflectancia BOA), adaptado al rango dinámico de su sensor VNIR submétrico.
+
+### 8.3 Pila de Capas en MapLibre GL JS y Modos de Visualización
+
+En el frontend ([MapLayerController.ts](../src/lib/controllers/MapLayerController.ts)), las teselas se apilan de forma ordenada en el contexto WebGL:
+1. **Capa Base (Fondo Satelital RGB)**:
+   - Capa ràster con las teselas RGB de Color Real de Sentinel-2 o Menut.
+   - Recortada estrictamente al polígono de interés del usuario mediante el protocolo acelerado `clipped://`.
+2. **Capa Superior (Píxeles Bio-ópticos Clasificados)**:
+   - Capa ràster con la clasificación temática generada por el backend (`classification.tif`).
+   - Mapeada con la paleta de colores oficial:
+     - Clase 1 (Agua Limpia): `#2196f3` (Azul Cian)
+     - Clase 2 (Alta Turbidez): `#e8430f` (Naranja)
+     - Clase 3 (Clorofila/Eutrofización): `#beff6b` (Verde Lima)
+     - Clase 4 (Algas en Superficie): `#1b8a0a` (Verde Intenso)
+     - Clase 5 (Anomalía Crítica): `#7a0000` (Rojo Oscuro)
+     - Clase 0 (Fondo/Tierra): Totalmente transparente.
+3. **Modos de Visualización (`PassViewMode`)**:
+   - `Both` (Recomendado): Muestra la capa de clasificación temática sobre la capa RGB de fondo satelital con opacidad ajustable, permitiendo al usuario apreciar simultáneamente la textura del terreno/agua y la máscara de contaminación calculada.
+   - `Water`: Muestra exclusivamente los píxeles de agua clasificados.
+   - `RGB`: Muestra únicamente la imagen satelital en Color Real sin la máscara analítica.
 
 [←Índice](#índice)
 
