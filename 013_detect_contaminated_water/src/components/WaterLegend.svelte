@@ -13,7 +13,7 @@
     <div class="legend-header">
       <div class="title-wrap">
         <h4>Water Quality Classification</h4>
-        <span class="legend-subtitle">Sentinel-2 Bio-optical Classes</span>
+        <span class="legend-subtitle">Bio-optical Classes</span>
       </div>
 
       <button
