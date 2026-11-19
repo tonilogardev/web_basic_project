@@ -50,6 +50,8 @@ extern "C" {
 
     fn GDALGetRasterBand(hDS: GDALDatasetH, nBandId: c_int) -> GDALRasterBandH;
 
+    fn GDALGetRasterCount(hDS: GDALDatasetH) -> c_int;
+
     fn GDALRasterIO(
         hRBand: GDALRasterBandH,
         eRWFlag: c_int,
@@ -74,6 +76,9 @@ pub struct TileQueryParams {
     pub b1: Option<String>,
     pub b2: Option<String>,
     pub b3: Option<String>,
+    pub b1_band: Option<usize>,
+    pub b2_band: Option<usize>,
+    pub b3_band: Option<usize>,
     pub preset: Option<String>,
     pub rescale: Option<String>,
     pub colormap: Option<String>,
@@ -124,16 +129,21 @@ fn parse_rescale(s: Option<&str>, default_min: f32, default_max: f32) -> (f32, f
     (default_min, default_max)
 }
 
-/// Warps and reprojects a 256x256 tile directly from the COG into Web Mercator (EPSG:3857)
-/// using GDAL's native C++ Warper. This guarantees seamless pixel-perfect alignment.
-fn read_tile_band_warped(
+/// Warps and reprojects multiple bands for a 256x256 tile directly from a COG
+/// into Web Mercator (EPSG:3857) in a single GDALWarp execution pass.
+fn read_tile_multiband_warped(
     href: &str,
     z: u32,
     x: u32,
     y: u32,
     resample_method: &str,
     public_dir: &FsPath,
-) -> Result<Option<Vec<f32>>, String> {
+    band_indices: &[usize],
+) -> Result<Option<Vec<Vec<f32>>>, String> {
+    if band_indices.is_empty() {
+        return Ok(None);
+    }
+
     let tile_size = 2.0 * ORIGIN_SHIFT / (1u64 << z) as f64;
     let min_x = -ORIGIN_SHIFT + (x as f64) * tile_size;
     let max_x = -ORIGIN_SHIFT + ((x + 1) as f64) * tile_size;
@@ -201,40 +211,79 @@ fn read_tile_band_warped(
             return Ok(None);
         }
 
-        let band = GDALGetRasterBand(dst_ds, 1);
-        if band.is_null() {
-            GDALClose(dst_ds);
-            return Ok(None);
+        let raster_count = GDALGetRasterCount(dst_ds);
+        let mut results = Vec::with_capacity(band_indices.len());
+
+        for &band_idx in band_indices {
+            let b_idx = band_idx as c_int;
+            if b_idx < 1 || b_idx > raster_count {
+                GDALClose(dst_ds);
+                return Ok(None);
+            }
+
+            let band = GDALGetRasterBand(dst_ds, b_idx);
+            if band.is_null() {
+                GDALClose(dst_ds);
+                return Ok(None);
+            }
+
+            let mut buffer = vec![0.0f32; 256 * 256];
+            let status = GDALRasterIO(
+                band,
+                0, // GF_Read
+                0,
+                0,
+                256,
+                256,
+                buffer.as_mut_ptr() as *mut std::ffi::c_void,
+                256,
+                256,
+                6, // GDT_Float32
+                0,
+                0,
+            );
+
+            if status != 0 {
+                GDALClose(dst_ds);
+                return Ok(None);
+            }
+
+            results.push(buffer);
         }
 
-        let mut buffer = vec![0.0f32; 256 * 256];
-        let status = GDALRasterIO(
-            band,
-            0, // GF_Read
-            0,
-            0,
-            256,
-            256,
-            buffer.as_mut_ptr() as *mut std::ffi::c_void,
-            256,
-            256,
-            6, // GDT_Float32
-            0,
-            0,
-        );
         GDALClose(dst_ds);
 
-        if status != 0 {
-            return Ok(None);
-        }
-
-        let has_data = buffer.iter().any(|&v| v > 0.0 && v.is_finite());
+        let has_data = results
+            .iter()
+            .any(|buf| buf.iter().any(|&v| v > 0.0 && v.is_finite()));
         if !has_data {
             return Ok(None);
         }
 
-        Ok(Some(buffer))
+        Ok(Some(results))
     }
+}
+
+/// Warps and reprojects a single band for a 256x256 tile directly from the COG into Web Mercator (EPSG:3857).
+fn read_tile_band_warped(
+    href: &str,
+    z: u32,
+    x: u32,
+    y: u32,
+    resample_method: &str,
+    public_dir: &FsPath,
+    band_idx: usize,
+) -> Result<Option<Vec<f32>>, String> {
+    let mb = read_tile_multiband_warped(
+        href,
+        z,
+        x,
+        y,
+        resample_method,
+        public_dir,
+        &[band_idx],
+    )?;
+    Ok(mb.and_then(|mut v| v.pop()))
 }
 
 /// Maps NDVI / NDWI normalized index [-1.0..1.0] to an RGBA color ramp
@@ -279,7 +328,7 @@ pub fn render_tile_png(
 ) -> Result<Vec<u8>, String> {
     // Case 1: Single band COG / Classification Map (e.g. Water Quality classification GeoTIFF)
     if let Some(ref single_url) = params.url {
-        let band_data = read_tile_band_warped(single_url, z, x, y, "near", public_dir)?;
+        let band_data = read_tile_band_warped(single_url, z, x, y, "near", public_dir, 1)?;
         let band = match band_data {
             Some(b) => b,
             None => return Ok(generate_transparent_tile()),
@@ -335,20 +384,56 @@ pub fn render_tile_png(
         let b1_url = params.b1.as_deref().ok_or("Missing b1 for index")?;
         let b2_url = params.b2.as_deref().ok_or("Missing b2 for index")?;
 
-        let (b1_res, b2_res) = rayon::join(
-            || read_tile_band_warped(b1_url, z, x, y, "bilinear", public_dir),
-            || read_tile_band_warped(b2_url, z, x, y, "bilinear", public_dir),
-        );
+        let is_menut = b1_url.to_lowercase().contains("menut")
+            || b1_url.to_lowercase().contains("geneo")
+            || b1_url.to_lowercase().contains("icgc");
 
-        let b1 = b1_res?;
-        let b2 = b2_res?;
+        let b1_band = params.b1_band.unwrap_or(if is_menut {
+            if preset == "ndvi" { 7 } else { 2 } // NDVI: NIR (7), NDWI: Green (2)
+        } else {
+            1
+        });
+        let b2_band = params.b2_band.unwrap_or(if is_menut {
+            if preset == "ndvi" { 3 } else { 7 } // NDVI: Red (3), NDWI: NIR (7)
+        } else {
+            1
+        });
 
-        if b1.is_none() || b2.is_none() {
-            return Ok(generate_transparent_tile());
-        }
+        let (b1_vec, b2_vec) = if b1_url == b2_url {
+            let multi_res = read_tile_multiband_warped(
+                b1_url,
+                z,
+                x,
+                y,
+                "bilinear",
+                public_dir,
+                &[b1_band, b2_band],
+            )?;
 
-        let b1_vec = b1.unwrap();
-        let b2_vec = b2.unwrap();
+            match multi_res {
+                Some(buffers) if buffers.len() == 2 => {
+                    let mut it = buffers.into_iter();
+                    let b1 = it.next().unwrap();
+                    let b2 = it.next().unwrap();
+                    (b1, b2)
+                }
+                _ => return Ok(generate_transparent_tile()),
+            }
+        } else {
+            let (b1_res, b2_res) = rayon::join(
+                || read_tile_band_warped(b1_url, z, x, y, "bilinear", public_dir, b1_band),
+                || read_tile_band_warped(b2_url, z, x, y, "bilinear", public_dir, b2_band),
+            );
+
+            let b1 = b1_res?;
+            let b2 = b2_res?;
+
+            if b1.is_none() || b2.is_none() {
+                return Ok(generate_transparent_tile());
+            }
+
+            (b1.unwrap(), b2.unwrap())
+        };
 
         let mut rgba = vec![0u8; 256 * 256 * 4];
         for i in 0..(256 * 256) {
@@ -388,29 +473,60 @@ pub fn render_tile_png(
     let b2_url = params.b2.as_deref().ok_or("Missing band b2 (green)")?;
     let b3_url = params.b3.as_deref().ok_or("Missing band b3 (blue)")?;
 
-    let ((b1_res, b2_res), b3_res) = rayon::join(
-        || {
-            rayon::join(
-                || read_tile_band_warped(b1_url, z, x, y, "bilinear", public_dir),
-                || read_tile_band_warped(b2_url, z, x, y, "bilinear", public_dir),
-            )
-        },
-        || read_tile_band_warped(b3_url, z, x, y, "bilinear", public_dir),
-    );
+    let is_menut = b1_url.to_lowercase().contains("menut")
+        || b1_url.to_lowercase().contains("geneo")
+        || b1_url.to_lowercase().contains("icgc");
 
-    let b1 = b1_res?;
-    let b2 = b2_res?;
-    let b3 = b3_res?;
+    // 1-based band indices: Sentinel-2 separate files default to 1; Menut 7-band COG defaults to R:3, G:2, B:1
+    let b1_band = params.b1_band.unwrap_or(if is_menut { 3 } else { 1 });
+    let b2_band = params.b2_band.unwrap_or(if is_menut { 2 } else { 1 });
+    let b3_band = params.b3_band.unwrap_or(if is_menut { 1 } else { 1 });
 
-    if b1.is_none() || b2.is_none() || b3.is_none() {
-        return Ok(generate_transparent_tile());
-    }
+    let (b1_vec, b2_vec, b3_vec) = if b1_url == b2_url && b2_url == b3_url {
+        let multi_res = read_tile_multiband_warped(
+            b1_url,
+            z,
+            x,
+            y,
+            "bilinear",
+            public_dir,
+            &[b1_band, b2_band, b3_band],
+        )?;
 
-    let b1_vec = b1.unwrap();
-    let b2_vec = b2.unwrap();
-    let b3_vec = b3.unwrap();
+        match multi_res {
+            Some(buffers) if buffers.len() == 3 => {
+                let mut it = buffers.into_iter();
+                let b1 = it.next().unwrap();
+                let b2 = it.next().unwrap();
+                let b3 = it.next().unwrap();
+                (b1, b2, b3)
+            }
+            _ => return Ok(generate_transparent_tile()),
+        }
+    } else {
+        let ((b1_res, b2_res), b3_res) = rayon::join(
+            || {
+                rayon::join(
+                    || read_tile_band_warped(b1_url, z, x, y, "bilinear", public_dir, b1_band),
+                    || read_tile_band_warped(b2_url, z, x, y, "bilinear", public_dir, b2_band),
+                )
+            },
+            || read_tile_band_warped(b3_url, z, x, y, "bilinear", public_dir, b3_band),
+        );
 
-    let (min_val, max_val) = parse_rescale(params.rescale.as_deref(), 0.0, 3000.0);
+        let b1 = b1_res?;
+        let b2 = b2_res?;
+        let b3 = b3_res?;
+
+        if b1.is_none() || b2.is_none() || b3.is_none() {
+            return Ok(generate_transparent_tile());
+        }
+
+        (b1.unwrap(), b2.unwrap(), b3.unwrap())
+    };
+
+    let default_max = if is_menut { 2500.0 } else { 3000.0 };
+    let (min_val, max_val) = parse_rescale(params.rescale.as_deref(), 0.0, default_max);
     let scale = 255.0 / (max_val - min_val);
 
     let mut rgba = vec![0u8; 256 * 256 * 4];

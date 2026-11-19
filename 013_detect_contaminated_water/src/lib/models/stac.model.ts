@@ -8,6 +8,7 @@ export interface StacAsset {
   title?: string;
   type?: string;
   roles?: string[];
+  bandIndex?: number;
   [key: string]: unknown;
 }
 

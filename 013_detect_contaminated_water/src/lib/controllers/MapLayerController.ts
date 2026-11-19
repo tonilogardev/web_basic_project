@@ -55,12 +55,33 @@ export function buildGranuleRgbTileUrl(
   const baseUrl = `${RUST_API_BASE_URL}/api/tiles/{z}/{x}/{y}.png`;
   let queryUrl = '';
 
-  const rUrl = granule.assets['red']?.href;
-  const gUrl = granule.assets['green']?.href;
-  const bUrl = granule.assets['blue']?.href;
+  const rAsset = granule.assets['red'];
+  const gAsset = granule.assets['green'];
+  const bAsset = granule.assets['blue'];
+
+  const rUrl = rAsset?.href;
+  const gUrl = gAsset?.href;
+  const bUrl = bAsset?.href;
 
   if (rUrl && gUrl && bUrl) {
-    queryUrl = `${baseUrl}?b1=${encodeURIComponent(rUrl)}&b2=${encodeURIComponent(gUrl)}&b3=${encodeURIComponent(bUrl)}&rescale=0,3000`;
+    const isMenut =
+      granule.rawFeature?.properties?.platform?.toLowerCase() === 'menut' ||
+      granule.id.toLowerCase().includes('menut') ||
+      rUrl.toLowerCase().includes('menut') ||
+      rUrl.toLowerCase().includes('geneo') ||
+      rUrl.toLowerCase().includes('icgc');
+
+    const rescale = isMenut ? '0,2500' : '0,3000';
+    const b1Band = rAsset.bandIndex ?? (isMenut ? 3 : 1);
+    const b2Band = gAsset.bandIndex ?? (isMenut ? 2 : 1);
+    const b3Band = bAsset.bandIndex ?? (isMenut ? 1 : 1);
+
+    const bandParams =
+      b1Band !== 1 || b2Band !== 1 || b3Band !== 1 || isMenut
+        ? `&b1_band=${b1Band}&b2_band=${b2Band}&b3_band=${b3Band}`
+        : '';
+
+    queryUrl = `${baseUrl}?b1=${encodeURIComponent(rUrl)}&b2=${encodeURIComponent(gUrl)}&b3=${encodeURIComponent(bUrl)}${bandParams}&rescale=${rescale}`;
   } else if (granule.assets['visual']?.href) {
     queryUrl = `${baseUrl}?b1=${encodeURIComponent(granule.assets['visual'].href)}&rescale=0,255`;
   } else {
