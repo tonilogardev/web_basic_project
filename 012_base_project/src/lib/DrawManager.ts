@@ -198,6 +198,17 @@ export class DrawManager {
       return;
     }
 
+    // Maintain precision cursor while in box drawing mode (prevent MapLibre tile hover overrides)
+    if (store.activeDrawMode === 'box') {
+      const isOverCorner = this.map.queryRenderedFeatures(e.point, {
+        layers: [CORNERS_HIT_LAYER_ID],
+      }).length > 0;
+
+      if (!isOverCorner) {
+        this.map.getCanvas().style.cursor = PRECISION_CURSOR;
+      }
+    }
+
     // Mode B: New Box Dragging in action (60 FPS)
     if (this.isDragging && this.startLngLat) {
       const minLng = Math.min(this.startLngLat.lng, e.lngLat.lng);
