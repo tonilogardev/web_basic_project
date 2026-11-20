@@ -10,18 +10,18 @@
 
 ## 1 Quick Navigation
 
-- ***Master Index***: Open [00_master_index.md](./00_master_index.md) for full onboarding instructions.
+- ***Master Index***: Open [000_master_index.md](./000_master_index.md) for full onboarding instructions.
 - ***Visuals***:
     ![Sentinel Viewer UI](./img/sentinel_viewer_ui.png)
 - ***File References***:
-    - [00_master_index.md](./00_master_index.md)
-    - [01_system_architecture.md](./01_system_architecture.md)
-    - [02_frontend_state_and_runes.md](./02_frontend_state_and_runes.md)
-    - [03_map_engine_and_drawing.md](./03_map_engine_and_drawing.md)
-    - [04_stac_search_and_caching.md](./04_stac_search_and_caching.md)
-    - [05_rust_scl_exact_clouds.md](./05_rust_scl_exact_clouds.md)
-    - [06_export_and_timelapse.md](./06_export_and_timelapse.md)
-    - [07_ci_cd_and_deployment.md](./07_ci_cd_and_deployment.md)
+    - [000_master_index.md](./000_master_index.md)
+    - [001_system_architecture.md](./001_system_architecture.md)
+    - [002_frontend_state_and_runes.md](./002_frontend_state_and_runes.md)
+    - [003_map_engine_and_drawing.md](./003_map_engine_and_drawing.md)
+    - [004_stac_search_and_caching.md](./004_stac_search_and_caching.md)
+    - [005_rust_scl_exact_clouds.md](./005_rust_scl_exact_clouds.md)
+    - [006_export_and_timelapse.md](./006_export_and_timelapse.md)
+    - [007_ci_cd_and_deployment.md](./007_ci_cd_and_deployment.md)
 
 [←Index](#index)
 
@@ -37,5 +37,5 @@
 
 ## 3 Next steps
 
-- [Master Index](./00_master_index.md)
-- [01 System Architecture](./01_system_architecture.md)
+- [Master Index](./000_master_index.md)
+- [001 System Architecture](./001_system_architecture.md)

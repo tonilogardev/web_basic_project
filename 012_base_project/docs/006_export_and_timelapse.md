@@ -48,5 +48,5 @@
 
 ## 3 Next steps
 
-- [07 CI/CD and Deployment](./07_ci_cd_and_deployment.md)
-- [00 Master Index](./00_master_index.md)
+- [007 CI/CD and Deployment](./007_ci_cd_and_deployment.md)
+- [000 Master Index](./000_master_index.md)

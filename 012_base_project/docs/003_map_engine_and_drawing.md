@@ -79,5 +79,5 @@
 
 ## 5 Next steps
 
-- [04 STAC Search and Caching](./04_stac_search_and_caching.md)
-- [05 Rust SCL Exact Clouds](./05_rust_scl_exact_clouds.md)
+- [004 STAC Search and Caching](./004_stac_search_and_caching.md)
+- [005 Rust SCL Exact Clouds](./005_rust_scl_exact_clouds.md)

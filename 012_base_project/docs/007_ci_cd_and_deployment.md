@@ -88,5 +88,5 @@
 
 ## 5 Next steps
 
-- [00 Master Index](./00_master_index.md)
-- [01 System Architecture](./01_system_architecture.md)
+- [000 Master Index](./000_master_index.md)
+- [001 System Architecture](./001_system_architecture.md)

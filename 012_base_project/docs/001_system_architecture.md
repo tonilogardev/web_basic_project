@@ -73,5 +73,5 @@
 
 ## 4 Next steps
 
-- [02 Frontend State and Runes](./02_frontend_state_and_runes.md)
-- [03 Map Engine and Drawing](./03_map_engine_and_drawing.md)
+- [002 Frontend State and Runes](./002_frontend_state_and_runes.md)
+- [003 Map Engine and Drawing](./003_map_engine_and_drawing.md)

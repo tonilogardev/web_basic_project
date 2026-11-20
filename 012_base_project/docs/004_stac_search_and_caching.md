@@ -60,5 +60,5 @@
 
 ## 4 Next steps
 
-- [05 Rust SCL Exact Clouds](./05_rust_scl_exact_clouds.md)
-- [06 Export and Timelapse](./06_export_and_timelapse.md)
+- [005 Rust SCL Exact Clouds](./005_rust_scl_exact_clouds.md)
+- [006 Export and Timelapse](./006_export_and_timelapse.md)

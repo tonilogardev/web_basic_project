@@ -93,5 +93,5 @@
 
 ## 5 Next steps
 
-- [06 Export and Timelapse](./06_export_and_timelapse.md)
-- [07 CI/CD and Deployment](./07_ci_cd_and_deployment.md)
+- [006 Export and Timelapse](./006_export_and_timelapse.md)
+- [007 CI/CD and Deployment](./007_ci_cd_and_deployment.md)

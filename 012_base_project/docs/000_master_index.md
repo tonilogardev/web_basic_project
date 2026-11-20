@@ -75,16 +75,16 @@
 
 ## 4 Documentation Chapters
 
-- ***[01_system_architecture.md](./01_system_architecture.md)***: Complete full-stack architectural map, container boundaries, and component breakdown.
-- ***[02_frontend_state_and_runes.md](./02_frontend_state_and_runes.md)***: Svelte 5 Runes reactivity, data models, and multi-session workspaces.
-- ***[03_map_engine_and_drawing.md](./03_map_engine_and_drawing.md)***: MapLibre GL JS integration, polygon drawing, and client-side canvas raster clipping.
-- ***[04_stac_search_and_caching.md](./04_stac_search_and_caching.md)***: Earth Search STAC integration, pass grouping by orbit, and memory caching.
-- ***[05_rust_scl_exact_clouds.md](./05_rust_scl_exact_clouds.md)***: Native 20m ESA SCL cloud masking pipeline in Rust with Rayon and GDAL `/vsicurl/`.
-- ***[06_export_and_timelapse.md](./06_export_and_timelapse.md)***: High-resolution image export and temporal animated timelapse generator.
-- ***[07_ci_cd_and_deployment.md](./07_ci_cd_and_deployment.md)***: GitHub Actions deployment pipeline, Hetzner VPS hosting, and concurrency control.
+- ***[001_system_architecture.md](./001_system_architecture.md)***: Complete full-stack architectural map, container boundaries, and component breakdown.
+- ***[002_frontend_state_and_runes.md](./002_frontend_state_and_runes.md)***: Svelte 5 Runes reactivity, data models, and multi-session workspaces.
+- ***[003_map_engine_and_drawing.md](./003_map_engine_and_drawing.md)***: MapLibre GL JS integration, polygon drawing, and client-side canvas raster clipping.
+- ***[004_stac_search_and_caching.md](./004_stac_search_and_caching.md)***: Earth Search STAC integration, pass grouping by orbit, and memory caching.
+- ***[005_rust_scl_exact_clouds.md](./005_rust_scl_exact_clouds.md)***: Native 20m ESA SCL cloud masking pipeline in Rust with Rayon and GDAL `/vsicurl/`.
+- ***[006_export_and_timelapse.md](./006_export_and_timelapse.md)***: High-resolution image export and temporal animated timelapse generator.
+- ***[007_ci_cd_and_deployment.md](./007_ci_cd_and_deployment.md)***: GitHub Actions deployment pipeline, Hetzner VPS hosting, and concurrency control.
 
 [←Index](#index)
 
 ## 5 Next steps
 
-- [01 System Architecture](./01_system_architecture.md)
+- [001 System Architecture](./001_system_architecture.md)

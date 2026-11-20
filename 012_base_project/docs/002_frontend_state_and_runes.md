@@ -77,5 +77,5 @@
 
 ## 4 Next steps
 
-- [03 Map Engine and Drawing](./03_map_engine_and_drawing.md)
-- [04 STAC Search and Caching](./04_stac_search_and_caching.md)
+- [003 Map Engine and Drawing](./003_map_engine_and_drawing.md)
+- [004 STAC Search and Caching](./004_stac_search_and_caching.md)
