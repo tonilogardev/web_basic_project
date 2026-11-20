@@ -142,15 +142,31 @@
         <div class="dates-grid">
           <div class="date-field">
             <span class="input-caption">From</span>
-            <input type="date" class="custom-date" bind:value={store.startDate} />
+            <input
+              type="date"
+              class="custom-date"
+              min={store.minDateLimit}
+              max={store.endDate || store.today}
+              bind:value={store.startDate}
+            />
           </div>
           <div class="date-field">
             <span class="input-caption">To</span>
-            <input type="date" class="custom-date" min={store.startDate} bind:value={store.endDate} />
+            <input
+              type="date"
+              class="custom-date"
+              min={store.startDate || store.minDateLimit}
+              max={store.today}
+              bind:value={store.endDate}
+            />
           </div>
         </div>
 
-        {#if store.isDateRangeTooWide}
+        {#if store.isDateBeforeMinLimit}
+          <div class="date-warning-banner">
+            ⚠️ Start date cannot be earlier than Dec 2015 (Sentinel-2 launch).
+          </div>
+        {:else if store.isDateRangeTooWide}
           <div class="date-warning-banner">
             ⚠️ Range too wide ({store.dateRangeDays} days). Maximum allowed is {store.maxDateRangeDays} days.
           </div>
@@ -212,6 +228,8 @@
           Select an Area to Search
         {:else if store.isAreaTooLarge}
           Area too large (Max {store.maxAreaLimit.toLocaleString()} km²)
+        {:else if store.isDateBeforeMinLimit}
+          Date Before Dec 2015
         {:else if store.isDateRangeTooWide}
           Date Range Exceeds {store.maxDateRangeDays} Days
         {:else}

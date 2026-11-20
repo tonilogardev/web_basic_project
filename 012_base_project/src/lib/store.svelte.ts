@@ -3,6 +3,7 @@ import type { SearchSnapshot, SearchSession } from './models/session.model';
 export type { SearchSnapshot, SearchSession };
 
 export const MAX_AREA_KM2 = 10000;
+export const MIN_DATE_LIMIT = '2015-12-01'; // Sentinel-2 open data operational start date
 
 export function calculateAreaKm2(bbox: [number, number, number, number]): number {
   const [minLng, minLat, maxLng, maxLat] = bbox;
@@ -48,8 +49,10 @@ class AppStore {
   provider = $state<DataProvider>('esa');
   satellite = $state('sentinel-2-l2a');
 
-  // Date Range Limits & Validation (Maximum 90 days)
+  // Date Range Limits & Validation (Maximum 90 days, minimum December 2015)
   maxDateRangeDays = 90;
+  minDateLimit = MIN_DATE_LIMIT;
+  today = new Date().toISOString().slice(0, 10);
 
   startDate = $state(
     new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -64,7 +67,14 @@ class AppStore {
     return Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
   });
 
+  isDateBeforeMinLimit = $derived.by(() => {
+    if (this.startDate && this.startDate < this.minDateLimit) return true;
+    if (this.endDate && this.endDate < this.minDateLimit) return true;
+    return false;
+  });
+
   isDateRangeValid = $derived.by(() => {
+    if (this.isDateBeforeMinLimit) return false;
     return this.dateRangeDays > 0 && this.dateRangeDays <= this.maxDateRangeDays;
   });
 
