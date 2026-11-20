@@ -96,15 +96,18 @@
 
   <div class="pass-details">
     {#if pass.aoiCloudCover !== undefined}
-      <span class="badge {getCloudBadgeClass(pass.aoiCloudCover)}" title="Exact cloud & shadow coverage over your selected AOI (calculated from 20m SCL band)">
+      <span
+        class="badge {getCloudBadgeClass(pass.aoiCloudCover)}"
+        title="Exact cloud & shadow coverage over your AOI: {pass.aoiCloudCover}% (Regional scene average: {pass.meanCloudCover}%)"
+      >
         ☁️ {pass.aoiCloudCover}% AOI
       </span>
-      <span class="badge scene-cloud-badge" title="Average cloud coverage across full Sentinel-2 tile(s)">
-        {pass.meanCloudCover}% Scene
-      </span>
     {:else}
-      <span class="badge {getCloudBadgeClass(pass.meanCloudCover)}">
-        {pass.meanCloudCover}% Cloud
+      <span
+        class="badge {getCloudBadgeClass(pass.meanCloudCover)}"
+        title="Average scene cloud coverage: {pass.meanCloudCover}%"
+      >
+        ☁️ {pass.meanCloudCover}% Cloud
       </span>
     {/if}
 
@@ -119,11 +122,14 @@
         </span>
       {/if}
     {/if}
-    <span class="badge granule-badge" title="Constituent MGRS tiles rendered seamlessly">
+
+    <span
+      class="badge granule-badge"
+      title={pass.granules && pass.granules.length > 0
+        ? `Constituent MGRS Granules: ${pass.granules.map((g) => g.mgrsTile || g.id).join(', ')}`
+        : 'Constituent MGRS tiles (10m native resolution)'}
+    >
       {pass.granulesCount} {pass.granulesCount === 1 ? 'granule' : 'granules'} (10m)
-    </span>
-    <span class="badge provider-badge {pass.provider}">
-      {pass.provider.toUpperCase()}
     </span>
   </div>
 
@@ -339,23 +345,11 @@
     border: 1px solid rgba(148, 163, 184, 0.3);
   }
 
-  .scene-cloud-badge {
-    background: rgba(148, 163, 184, 0.1);
-    color: #94a3b8;
-    border: 1px dashed rgba(148, 163, 184, 0.3);
-    font-size: 10px;
-  }
-
   .granule-badge {
     background: rgba(139, 92, 246, 0.18);
     color: #d8b4fe;
     border: 1px solid rgba(139, 92, 246, 0.3);
-  }
-
-  .provider-badge.esa {
-    background: rgba(56, 189, 248, 0.15);
-    color: #7dd3fc;
-    border: 1px solid rgba(56, 189, 248, 0.3);
+    cursor: help;
   }
 
   .coverage-full-badge {
