@@ -131,7 +131,7 @@ export class DrawManager {
 
     this.map.on('mouseleave', CORNERS_HIT_LAYER_ID, () => {
       if (this.isResizing || this.isDragging) return;
-      if (store.isDrawing) {
+      if (store.activeDrawMode === 'box') {
         this.map.getCanvas().style.cursor = PRECISION_CURSOR;
       } else {
         this.map.getCanvas().style.cursor = '';
@@ -173,8 +173,8 @@ export class DrawManager {
       return;
     }
 
-    // 2. If drawing mode is active and not clicking a handle, start a NEW box
-    if (!store.isDrawing) return;
+    // 2. If box drawing mode is active and not clicking a handle, start a NEW box
+    if (store.activeDrawMode !== 'box') return;
 
     this.isDragging = true;
     this.startLngLat = { lng: e.lngLat.lng, lat: e.lngLat.lat };

@@ -74,6 +74,8 @@ export class SearchController {
       presetLabel: presetObj?.label || store.selectedPreset,
       presetBadge: presetObj?.badge || 'RGB',
       boundingBox: [...store.boundingBox],
+      polygon: store.polygon ? store.polygon.map((pt) => [...pt] as [number, number]) : null,
+      shapeType: store.activeShape || 'box',
       areaKm2: store.areaKm2 ?? 0,
     };
     store.searchSnapshot = snapshot;

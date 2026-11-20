@@ -12,6 +12,8 @@ export interface SearchSnapshot {
   presetLabel: string;
   presetBadge: string;
   boundingBox: [number, number, number, number] | null;
+  polygon?: [number, number][] | null;
+  shapeType?: 'box' | 'polygon';
   areaKm2: number;
 }
 

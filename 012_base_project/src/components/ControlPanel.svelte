@@ -19,8 +19,12 @@
     store.startDate = start.toISOString().slice(0, 10);
   }
 
-  function handleDrawClick() {
-    store.toggleDrawing();
+  function handleDrawBoxClick() {
+    store.toggleDrawBox();
+  }
+
+  function handleDrawPolygonClick() {
+    store.toggleDrawPolygon();
   }
 
   function handleClearClick() {
@@ -94,20 +98,41 @@
           <button
             type="button"
             class="btn-secondary"
-            class:btn-active={store.isDrawing}
-            onclick={handleDrawClick}
-            title={store.isDrawing ? 'Click to cancel drawing' : 'Click to draw a selection on the map'}
+            class:btn-active={store.activeDrawMode === 'box'}
+            onclick={handleDrawBoxClick}
+            title={store.activeDrawMode === 'box' ? 'Click to cancel box drawing' : 'Click & drag a rectangle on the map'}
           >
             <span class="icon">⬚</span>
-            {store.isDrawing ? 'Drawing active (Click & Drag)...' : store.boundingBox ? 'Redraw Area' : 'Draw Box'}
+            {store.activeDrawMode === 'box' ? 'Cancel Box' : store.activeShape === 'box' ? 'Redraw Box' : 'Draw Box'}
           </button>
 
-          {#if store.boundingBox}
+          <button
+            type="button"
+            class="btn-secondary"
+            class:btn-active={store.activeDrawMode === 'polygon'}
+            onclick={handleDrawPolygonClick}
+            title={store.activeDrawMode === 'polygon' ? 'Click to cancel polygon drawing' : 'Click points on the map to draw a custom polygon'}
+          >
+            <span class="icon">⬡</span>
+            {store.activeDrawMode === 'polygon' ? 'Cancel Poly' : store.activeShape === 'polygon' ? 'Redraw Poly' : 'Draw Poly'}
+          </button>
+
+          {#if store.boundingBox || store.polygon}
             <button type="button" class="btn-ghost danger" onclick={handleClearClick} title="Clear selected area">
               ✕ Clear
             </button>
           {/if}
         </div>
+
+        {#if store.activeDrawMode === 'polygon'}
+          <div class="aoi-instruction">
+            📍 Click map to place vertices. Double-click, Enter, or click 1st point to close. <kbd>Backspace</kbd> undoes.
+          </div>
+        {:else if store.activeDrawMode === 'box'}
+          <div class="aoi-instruction">
+            ⬚ Click and drag on the map to define a bounding box. Drag corners to resize.
+          </div>
+        {/if}
       </section>
 
       <!-- 3. Date Range -->
@@ -368,6 +393,27 @@
 
   .custom-select:focus {
     border-color: #38bdf8;
+  }
+
+  .aoi-instruction {
+    margin-top: 0.45rem;
+    padding: 0.45rem 0.65rem;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px dashed rgba(56, 189, 248, 0.3);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    color: #bae6fd;
+    line-height: 1.35;
+  }
+
+  .aoi-instruction kbd {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    padding: 0.05rem 0.25rem;
+    font-size: 0.68rem;
+    font-family: inherit;
+    color: #f1f5f9;
   }
 
   /* AOI Actions */

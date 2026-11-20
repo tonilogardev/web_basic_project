@@ -5,6 +5,9 @@ export type { SearchSnapshot, SearchSession };
 export const MAX_AREA_KM2 = 10000;
 export const MIN_DATE_LIMIT = '2015-12-01'; // Sentinel-2 open data operational start date
 
+export type DrawShape = 'box' | 'polygon';
+export type ActiveDrawMode = 'none' | 'box' | 'polygon';
+
 export function calculateAreaKm2(bbox: [number, number, number, number]): number {
   const [minLng, minLat, maxLng, maxLat] = bbox;
   const midLat = (minLat + maxLat) / 2;
@@ -12,6 +15,56 @@ export function calculateAreaKm2(bbox: [number, number, number, number]): number
   const widthKm = Math.abs(maxLng - minLng) * 111.32 * Math.cos(latRad);
   const heightKm = Math.abs(maxLat - minLat) * 110.574;
   return Math.round(widthKm * heightKm);
+}
+
+/**
+ * Calculates the surface area of a polygon in km² using planar projection
+ * centered at the centroid latitude. Coordinates are [lng, lat] pairs.
+ */
+export function calculatePolygonAreaKm2(coords: [number, number][]): number {
+  if (!coords || coords.length < 3) return 0;
+
+  let sumLat = 0;
+  for (const [, lat] of coords) {
+    sumLat += lat;
+  }
+  const midLat = sumLat / coords.length;
+  const latRad = (midLat * Math.PI) / 180;
+
+  const cosLat = Math.cos(latRad);
+  const kx = 111.32 * cosLat;
+  const ky = 110.574;
+
+  let area = 0;
+  const n = coords.length;
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = [coords[i][0] * kx, coords[i][1] * ky];
+    const [x2, y2] = [coords[(i + 1) % n][0] * kx, coords[(i + 1) % n][1] * ky];
+    area += x1 * y2 - x2 * y1;
+  }
+
+  const result = Math.abs(area) / 2.0;
+  return Number(result.toFixed(2));
+}
+
+/**
+ * Derives bounding box [minLng, minLat, maxLng, maxLat] from polygon coordinates.
+ */
+export function calculatePolygonBbox(coords: [number, number][]): [number, number, number, number] | null {
+  if (!coords || coords.length === 0) return null;
+  let minLng = Infinity;
+  let minLat = Infinity;
+  let maxLng = -Infinity;
+  let maxLat = -Infinity;
+
+  for (const [lng, lat] of coords) {
+    if (lng < minLng) minLng = lng;
+    if (lat < minLat) minLat = lat;
+    if (lng > maxLng) maxLng = lng;
+    if (lat > maxLat) maxLat = lat;
+  }
+
+  return [minLng, minLat, maxLng, maxLat];
 }
 
 class AppStore {
@@ -22,14 +75,23 @@ class AppStore {
   // Snapshot of parameters when search was executed (most recent session)
   searchSnapshot = $state<SearchSnapshot | null>(null);
 
-  // Map drawing state
-  isDrawing = $state(false);
-  boundingBox = $state<[number, number, number, number] | null>(null);
+  // Map drawing state (Dual Mode: Box + Polygon)
+  activeDrawMode = $state<ActiveDrawMode>('none');
+  activeShape = $state<DrawShape | null>(null);
+  isDrawing = $derived.by(() => this.activeDrawMode !== 'none');
 
-  // Computed area in km²
+  boundingBox = $state<[number, number, number, number] | null>(null);
+  polygon = $state<[number, number][] | null>(null);
+
+  // Computed area in km² (supports both box and polygon)
   areaKm2 = $derived.by(() => {
-    if (!this.boundingBox) return null;
-    return calculateAreaKm2(this.boundingBox);
+    if (this.activeShape === 'polygon' && this.polygon && this.polygon.length >= 3) {
+      return calculatePolygonAreaKm2(this.polygon);
+    }
+    if (this.boundingBox) {
+      return calculateAreaKm2(this.boundingBox);
+    }
+    return null;
   });
 
   // Area limits
@@ -113,13 +175,44 @@ class AppStore {
     }
   }
 
+  setDrawMode(mode: ActiveDrawMode) {
+    this.activeDrawMode = mode;
+  }
+
+  toggleDrawBox() {
+    this.activeDrawMode = this.activeDrawMode === 'box' ? 'none' : 'box';
+  }
+
+  toggleDrawPolygon() {
+    this.activeDrawMode = this.activeDrawMode === 'polygon' ? 'none' : 'polygon';
+  }
+
   toggleDrawing() {
-    this.isDrawing = !this.isDrawing;
+    this.toggleDrawBox();
   }
 
   setBoundingBox(bbox: [number, number, number, number] | null) {
     this.boundingBox = bbox;
-    this.isDrawing = false;
+    if (bbox) {
+      this.polygon = [
+        [bbox[0], bbox[1]],
+        [bbox[2], bbox[1]],
+        [bbox[2], bbox[3]],
+        [bbox[0], bbox[3]],
+      ];
+      this.activeShape = 'box';
+    } else {
+      this.polygon = null;
+      this.activeShape = null;
+    }
+    this.activeDrawMode = 'none';
+  }
+
+  setPolygon(coords: [number, number][]) {
+    this.polygon = coords;
+    this.boundingBox = calculatePolygonBbox(coords);
+    this.activeShape = 'polygon';
+    this.activeDrawMode = 'none';
   }
 
   setActivePass(passId: string | null) {
@@ -232,7 +325,9 @@ class AppStore {
 
   clearBoundingBox() {
     this.boundingBox = null;
-    this.isDrawing = false;
+    this.polygon = null;
+    this.activeShape = null;
+    this.activeDrawMode = 'none';
     this.passes = [];
     this.activePassId = null;
     this.activeBenchmark = null;

@@ -5,6 +5,7 @@
   import ControlPanel from './components/ControlPanel.svelte';
   import PassList from './components/PassList.svelte';
   import { DrawManager } from './lib/DrawManager';
+  import { PolygonDrawManager } from './lib/PolygonDrawManager';
   import { store } from './lib/store.svelte';
   import { SearchController } from './lib/controllers/SearchController';
   import { mapLayerController } from './lib/controllers/MapLayerController';
@@ -12,6 +13,7 @@
   let mapContainer: HTMLElement;
   let map: MapLibreMap | null = null;
   let drawManager: DrawManager | null = null;
+  let polygonDrawManager: PolygonDrawManager | null = null;
   let mapLoaded = $state(false);
   let coords = $state({ lng: 1.74, lat: 41.69, zoom: 7.5 });
 
@@ -31,6 +33,7 @@
       mapLoaded = true;
       if (map) {
         drawManager = new DrawManager(map);
+        polygonDrawManager = new PolygonDrawManager(map);
         mapLayerController.attachMap(map);
       }
     });
@@ -48,7 +51,7 @@
     // Cancel drawing with Escape key
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && store.isDrawing) {
-        store.isDrawing = false;
+        store.setDrawMode('none');
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -57,22 +60,39 @@
       window.removeEventListener('keydown', onKeyDown);
       mapLayerController.detachMap();
       drawManager?.destroy();
+      polygonDrawManager?.destroy();
       map?.remove();
       map = null;
     };
   });
 
-  // React to drawing mode changes
+  // React to drawing mode changes (Dual Mode: Box vs Polygon)
   $effect(() => {
-    if (drawManager) {
-      drawManager.setDrawingMode(store.isDrawing);
+    if (!drawManager || !polygonDrawManager) return;
+
+    if (store.activeDrawMode === 'box') {
+      polygonDrawManager.cancelDrawing();
+      if (store.activeShape !== 'polygon') {
+        polygonDrawManager.clear();
+      }
+      drawManager.setDrawingMode(true);
+    } else if (store.activeDrawMode === 'polygon') {
+      drawManager.setDrawingMode(false);
+      if (store.activeShape !== 'box') {
+        drawManager.clear();
+      }
+      polygonDrawManager.syncCursor(true);
+    } else {
+      drawManager.setDrawingMode(false);
+      polygonDrawManager.syncCursor(false);
     }
   });
 
-  // React to bbox clear in the query builder
+  // React to area clear in the query builder
   $effect(() => {
-    if (!store.boundingBox && drawManager) {
-      drawManager.clear();
+    if (!store.boundingBox && !store.polygon) {
+      drawManager?.clear();
+      polygonDrawManager?.clear();
       // Only purge raster layers if no independent session windows exist
       if (store.sessions.length === 0) {
         mapLayerController.removeAllPassLayers();
@@ -130,10 +150,15 @@
       <span>Zoom: {coords.zoom}</span>
     </div>
 
-    {#if store.isDrawing}
+    {#if store.activeDrawMode === 'box'}
       <div class="drawing-hint">
         <span class="pulse-indicator"></span>
-        Click and drag on the map to select an area (or press Esc to cancel)
+        Click and drag on the map to define a bounding box (Esc to cancel)
+      </div>
+    {:else if store.activeDrawMode === 'polygon'}
+      <div class="drawing-hint">
+        <span class="pulse-indicator"></span>
+        Click map to place points. Double-click, Enter, or click 1st point to close (Backspace to undo, Esc to cancel)
       </div>
     {:else if store.isAreaTooLarge}
       <div class="area-warning-tag">
