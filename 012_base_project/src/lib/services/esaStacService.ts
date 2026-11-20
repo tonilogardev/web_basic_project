@@ -11,9 +11,12 @@ const RUST_API_BASE_URL =
     : 'https://water-api.tonilogar.com');
 
 const STAC_SEARCH_ENDPOINT = `${RUST_API_BASE_URL}/api/stac/search`;
+const EXACT_CLOUDS_ENDPOINT = `${RUST_API_BASE_URL}/api/passes/exact-clouds`;
 
 export async function searchEsaPasses(
-  filters: SearchFilters
+  filters: SearchFilters,
+  polygon?: [number, number][] | null,
+  onProgress?: (status: string) => void
 ): Promise<{ passes: SatellitePass[]; benchmark: ProviderBenchmark }> {
   if (!filters.boundingBox) {
     throw new Error('Bounding box is required for STAC search');
@@ -31,6 +34,7 @@ export async function searchEsaPasses(
   };
 
   const stacReqStart = performance.now();
+  onProgress?.('Querying STAC catalog...');
   const resp = await fetch(STAC_SEARCH_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -49,10 +53,60 @@ export async function searchEsaPasses(
   const groupStart = performance.now();
   const allPasses = groupGranulesIntoPasses(data.features || [], 'esa', filters.preset);
 
-  // Filter at the PASS level by meanCloudCover to prevent "holes" or missing tiles
-  const filteredPasses = allPasses.filter(
-    (pass) => pass.meanCloudCover <= filters.maxCloudCover
-  );
+  // Exact 20m SCL Cloud Coverage Pipeline:
+  // If user sets MAX CLOUD COVER < 100%, scan the Scene Classification Layer (SCL)
+  // in parallel in Rust to calculate exact cloud percentage strictly inside the AOI.
+  if (filters.maxCloudCover < 100 && allPasses.length > 0) {
+    onProgress?.('Scanning SCL bands in AOI...');
+
+    const items = allPasses.map((p) => {
+      const scl_urls: string[] = [];
+      for (const g of p.granules) {
+        const scl =
+          g.assets['scl']?.href ||
+          g.rawFeature?.assets['scl']?.href ||
+          g.assets['SCL']?.href;
+        if (scl) scl_urls.push(scl);
+      }
+      return { id: p.id, scl_urls };
+    }).filter((item) => item.scl_urls.length > 0);
+
+    if (items.length > 0) {
+      try {
+        const cloudResp = await fetch(EXACT_CLOUDS_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bbox: filters.boundingBox,
+            polygon: polygon && polygon.length >= 3 ? polygon : undefined,
+            items,
+          }),
+        });
+
+        if (cloudResp.ok) {
+          const cloudData = await cloudResp.json();
+          if (cloudData.results) {
+            for (const pass of allPasses) {
+              const res = cloudData.results[pass.id];
+              if (res && typeof res.aoi_cloud_cover === 'number') {
+                pass.aoiCloudCover = res.aoi_cloud_cover;
+              }
+            }
+          }
+        } else {
+          console.warn('[esaStacService] Exact cloud endpoint returned non-OK status:', cloudResp.status);
+        }
+      } catch (cloudErr) {
+        console.warn('[esaStacService] Exact cloud scan failed, falling back to scene average:', cloudErr);
+      }
+    }
+  }
+
+  // Filter at the PASS level by exact AOI cloud coverage (or mean scene cover as fallback)
+  const filteredPasses = allPasses.filter((pass) => {
+    const effectiveCloud = pass.aoiCloudCover !== undefined ? pass.aoiCloudCover : pass.meanCloudCover;
+    return effectiveCloud <= filters.maxCloudCover;
+  });
 
   // Fallback: If strict threshold filtered everything, show the cleanest passes so user has context
   const passes = filteredPasses.length > 0 ? filteredPasses : allPasses.slice(0, 5);

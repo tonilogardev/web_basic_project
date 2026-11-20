@@ -52,6 +52,22 @@ struct ErrorResponse {
     detail: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct ExactCloudsRequest {
+    bbox: [f64; 4], // [min_lng, min_lat, max_lng, max_lat]
+    #[serde(default)]
+    polygon: Option<Vec<[f64; 2]>>, // Optional [[lng, lat], ...]
+    items: Vec<processor::ExactCloudItem>,
+}
+
+#[derive(Debug, Serialize)]
+struct ExactCloudsResponse {
+    status: String,
+    results: HashMap<String, processor::PassCloudResult>,
+    scanned_passes: usize,
+    elapsed_ms: u128,
+}
+
 fn cleanup_old_files(dir: &Path) {
     if let Ok(entries) = std::fs::read_dir(dir) {
         let now = SystemTime::now();
@@ -197,6 +213,44 @@ async fn analyze_handler(
     }))
 }
 
+async fn exact_clouds_handler(
+    Json(payload): Json<ExactCloudsRequest>,
+) -> Result<Json<ExactCloudsResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let start_time = std::time::Instant::now();
+    let bbox = payload.bbox;
+    let polygon = payload.polygon;
+    let items = payload.items;
+    let count = items.len();
+
+    let results = tokio::task::spawn_blocking(move || {
+        let poly_slice = polygon.as_deref();
+        processor::calculate_exact_clouds_batch(&bbox, poly_slice, &items)
+    })
+    .await
+    .map_err(|e| {
+        error!("Exact clouds task error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                detail: e.to_string(),
+            }),
+        )
+    })?;
+
+    let elapsed_ms = start_time.elapsed().as_millis();
+    info!(
+        "☁️ Exact SCL cloud scan completed for {} passes in {}ms",
+        count, elapsed_ms
+    );
+
+    Ok(Json(ExactCloudsResponse {
+        status: "success".to_string(),
+        results,
+        scanned_passes: count,
+        elapsed_ms,
+    }))
+}
+
 async fn root_handler() -> impl IntoResponse {
     Json(serde_json::json!({
         "status": "Unified Geospatial Rust API is running",
@@ -205,9 +259,10 @@ async fn root_handler() -> impl IntoResponse {
             "POST /api/analyze",
             "GET  /api/tiles/:z/:x/:y",
             "POST /api/stac/search",
+            "POST /api/passes/exact-clouds",
             "GET  /public/*"
         ],
-        "version": "2.0.0"
+        "version": "2.1.0"
     }))
 }
 
@@ -261,6 +316,7 @@ async fn main() {
         .route("/api/analyze", post(analyze_handler))
         .route("/api/tiles/:z/:x/:y", get(tiler::tile_handler))
         .route("/api/stac/search", post(stac::stac_search_handler))
+        .route("/api/passes/exact-clouds", post(exact_clouds_handler))
         .nest_service("/public", ServeDir::new(&output_dir))
         .layer(cors)
         .with_state(state);

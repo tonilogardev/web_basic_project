@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { SatellitePass } from '../models/pass.model';
+  import type { SatellitePass } from '../lib/models/pass.model';
   import { PRESETS } from '../lib/types';
   import { store } from '../lib/store.svelte';
 
@@ -67,9 +67,18 @@
   </div>
 
   <div class="pass-details">
-    <span class="badge {getCloudBadgeClass(pass.meanCloudCover)}">
-      {pass.meanCloudCover}% Cloud
-    </span>
+    {#if pass.aoiCloudCover !== undefined}
+      <span class="badge {getCloudBadgeClass(pass.aoiCloudCover)}" title="Exact cloud & shadow coverage over your selected AOI (calculated from 20m SCL band)">
+        ☁️ {pass.aoiCloudCover}% AOI
+      </span>
+      <span class="badge scene-cloud-badge" title="Average cloud coverage across full Sentinel-2 tile(s)">
+        {pass.meanCloudCover}% Scene
+      </span>
+    {:else}
+      <span class="badge {getCloudBadgeClass(pass.meanCloudCover)}">
+        {pass.meanCloudCover}% Cloud
+      </span>
+    {/if}
     <span class="badge granule-badge" title="Constituent MGRS tiles rendered seamlessly">
       {pass.granulesCount} {pass.granulesCount === 1 ? 'granule' : 'granules'} (10m)
     </span>
@@ -271,6 +280,13 @@
     background: rgba(148, 163, 184, 0.18);
     color: #cbd5e1;
     border: 1px solid rgba(148, 163, 184, 0.3);
+  }
+
+  .scene-cloud-badge {
+    background: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+    border: 1px dashed rgba(148, 163, 184, 0.3);
+    font-size: 10px;
   }
 
   .granule-badge {

@@ -25,7 +25,7 @@
       style: 'https://tiles.openfreemap.org/styles/liberty',
       center: [coords.lng, coords.lat],
       zoom: coords.zoom,
-      attributionControl: true,
+      attributionControl: { compact: false },
     });
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');

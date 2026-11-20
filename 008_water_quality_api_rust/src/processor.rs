@@ -4,6 +4,7 @@ use gdal::raster::{RasterCreationOptions, ResampleAlg};
 use gdal::spatial_ref::{CoordTransform, SpatialRef};
 use gdal::Dataset;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 pub fn init_gdal_options() {
     gdal::config::set_config_option("AWS_NO_SIGN_REQUEST", "YES").ok();
@@ -674,5 +675,203 @@ pub fn process_menut_water_quality(
     )?;
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExactCloudItem {
+    pub id: String,
+    pub scl_urls: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PassCloudResult {
+    pub aoi_cloud_cover: f64,
+    pub valid_pixels: u64,
+    pub cloud_pixels: u64,
+}
+
+/// Ray-casting point-in-polygon algorithm
+fn point_in_polygon(x: f64, y: f64, poly: &[(f64, f64)]) -> bool {
+    let mut inside = false;
+    let n = poly.len();
+    let mut j = n - 1;
+    for i in 0..n {
+        let (xi, yi) = poly[i];
+        let (xj, yj) = poly[j];
+        if ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
+            inside = !inside;
+        }
+        j = i;
+    }
+    inside
+}
+
+/// Scans a single 20m SCL GeoTIFF raster over the target AOI window
+fn scan_scl_raster(
+    ds: &Dataset,
+    bbox: &[f64; 4],
+    polygon: Option<&[[f64; 2]]>,
+) -> Result<(u64, u64), String> {
+    let projection = ds.projection();
+    let srs_4326 = SpatialRef::from_epsg(4326)
+        .map_err(|e| format!("Error creating EPSG:4326 SRS: {}", e))?;
+    let srs_ds = SpatialRef::from_wkt(&projection)
+        .map_err(|e| format!("Error parsing dataset SRS: {}", e))?;
+
+    let transform = CoordTransform::new(&srs_4326, &srs_ds)
+        .map_err(|e| format!("Error creating coord transform: {}", e))?;
+
+    let mut xs = [bbox[1], bbox[3]]; // Latitude
+    let mut ys = [bbox[0], bbox[2]]; // Longitude
+    let mut zs = [0.0, 0.0];
+
+    transform
+        .transform_coords(&mut xs, &mut ys, &mut zs)
+        .map_err(|e| format!("Error transforming bbox to UTM: {}", e))?;
+
+    let utm_min_x = xs[0].min(xs[1]);
+    let utm_max_x = xs[0].max(xs[1]);
+    let utm_min_y = ys[0].min(ys[1]);
+    let utm_max_y = ys[0].max(ys[1]);
+
+    let gt = ds
+        .geo_transform()
+        .map_err(|e| format!("Error getting geotransform: {}", e))?;
+
+    let (ds_w, ds_h) = ds.raster_size();
+
+    let px_min = ((utm_min_x - gt[0]) / gt[1]).floor();
+    let py_min = ((utm_max_y - gt[3]) / gt[5]).floor();
+    let px_max = ((utm_max_x - gt[0]) / gt[1]).ceil();
+    let py_max = ((utm_min_y - gt[3]) / gt[5]).ceil();
+
+    if px_max <= 0.0 || px_min >= ds_w as f64 || py_max <= 0.0 || py_min >= ds_h as f64 {
+        return Ok((0, 0)); // No spatial overlap with this tile
+    }
+
+    let win_x = (px_min as isize).max(0).min(ds_w as isize - 1);
+    let win_y = (py_min as isize).max(0).min(ds_h as isize - 1);
+    let win_end_x = (px_max as isize).max(1).min(ds_w as isize);
+    let win_end_y = (py_max as isize).max(1).min(ds_h as isize);
+
+    let win_w = (win_end_x - win_x).max(1) as usize;
+    let win_h = (win_end_y - win_y).max(1) as usize;
+
+    let band = ds
+        .rasterband(1)
+        .map_err(|e| format!("Failed to get band 1: {}", e))?;
+
+    let buf = band
+        .read_as::<u8>(
+            (win_x, win_y),
+            (win_w, win_h),
+            (win_w, win_h),
+            Some(ResampleAlg::NearestNeighbour),
+        )
+        .map_err(|e| format!("Failed to read SCL window: {}", e))?;
+
+    let data = buf.data();
+
+    let utm_poly: Option<Vec<(f64, f64)>> = polygon.and_then(|poly| {
+        if poly.len() < 3 {
+            return None;
+        }
+        let mut poly_xs: Vec<f64> = poly.iter().map(|pt| pt[1]).collect(); // Lat
+        let mut poly_ys: Vec<f64> = poly.iter().map(|pt| pt[0]).collect(); // Lng
+        let mut poly_zs: Vec<f64> = vec![0.0; poly.len()];
+        if transform.transform_coords(&mut poly_xs, &mut poly_ys, &mut poly_zs).is_ok() {
+            Some(poly_xs.into_iter().zip(poly_ys.into_iter()).collect())
+        } else {
+            None
+        }
+    });
+
+    let mut valid_count = 0u64;
+    let mut cloud_count = 0u64;
+
+    for row in 0..win_h {
+        let pixel_utm_y = gt[3] + (win_y as f64 + row as f64 + 0.5) * gt[5];
+        let row_offset = row * win_w;
+
+        for col in 0..win_w {
+            let val = data[row_offset + col];
+            if val == 0 {
+                continue; // NO_DATA outside satellite swath
+            }
+
+            if let Some(ref poly) = utm_poly {
+                let pixel_utm_x = gt[0] + (win_x as f64 + col as f64 + 0.5) * gt[1];
+                if !point_in_polygon(pixel_utm_x, pixel_utm_y, poly) {
+                    continue;
+                }
+            }
+
+            valid_count += 1;
+            // Sentinel-2 L2A SCL cloud & shadow classes:
+            // 3: Cloud Shadows
+            // 8: Cloud Medium Probability
+            // 9: Cloud High Probability
+            // 10: Thin Cirrus
+            // 11: Snow or Ice
+            if matches!(val, 3 | 8 | 9 | 10 | 11) {
+                cloud_count += 1;
+            }
+        }
+    }
+
+    Ok((valid_count, cloud_count))
+}
+
+/// Executes parallel high-throughput SCL cloud scanning for a batch of candidate passes
+pub fn calculate_exact_clouds_batch(
+    bbox: &[f64; 4],
+    polygon: Option<&[[f64; 2]]>,
+    items: &[ExactCloudItem],
+) -> HashMap<String, PassCloudResult> {
+    init_gdal_options();
+
+    items
+        .par_iter()
+        .map(|item| {
+            let mut total_valid = 0u64;
+            let mut total_cloud = 0u64;
+
+            for scl_url in &item.scl_urls {
+                let vsi_url = if scl_url.starts_with("http://") || scl_url.starts_with("https://") {
+                    format!("/vsicurl/{}", scl_url)
+                } else {
+                    scl_url.to_string()
+                };
+
+                let ds = match Dataset::open(&vsi_url) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        tracing::warn!("Failed to open SCL raster {}: {}", vsi_url, e);
+                        continue;
+                    }
+                };
+
+                if let Ok((valid, cloud)) = scan_scl_raster(&ds, bbox, polygon) {
+                    total_valid += valid;
+                    total_cloud += cloud;
+                }
+            }
+
+            let aoi_cloud_cover = if total_valid > 0 {
+                ((total_cloud as f64 / total_valid as f64) * 1000.0).round() / 10.0
+            } else {
+                0.0
+            };
+
+            (
+                item.id.clone(),
+                PassCloudResult {
+                    aoi_cloud_cover,
+                    valid_pixels: total_valid,
+                    cloud_pixels: total_cloud,
+                },
+            )
+        })
+        .collect()
 }
 

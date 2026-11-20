@@ -43,6 +43,7 @@ export interface SatellitePass {
   orbitNumber: number; // e.g., 8
   orbitFormatted: string; // e.g., "R008"
   meanCloudCover: number; // Average cloud percentage across all constituent granules
+  aoiCloudCover?: number; // Exact cloud & shadow percentage inside the selected AOI (computed from 20m SCL band)
   granulesCount: number; // Number of MGRS tiles in this pass
   granules: GranuleImage[]; // Constituent individual granule entities
   combinedBbox: [number, number, number, number]; // [minX, minY, maxX, maxY]

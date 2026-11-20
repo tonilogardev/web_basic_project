@@ -168,6 +168,7 @@ class AppStore {
   activePassId = $state<string | null>(null);
   activeBenchmark = $state<import('./models/pass.model').ProviderBenchmark | null>(null);
   isSearching = $state(false);
+  searchStatusText = $state<string | null>(null);
   searchError = $state<string | null>(null);
   isCachedResult = $state(false);
   cacheHitRatio = $state('0%');
@@ -290,9 +291,7 @@ class AppStore {
   updateSession(sessionId: string, updates: Partial<SearchSession>): void {
     const session = this.sessions.find((s) => s.id === sessionId);
     if (!session) return;
-    for (const [key, val] of Object.entries(updates)) {
-      (session as Record<string, unknown>)[key] = val;
-    }
+    Object.assign(session, updates);
   }
 
   removeSession(sessionId: string): void {

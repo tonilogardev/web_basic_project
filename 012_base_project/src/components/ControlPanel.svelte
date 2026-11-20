@@ -225,6 +225,17 @@
           class="custom-slider"
           bind:value={store.maxCloudCover}
         />
+        <div class="cloud-mode-hint-row">
+          {#if store.maxCloudCover < 100}
+            <span class="cloud-hint-pill exact" title="Computes exact cloud & shadow percentages inside your AOI using 20m SCL bands in Rust">
+              ⚡ Exact 20m AOI Scan
+            </span>
+          {:else}
+            <span class="cloud-hint-pill fast" title="Full STAC query without SCL scan">
+              Fast STAC (All scenes)
+            </span>
+          {/if}
+        </div>
       </section>
 
       <!-- 5. Band Combination / Preset -->
@@ -248,7 +259,7 @@
       >
         <span class="btn-icon">🔍</span>
         {#if store.isSearching}
-          Searching Passes...
+          {store.searchStatusText || 'Searching Passes...'}
         {:else if !store.boundingBox}
           Select an Area to Search
         {:else if store.isAreaTooLarge}
@@ -609,6 +620,32 @@
     width: 100%;
     accent-color: #38bdf8;
     cursor: pointer;
+  }
+
+  .cloud-mode-hint-row {
+    margin-top: 0.35rem;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .cloud-hint-pill {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    letter-spacing: 0.2px;
+  }
+
+  .cloud-hint-pill.exact {
+    background: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+  }
+
+  .cloud-hint-pill.fast {
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+    border: 1px dashed rgba(148, 163, 184, 0.25);
   }
 
   /* Primary Button */

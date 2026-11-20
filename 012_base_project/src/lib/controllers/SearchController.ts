@@ -121,13 +121,16 @@ export class SearchController {
       return;
     }
 
-    // 4. Cache miss -> execute asynchronous STAC query
+    // 4. Cache miss -> execute asynchronous STAC query with exact SCL cloud scanning
     store.updateSession(session.id, { isSearching: true, searchError: null });
     store.isSearching = true;
+    store.searchStatusText = filters.maxCloudCover < 100 ? 'Scanning SCL bands...' : 'Searching Passes...';
     store.searchError = null;
 
     try {
-      const result = await searchEsaPasses(filters);
+      const result = await searchEsaPasses(filters, snapshot.polygon, (status) => {
+        store.searchStatusText = status;
+      });
 
       // Save to in-memory cache
       memoryCache.set(cacheKey, result.passes, result.benchmark);
@@ -161,6 +164,7 @@ export class SearchController {
         isSearching: false,
       });
       store.isSearching = false;
+      store.searchStatusText = null;
     }
   }
 
