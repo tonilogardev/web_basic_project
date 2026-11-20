@@ -124,7 +124,7 @@ export class SearchController {
     // 4. Cache miss -> execute asynchronous STAC query with exact SCL cloud scanning
     store.updateSession(session.id, { isSearching: true, searchError: null });
     store.isSearching = true;
-    store.searchStatusText = 'Scanning 20m SCL bands in AOI...';
+    store.searchStatusText = 'Scanning 20m SCL bands in AOI (~1.5s)...';
     store.searchError = null;
 
     try {

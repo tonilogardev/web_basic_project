@@ -247,6 +247,7 @@
               <li><strong>Zero False Averages</strong>: Standard catalog metadata averages over 10,000 km² (an entire satellite scene). Our Rust engine scans strictly inside your drawn water boundary.</li>
               <li><strong>Detected Classes</strong>: Cloud shadows (3), medium/high probability clouds (8, 9), thin cirrus (10), and snow/ice (11).</li>
               <li><strong>100% Threshold</strong>: Keeps all available passes so you miss no dates, while showing the true exact cloud % for each pass (<code>☁️ X.X% AOI</code>).</li>
+              <li><strong>Estimated Time (~1.5–2.5s)</strong>: Rather than reading pre-computed scene estimates, our high-performance Rust engine streams 20m SCL raster bands directly from AWS in parallel to classify every pixel inside your water boundary in real time.</li>
             </ul>
           </div>
         {/if}
