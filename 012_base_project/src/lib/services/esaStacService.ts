@@ -2,6 +2,7 @@ import type { SearchFilters } from '../types';
 import type { StacFeatureCollection } from '../models/stac.model';
 import type { SatellitePass, ProviderBenchmark } from '../models/pass.model';
 import { groupGranulesIntoPasses } from './GroupingEngine';
+import { calculatePassAoiCoverage } from './coverageService';
 
 const RUST_API_BASE_URL =
   import.meta.env.VITE_RUST_API_URL ??
@@ -52,6 +53,13 @@ export async function searchEsaPasses(
   // Group raw granules into unified passes YYYYMMDD_RXXX
   const groupStart = performance.now();
   const allPasses = groupGranulesIntoPasses(data.features || [], 'esa', filters.preset);
+
+  // Calculate exact AOI spatial coverage (checks if pass fills 100% of rectangle or polygon)
+  for (const pass of allPasses) {
+    const cov = calculatePassAoiCoverage(pass, filters.boundingBox, polygon);
+    pass.isFullCoverage = cov.isFullCoverage;
+    pass.aoiCoveragePercent = cov.coveragePercent;
+  }
 
   // Exact 20m SCL Cloud Coverage Pipeline:
   // ALWAYS scan the Scene Classification Layer (SCL) in parallel in Rust

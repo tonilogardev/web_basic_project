@@ -46,7 +46,8 @@
 - ***In-Memory Pass Curation Tools ([src/components/PassList.svelte](../src/components/PassList.svelte))***:
     - `discardedIds = $state<Set<string>>(new Set())`: Set of passes removed/dismissed by the user via the `[ ✕ ]` button on each card.
     - `cloudFilterThreshold = $state<number>(100)`: Quick-filter pills (`All`, `<10%`, `<25%`, `<50%`) filtering passes instantly in memory against `aoiCloudCover`.
-    - `sortOption = $state<'newest' | 'oldest' | 'cleanest'>('newest')`: Sorts passes chronologically or by lowest AOI cloud contamination.
+    - `fullCoverageOnly = $state<boolean>(false)`: Filter toggle (`[ 🟩 Full AOI ]`) verifying via [coverageService.ts](../src/lib/services/coverageService.ts) whether the satellite swath completely covers 100% of the drawn rectangle or polygon.
+    - `sortOption = $state<'newest' | 'oldest' | 'cleanest' | 'coverage'>('newest')`: Sorts passes chronologically, by lowest AOI cloud contamination, or by highest spatial AOI coverage.
     - Dedicated visibility toggle (`[ 👁️ ]` / `[ 🕶️ ]`): Explicit per-card switch controlling MapLibre raster layer visibility.
     - Curated downstream output: Timelapse and Export All automatically inherit only non-discarded, filtered passes.
 - ***Session Model ([src/lib/models/session.model.ts](../src/lib/models/session.model.ts))***:

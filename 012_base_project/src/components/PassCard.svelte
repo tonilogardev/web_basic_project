@@ -107,6 +107,18 @@
         {pass.meanCloudCover}% Cloud
       </span>
     {/if}
+
+    {#if pass.isFullCoverage !== undefined}
+      {#if pass.isFullCoverage}
+        <span class="badge coverage-full-badge" title="Image completely covers 100% of your drawn AOI (no missing swath corners or cutoffs)">
+          🟩 Full AOI
+        </span>
+      {:else}
+        <span class="badge coverage-partial-badge" title="Partial Pass: covers only {pass.aoiCoveragePercent}% of your drawn AOI">
+          ⚠️ {pass.aoiCoveragePercent}% AOI
+        </span>
+      {/if}
+    {/if}
     <span class="badge granule-badge" title="Constituent MGRS tiles rendered seamlessly">
       {pass.granulesCount} {pass.granulesCount === 1 ? 'granule' : 'granules'} (10m)
     </span>
@@ -344,6 +356,20 @@
     background: rgba(56, 189, 248, 0.15);
     color: #7dd3fc;
     border: 1px solid rgba(56, 189, 248, 0.3);
+  }
+
+  .coverage-full-badge {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #6ee7b7;
+    font-weight: 600;
+  }
+
+  .coverage-partial-badge {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #fcd34d;
+    font-weight: 600;
   }
 
   /* Individual Per-Pass Band Recipe Row */

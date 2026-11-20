@@ -143,8 +143,11 @@
   // In-memory AOI Cloud Cover filter threshold (100 = All)
   let cloudFilterThreshold = $state<number>(100);
 
-  // Sorting option: 'newest' | 'oldest' | 'cleanest'
-  let sortOption = $state<'newest' | 'oldest' | 'cleanest'>('newest');
+  // In-memory Full AOI coverage filter (true = only images filling all rectangle/polygon)
+  let fullCoverageOnly = $state<boolean>(false);
+
+  // Sorting option: 'newest' | 'oldest' | 'cleanest' | 'coverage'
+  let sortOption = $state<'newest' | 'oldest' | 'cleanest' | 'coverage'>('newest');
 
   function handleDiscard(passId: string) {
     if (activePassId === passId) {
@@ -163,6 +166,11 @@
   let displayedPasses = $derived.by(() => {
     let list = passes.filter((p) => !discardedIds.has(p.id));
 
+    // Coverage filter: check if the image fills all rectangle or polygon
+    if (fullCoverageOnly) {
+      list = list.filter((p) => p.isFullCoverage !== false);
+    }
+
     if (cloudFilterThreshold < 100) {
       list = list.filter((p) => {
         const cloudVal = p.aoiCloudCover !== undefined ? p.aoiCloudCover : p.meanCloudCover;
@@ -178,6 +186,8 @@
         const valB = b.aoiCloudCover !== undefined ? b.aoiCloudCover : b.meanCloudCover;
         return valA - valB;
       });
+    } else if (sortOption === 'coverage') {
+      return [...list].sort((a, b) => (b.aoiCoveragePercent ?? 100) - (a.aoiCoveragePercent ?? 100));
     } else {
       // newest
       return [...list].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -359,6 +369,20 @@
               </button>
             </div>
 
+            <!-- Full Coverage Filter Toggle -->
+            <div class="coverage-filter-wrap">
+              <button
+                type="button"
+                class="pill-btn coverage-pill-btn"
+                class:active={fullCoverageOnly}
+                onclick={() => (fullCoverageOnly = !fullCoverageOnly)}
+                title={fullCoverageOnly ? "Filter active: showing only images filling 100% of your AOI. Click to show all." : "Filter to show only images that completely fill your drawn rectangle or polygon"}
+              >
+                <span class="cov-icon">{fullCoverageOnly ? '🟩' : '◻️'}</span>
+                <span>Full AOI</span>
+              </button>
+            </div>
+
             <!-- Sort Selector -->
             <div class="sort-selector-wrap">
               <select
@@ -369,6 +393,7 @@
                 <option value="newest">📅 Newest</option>
                 <option value="oldest">📅 Oldest</option>
                 <option value="cleanest">☁️ Cleanest</option>
+                <option value="coverage">📐 Most Covered</option>
               </select>
             </div>
           </div>
@@ -413,9 +438,22 @@
             />
           {:else}
             <div class="empty-filter-state">
-              <span>No passes match cloud filter (&lt;{cloudFilterThreshold}%).</span>
-              <button type="button" class="btn-subtle" onclick={() => (cloudFilterThreshold = 100)}>
-                Reset Filter
+              {#if fullCoverageOnly && cloudFilterThreshold < 100}
+                <span>No passes match both full coverage and cloud (&lt;{cloudFilterThreshold}%).</span>
+              {:else if fullCoverageOnly}
+                <span>No passes completely fill 100% of your drawn rectangle or polygon.</span>
+              {:else}
+                <span>No passes match cloud filter (&lt;{cloudFilterThreshold}%).</span>
+              {/if}
+              <button
+                type="button"
+                class="btn-subtle"
+                onclick={() => {
+                  cloudFilterThreshold = 100;
+                  fullCoverageOnly = false;
+                }}
+              >
+                Reset Filters
               </button>
             </div>
           {/each}
@@ -841,6 +879,28 @@
     color: #22d3ee;
     font-weight: 700;
     box-shadow: 0 0 6px rgba(6, 182, 212, 0.3);
+  }
+
+  .coverage-filter-wrap {
+    display: flex;
+    align-items: center;
+  }
+
+  .coverage-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .coverage-pill-btn .cov-icon {
+    font-size: 9px;
+  }
+
+  .coverage-pill-btn.active {
+    background: rgba(16, 185, 129, 0.25);
+    border-color: #10b981;
+    color: #6ee7b7;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.35);
   }
 
   .sort-selector-wrap {
