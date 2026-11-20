@@ -29,7 +29,7 @@ export async function searchEsaPasses(
     collections: ['sentinel-2-l2a'],
     bbox: filters.boundingBox,
     datetime: `${filters.startDate}T00:00:00Z/${filters.endDate}T23:59:59Z`,
-    limit: 100, // Generous limit to ensure all constituent tiles across the date range are captured
+    limit: 500, // Expanded limit (500) to ensure multi-granule passes across full 90-day ranges are completely captured
     sortby: [{ field: 'properties.datetime', direction: 'desc' }],
   };
 

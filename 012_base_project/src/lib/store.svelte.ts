@@ -159,8 +159,8 @@ class AppStore {
     return this.dateRangeDays > this.maxDateRangeDays;
   });
 
-  // Filters
-  maxCloudCover = $state(20);
+  // Filters (Intention-based: default to 100% for full catalog visibility; user dials down to filter)
+  maxCloudCover = $state(100);
   selectedPreset = $state('true-color');
 
   // Results & Benchmarks
