@@ -43,6 +43,12 @@
     - `tiles: STACItem[]`: Individual Copernicus granules comprising the pass.
     - `isVisible: boolean`: Whether the pass is currently active and rendered on the MapLibre canvas.
     - `activeBand: BandCombination`: Currently rendered visualization mode (`RGB`, `FalseColor`, `NDVI`, `MNDWI`, `NDTI`, `NDCI`).
+- ***In-Memory Pass Curation Tools ([src/components/PassList.svelte](../src/components/PassList.svelte))***:
+    - `discardedIds = $state<Set<string>>(new Set())`: Set of passes removed/dismissed by the user via the `[ ✕ ]` button on each card.
+    - `cloudFilterThreshold = $state<number>(100)`: Quick-filter pills (`All`, `<10%`, `<25%`, `<50%`) filtering passes instantly in memory against `aoiCloudCover`.
+    - `sortOption = $state<'newest' | 'oldest' | 'cleanest'>('newest')`: Sorts passes chronologically or by lowest AOI cloud contamination.
+    - Dedicated visibility toggle (`[ 👁️ ]` / `[ 🕶️ ]`): Explicit per-card switch controlling MapLibre raster layer visibility.
+    - Curated downstream output: Timelapse and Export All automatically inherit only non-discarded, filtered passes.
 - ***Session Model ([src/lib/models/session.model.ts](../src/lib/models/session.model.ts))***:
     - `id: string`: Unique session UUID.
     - `title: string`: Label displayed on the session tab (e.g., "Lake Victoria", "Session 1").

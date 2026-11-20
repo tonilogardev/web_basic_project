@@ -15,6 +15,7 @@ export interface ExportModalState {
   pass: SatellitePass | null;
   session: SearchSession | null;
   passesCount: number;
+  customPasses?: SatellitePass[];
 }
 
 export interface TimelapseModalState {
@@ -373,13 +374,19 @@ class AppStore {
     passes: [],
   });
 
-  openExportModal(mode: 'single' | 'all', pass: SatellitePass | null = null, session: SearchSession | null = null) {
+  openExportModal(
+    mode: 'single' | 'all',
+    pass: SatellitePass | null = null,
+    session: SearchSession | null = null,
+    customPasses?: SatellitePass[]
+  ) {
     this.exportModal = {
       isOpen: true,
       mode,
       pass,
       session,
-      passesCount: session ? session.passes.length : pass ? 1 : 0,
+      customPasses,
+      passesCount: customPasses ? customPasses.length : session ? session.passes.length : pass ? 1 : 0,
     };
   }
 

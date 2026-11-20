@@ -136,6 +136,53 @@
       SearchController.hideActivePass();
     }
   }
+
+  // Discarded pass IDs (managed in local state)
+  let discardedIds = $state<Set<string>>(new Set());
+
+  // In-memory AOI Cloud Cover filter threshold (100 = All)
+  let cloudFilterThreshold = $state<number>(100);
+
+  // Sorting option: 'newest' | 'oldest' | 'cleanest'
+  let sortOption = $state<'newest' | 'oldest' | 'cleanest'>('newest');
+
+  function handleDiscard(passId: string) {
+    if (activePassId === passId) {
+      hideImagery();
+    }
+    const updated = new Set(discardedIds);
+    updated.add(passId);
+    discardedIds = updated;
+  }
+
+  function handleRestoreAll() {
+    discardedIds = new Set();
+  }
+
+  // Filtered and sorted passes (computed 100% in browser memory in 0ms)
+  let displayedPasses = $derived.by(() => {
+    let list = passes.filter((p) => !discardedIds.has(p.id));
+
+    if (cloudFilterThreshold < 100) {
+      list = list.filter((p) => {
+        const cloudVal = p.aoiCloudCover !== undefined ? p.aoiCloudCover : p.meanCloudCover;
+        return cloudVal <= cloudFilterThreshold;
+      });
+    }
+
+    if (sortOption === 'oldest') {
+      return [...list].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } else if (sortOption === 'cleanest') {
+      return [...list].sort((a, b) => {
+        const valA = a.aoiCloudCover !== undefined ? a.aoiCloudCover : a.meanCloudCover;
+        const valB = b.aoiCloudCover !== undefined ? b.aoiCloudCover : b.meanCloudCover;
+        return valA - valB;
+      });
+    } else {
+      // newest
+      return [...list].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+  });
 </script>
 
 {#if passes.length > 0 || isSearching || searchError}
@@ -149,7 +196,7 @@
   >
     <div class="panel-header panel-drag-handle">
       <div class="header-title">
-        <h2>{session ? session.title : 'Passes'} ({passes.length})</h2>
+        <h2>{session ? session.title : 'Passes'} ({displayedPasses.length})</h2>
       </div>
       <div class="header-actions">
         <button
@@ -250,24 +297,96 @@
             <button
               type="button"
               class="action-btn-session timelapse-action-btn"
-              onclick={() => store.openTimelapseModal(session || null, passes)}
+              onclick={() => store.openTimelapseModal(session || null, displayedPasses)}
               title="Generate and preview interactive time-lapse video"
             >
               <span class="action-icon">🎬</span>
               <span class="action-label">Time-Lapse</span>
+              <span class="count-tag">{displayedPasses.length}</span>
             </button>
 
             <button
               type="button"
               class="action-btn-session export-all-action-btn"
-              onclick={() => store.openExportModal('all', null, session || null)}
+              onclick={() => store.openExportModal('all', null, session || null, displayedPasses)}
               title="Download all passes as ZIP"
             >
               <span class="action-icon">📥</span>
               <span class="action-label">Export All</span>
-              <span class="count-tag">{passes.length}</span>
+              <span class="count-tag">{displayedPasses.length}</span>
             </button>
           </div>
+
+          <!-- In-Memory Interactive Filter & Sort Toolbar -->
+          <div class="pass-tools-toolbar">
+            <!-- Cloud Filter Quick-Pills -->
+            <div class="cloud-filter-pills">
+              <span class="tool-label">AOI:</span>
+              <button
+                type="button"
+                class="pill-btn"
+                class:active={cloudFilterThreshold === 100}
+                onclick={() => (cloudFilterThreshold = 100)}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                class="pill-btn"
+                class:active={cloudFilterThreshold === 10}
+                onclick={() => (cloudFilterThreshold = 10)}
+                title="Filter passes with <10% clouds in AOI"
+              >
+                &lt;10%
+              </button>
+              <button
+                type="button"
+                class="pill-btn"
+                class:active={cloudFilterThreshold === 25}
+                onclick={() => (cloudFilterThreshold = 25)}
+                title="Filter passes with <25% clouds in AOI"
+              >
+                &lt;25%
+              </button>
+              <button
+                type="button"
+                class="pill-btn"
+                class:active={cloudFilterThreshold === 50}
+                onclick={() => (cloudFilterThreshold = 50)}
+                title="Filter passes with <50% clouds in AOI"
+              >
+                &lt;50%
+              </button>
+            </div>
+
+            <!-- Sort Selector -->
+            <div class="sort-selector-wrap">
+              <select
+                class="sort-select"
+                bind:value={sortOption}
+                aria-label="Sort passes"
+              >
+                <option value="newest">📅 Newest</option>
+                <option value="oldest">📅 Oldest</option>
+                <option value="cleanest">☁️ Cleanest</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Notice if passes have been dismissed/discarded -->
+          {#if discardedIds.size > 0}
+            <div class="discarded-notice-bar">
+              <span>🗑️ {discardedIds.size} {discardedIds.size === 1 ? 'pass' : 'passes'} hidden</span>
+              <button
+                type="button"
+                class="btn-restore"
+                onclick={handleRestoreAll}
+                title="Restore all hidden passes"
+              >
+                Restore all
+              </button>
+            </div>
+          {/if}
         {/if}
 
         <div class="quick-toolbar">
@@ -277,20 +396,28 @@
             </button>
             <span class="active-indicator">Active Pass Visible</span>
           {:else}
-            <span class="hint-text">Select a pass to view</span>
+            <span class="hint-text">Showing {displayedPasses.length} of {passes.length - discardedIds.size}</span>
           {/if}
           <span class="provider-tag">{store.provider.toUpperCase()}</span>
         </div>
 
         <div class="card-scroll-area">
-          {#each passes as pass (pass.id)}
+          {#each displayedPasses as pass (pass.id)}
             <PassCard
               {pass}
               onToggle={handleToggle}
               onOpacityChange={handleOpacity}
               onPresetChange={handlePresetChange}
               onExport={(targetPass) => store.openExportModal('single', targetPass, session || null)}
+              onDiscard={handleDiscard}
             />
+          {:else}
+            <div class="empty-filter-state">
+              <span>No passes match cloud filter (&lt;{cloudFilterThreshold}%).</span>
+              <button type="button" class="btn-subtle" onclick={() => (cloudFilterThreshold = 100)}>
+                Reset Filter
+              </button>
+            </div>
           {/each}
         </div>
       {/if}
@@ -663,5 +790,125 @@
   .card-scroll-area::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
     border-radius: 3px;
+  }
+
+  /* Tools Toolbar (Filter & Sort) */
+  .pass-tools-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(15, 23, 42, 0.7);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .cloud-filter-pills {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .tool-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .pill-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .pill-btn:hover {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.3);
+    color: #38bdf8;
+  }
+
+  .pill-btn.active {
+    background: rgba(6, 182, 212, 0.25);
+    border-color: #06b6d4;
+    color: #22d3ee;
+    font-weight: 700;
+    box-shadow: 0 0 6px rgba(6, 182, 212, 0.3);
+  }
+
+  .sort-selector-wrap {
+    display: flex;
+    align-items: center;
+  }
+
+  .sort-select {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    color: #f1f5f9;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 6px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .sort-select:hover,
+  .sort-select:focus {
+    border-color: #38bdf8;
+  }
+
+  .sort-select option {
+    background: #0f172a;
+    color: #f1f5f9;
+  }
+
+  /* Discard Notice Bar */
+  .discarded-notice-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 12px;
+    background: rgba(239, 68, 68, 0.12);
+    border-bottom: 1px solid rgba(239, 68, 68, 0.25);
+    font-size: 10.5px;
+    color: #fca5a5;
+  }
+
+  .btn-restore {
+    background: transparent;
+    border: 1px solid rgba(252, 165, 165, 0.4);
+    color: #fca5a5;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-restore:hover {
+    background: rgba(239, 68, 68, 0.25);
+    color: #fff;
+    border-color: #f87171;
+  }
+
+  .empty-filter-state {
+    padding: 24px 16px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 11.5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
   }
 </style>

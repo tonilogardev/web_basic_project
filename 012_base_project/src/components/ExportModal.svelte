@@ -59,7 +59,7 @@
         feedbackMessage = `✅ Download Complete!\nFile: ${filename}\nSize: ${(blob.size / 1024).toFixed(1)} KB\nClipped to: ${activePolygon ? 'Exact Polygon' : 'Bounding Box'}`;
       } else {
         // Export All (ZIP)
-        const sessionPasses = modalData.session?.passes || store.passes;
+        const sessionPasses = modalData.customPasses || modalData.session?.passes || store.passes;
         if (!sessionPasses || sessionPasses.length === 0) {
           throw new Error('No passes found to export');
         }

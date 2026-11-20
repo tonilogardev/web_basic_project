@@ -9,9 +9,10 @@
     onOpacityChange: (id: string, opacity: number) => void;
     onPresetChange?: (id: string, preset: string) => void;
     onExport?: (pass: SatellitePass) => void;
+    onDiscard?: (id: string) => void;
   }
 
-  let { pass, onToggle, onOpacityChange, onPresetChange, onExport }: Props = $props();
+  let { pass, onToggle, onOpacityChange, onPresetChange, onExport, onDiscard }: Props = $props();
 
   function getCloudBadgeClass(cloud: number): string {
     if (cloud < 10) return 'cloud-low';
@@ -45,9 +46,22 @@
     </div>
     
     <div class="card-header-actions">
+      <!-- 1. Dedicated Visibility Switch -->
       <button
         type="button"
-        class="btn-card-export"
+        class="btn-card-action btn-card-visibility"
+        class:is-active={pass.isVisible}
+        onclick={(e) => { e.stopPropagation(); onToggle(pass.id); }}
+        title={pass.isVisible ? "Hide pass from map" : "Show pass on map"}
+        aria-label={pass.isVisible ? "Hide pass" : "Show pass"}
+      >
+        <span class="vis-icon">{pass.isVisible ? '👁️' : '🕶️'}</span>
+      </button>
+
+      <!-- 2. Export Single Pass -->
+      <button
+        type="button"
+        class="btn-card-action btn-card-export"
         onclick={handleExportClick}
         title="Download / Export this pass image"
         aria-label="Download pass image"
@@ -55,12 +69,26 @@
         📥
       </button>
 
+      <!-- 3. Discard from List (X) -->
+      {#if onDiscard}
+        <button
+          type="button"
+          class="btn-card-action btn-card-discard"
+          onclick={(e) => { e.stopPropagation(); onDiscard(pass.id); }}
+          title="Remove pass from list"
+          aria-label="Remove pass"
+        >
+          ✕
+        </button>
+      {/if}
+
+      <!-- 4. Active Status Indicator -->
       <div class="active-status-pill" class:is-live={pass.isVisible}>
         {#if pass.isVisible}
           <span class="live-dot"></span>
-          <span class="status-text">ACTIVE</span>
+          <span class="status-text">LIVE</span>
         {:else}
-          <span class="status-text idle">CLICK TO VIEW</span>
+          <span class="status-text idle">VIEW</span>
         {/if}
       </div>
     </div>
@@ -188,10 +216,10 @@
   .card-header-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
   }
 
-  .btn-card-export {
+  .btn-card-action {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 6px;
@@ -199,13 +227,30 @@
     font-size: 11px;
     cursor: pointer;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #cbd5e1;
     transition: all 0.15s ease;
   }
 
-  .btn-card-export:hover {
-    background: rgba(56, 189, 248, 0.25);
-    border-color: rgba(56, 189, 248, 0.5);
+  .btn-card-action:hover {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: rgba(56, 189, 248, 0.4);
     transform: scale(1.08);
+  }
+
+  .btn-card-visibility.is-active {
+    background: rgba(6, 182, 212, 0.25);
+    border-color: #06b6d4;
+    color: #22d3ee;
+    box-shadow: 0 0 6px rgba(6, 182, 212, 0.4);
+  }
+
+  .btn-card-discard:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #f87171;
   }
 
   .active-status-pill {
