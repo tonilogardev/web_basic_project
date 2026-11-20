@@ -1,20 +1,31 @@
 <script lang="ts">
   import type { SatellitePass } from '../models/pass.model';
   import { PRESETS } from '../lib/types';
+  import { store } from '../lib/store.svelte';
 
   interface Props {
     pass: SatellitePass;
     onToggle: (id: string) => void;
     onOpacityChange: (id: string, opacity: number) => void;
     onPresetChange?: (id: string, preset: string) => void;
+    onExport?: (pass: SatellitePass) => void;
   }
 
-  let { pass, onToggle, onOpacityChange, onPresetChange }: Props = $props();
+  let { pass, onToggle, onOpacityChange, onPresetChange, onExport }: Props = $props();
 
   function getCloudBadgeClass(cloud: number): string {
     if (cloud < 10) return 'cloud-low';
     if (cloud < 30) return 'cloud-med';
     return 'cloud-high';
+  }
+
+  function handleExportClick(e: MouseEvent) {
+    e.stopPropagation();
+    if (onExport) {
+      onExport(pass);
+    } else {
+      store.openExportModal('single', pass);
+    }
   }
 </script>
 
@@ -33,13 +44,25 @@
       <span class="pass-id-sub">{pass.id}</span>
     </div>
     
-    <div class="active-status-pill" class:is-live={pass.isVisible}>
-      {#if pass.isVisible}
-        <span class="live-dot"></span>
-        <span class="status-text">ACTIVE</span>
-      {:else}
-        <span class="status-text idle">CLICK TO VIEW</span>
-      {/if}
+    <div class="card-header-actions">
+      <button
+        type="button"
+        class="btn-card-export"
+        onclick={handleExportClick}
+        title="Download / Export this pass image"
+        aria-label="Download pass image"
+      >
+        📥
+      </button>
+
+      <div class="active-status-pill" class:is-live={pass.isVisible}>
+        {#if pass.isVisible}
+          <span class="live-dot"></span>
+          <span class="status-text">ACTIVE</span>
+        {:else}
+          <span class="status-text idle">CLICK TO VIEW</span>
+        {/if}
+      </div>
     </div>
   </div>
 
@@ -151,6 +174,29 @@
     font-size: 10px;
     font-family: monospace;
     color: #94a3b8;
+  }
+
+  .card-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-card-export {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 3px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    line-height: 1;
+    transition: all 0.15s ease;
+  }
+
+  .btn-card-export:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: rgba(56, 189, 248, 0.5);
+    transform: scale(1.08);
   }
 
   .active-status-pill {

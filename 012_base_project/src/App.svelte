@@ -4,6 +4,8 @@
   import 'maplibre-gl/dist/maplibre-gl.css';
   import ControlPanel from './components/ControlPanel.svelte';
   import PassList from './components/PassList.svelte';
+  import ExportModal from './components/ExportModal.svelte';
+  import TimelapseModal from './components/TimelapseModal.svelte';
   import { DrawManager } from './lib/DrawManager';
   import { PolygonDrawManager } from './lib/PolygonDrawManager';
   import { store } from './lib/store.svelte';
@@ -174,6 +176,10 @@
   {#each store.sessions as session (session.id)}
     <PassList {session} />
   {/each}
+
+  <!-- Modals & Overlays -->
+  <ExportModal />
+  <TimelapseModal />
 </main>
 
 <style>

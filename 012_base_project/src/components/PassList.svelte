@@ -245,6 +245,31 @@
           <span>Querying STAC & synthesizing passes...</span>
         </div>
       {:else}
+        {#if passes.length > 0}
+          <div class="session-actions-bar">
+            <button
+              type="button"
+              class="action-btn-session timelapse-action-btn"
+              onclick={() => store.openTimelapseModal(session || null, passes)}
+              title="Generate and preview interactive time-lapse video"
+            >
+              <span class="action-icon">🎬</span>
+              <span class="action-label">Time-Lapse</span>
+            </button>
+
+            <button
+              type="button"
+              class="action-btn-session export-all-action-btn"
+              onclick={() => store.openExportModal('all', null, session || null)}
+              title="Download all passes as ZIP"
+            >
+              <span class="action-icon">📥</span>
+              <span class="action-label">Export All</span>
+              <span class="count-tag">{passes.length}</span>
+            </button>
+          </div>
+        {/if}
+
         <div class="quick-toolbar">
           {#if activePassId}
             <button type="button" class="btn-subtle active-action" onclick={hideImagery}>
@@ -264,6 +289,7 @@
               onToggle={handleToggle}
               onOpacityChange={handleOpacity}
               onPresetChange={handlePresetChange}
+              onExport={(targetPass) => store.openExportModal('single', targetPass, session || null)}
             />
           {/each}
         </div>
@@ -514,6 +540,59 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  .session-actions-bar {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(30, 41, 59, 0.45);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .action-btn-session {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    color: #e2e8f0;
+  }
+
+  .action-btn-session:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .timelapse-action-btn:hover {
+    background: rgba(6, 182, 212, 0.18);
+    border-color: rgba(6, 182, 212, 0.4);
+    color: #38bdf8;
+  }
+
+  .export-all-action-btn:hover {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #7dd3fc;
+  }
+
+  .action-icon {
+    font-size: 13px;
+  }
+
+  .count-tag {
+    background: rgba(255, 255, 255, 0.12);
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 10px;
   }
 
   .quick-toolbar {

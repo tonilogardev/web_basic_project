@@ -1,5 +1,6 @@
 import { getPresetById, type DataProvider } from './types';
 import type { SearchSnapshot, SearchSession } from './models/session.model';
+import type { SatellitePass } from './models/pass.model';
 export type { SearchSnapshot, SearchSession };
 
 export const MAX_AREA_KM2 = 10000;
@@ -7,6 +8,20 @@ export const MIN_DATE_LIMIT = '2015-12-01'; // Sentinel-2 open data operational 
 
 export type DrawShape = 'box' | 'polygon';
 export type ActiveDrawMode = 'none' | 'box' | 'polygon';
+
+export interface ExportModalState {
+  isOpen: boolean;
+  mode: 'single' | 'all';
+  pass: SatellitePass | null;
+  session: SearchSession | null;
+  passesCount: number;
+}
+
+export interface TimelapseModalState {
+  isOpen: boolean;
+  session: SearchSession | null;
+  passes: SatellitePass[];
+}
 
 export function calculateAreaKm2(bbox: [number, number, number, number]): number {
   const [minLng, minLat, maxLng, maxLat] = bbox;
@@ -342,6 +357,57 @@ class AppStore {
 
   clearAllSessions(): void {
     this.sessions = [];
+  }
+
+  // Modal dialog states
+  exportModal = $state<ExportModalState>({
+    isOpen: false,
+    mode: 'single',
+    pass: null,
+    session: null,
+    passesCount: 0,
+  });
+
+  timelapseModal = $state<TimelapseModalState>({
+    isOpen: false,
+    session: null,
+    passes: [],
+  });
+
+  openExportModal(mode: 'single' | 'all', pass: SatellitePass | null = null, session: SearchSession | null = null) {
+    this.exportModal = {
+      isOpen: true,
+      mode,
+      pass,
+      session,
+      passesCount: session ? session.passes.length : pass ? 1 : 0,
+    };
+  }
+
+  closeExportModal() {
+    this.exportModal = {
+      isOpen: false,
+      mode: 'single',
+      pass: null,
+      session: null,
+      passesCount: 0,
+    };
+  }
+
+  openTimelapseModal(session: SearchSession | null = null, passes: SatellitePass[] = []) {
+    this.timelapseModal = {
+      isOpen: true,
+      session,
+      passes: passes.length > 0 ? passes : (session ? session.passes : this.passes),
+    };
+  }
+
+  closeTimelapseModal() {
+    this.timelapseModal = {
+      isOpen: false,
+      session: null,
+      passes: [],
+    };
   }
 
   clearBoundingBox() {
