@@ -36,12 +36,13 @@ import { getPresetById } from '../types';
 /**
  * Builds the direct tile URL for a granule using the high-performance Rust COG tile engine.
  * Reads spectral recipes from the declarative PRESETS registry (Strategy Pattern).
- * When userBbox is provided, wraps the URL with the 'clipped://' protocol to crop pixels cleanly to the AOI.
+ * When userBbox or polygon is provided, wraps the URL with the 'clipped://' protocol to crop pixels cleanly to the AOI.
  */
 export function buildGranuleTileUrl(
   granule: GranuleImage,
   presetId: string,
-  userBbox: [number, number, number, number] | null
+  userBbox: [number, number, number, number] | null,
+  polygon?: [number, number][] | null
 ): string {
   const baseUrl = `${RUST_API_BASE_URL}/api/tiles/{z}/{x}/{y}.png`;
   const preset = getPresetById(presetId);
@@ -83,10 +84,14 @@ export function buildGranuleTileUrl(
     }
   }
 
-  // 4. Wrap with custom clipped:// protocol if bounding box is defined
+  // 4. Wrap with custom clipped:// protocol if bounding box or polygon is defined
   if (userBbox) {
     const aoiStr = userBbox.map((n) => n.toFixed(6)).join(',');
     queryUrl += `&aoi=${aoiStr}`;
+    if (polygon && polygon.length >= 3) {
+      const polyStr = polygon.map((pt) => `${pt[0].toFixed(6)},${pt[1].toFixed(6)}`).join(';');
+      queryUrl += `&poly=${polyStr}`;
+    }
     return `clipped://${queryUrl}`;
   }
 
@@ -152,7 +157,8 @@ export class MapLayerController {
       }
 
       const userBbox = session.snapshot.boundingBox;
-      this.renderSessionPass(session.id, activePass, userBbox);
+      const userPoly = session.snapshot.polygon;
+      this.renderSessionPass(session.id, activePass, userBbox, userPoly);
     }
   }
 
@@ -163,11 +169,15 @@ export class MapLayerController {
   public renderSessionPass(
     sessionId: string,
     pass: SatellitePass,
-    userBbox: [number, number, number, number] | null
+    userBbox: [number, number, number, number] | null,
+    polygon?: [number, number][] | null
   ): void {
     if (!this.map) return;
 
-    const passKey = `${sessionId}_${pass.id}_${pass.preset}_${userBbox ? userBbox.map((n) => n.toFixed(4)).join(',') : 'full'}`;
+    const polyHash = polygon && polygon.length >= 3
+      ? `_poly${polygon.length}_${polygon[0][0].toFixed(3)}_${polygon[0][1].toFixed(3)}`
+      : '';
+    const passKey = `${sessionId}_${pass.id}_${pass.preset}_${userBbox ? userBbox.map((n) => n.toFixed(4)).join(',') : 'full'}${polyHash}`;
     const existing = this.sessionLayers.get(sessionId);
 
     // If identical configuration already rendered, only update opacity
@@ -197,7 +207,7 @@ export class MapLayerController {
       const sourceId = `source-${sessionId}-${pass.id}-${idx}`;
       const layerId = `layer-${sessionId}-${pass.id}-${idx}`;
 
-      const tileUrl = buildGranuleTileUrl(granule, pass.preset, userBbox);
+      const tileUrl = buildGranuleTileUrl(granule, pass.preset, userBbox, polygon);
 
       if (!this.map.getSource(sourceId)) {
         this.map.addSource(sourceId, {
@@ -262,7 +272,8 @@ export class MapLayerController {
    */
   public syncActivePass(
     activePass: SatellitePass | null,
-    userBbox: [number, number, number, number] | null
+    userBbox: [number, number, number, number] | null,
+    polygon?: [number, number][] | null
   ): void {
     if (!this.map) return;
 
@@ -277,16 +288,20 @@ export class MapLayerController {
       }
     }
 
-    this.renderPass(activePass, userBbox);
+    this.renderPass(activePass, userBbox, polygon);
   }
 
   public renderPass(
     pass: SatellitePass,
-    userBbox: [number, number, number, number] | null
+    userBbox: [number, number, number, number] | null,
+    polygon?: [number, number][] | null
   ): void {
     if (!this.map) return;
 
-    const passKey = `${pass.id}_${pass.preset}_${userBbox ? userBbox.map((n) => n.toFixed(4)).join(',') : 'full'}`;
+    const polyHash = polygon && polygon.length >= 3
+      ? `_poly${polygon.length}_${polygon[0][0].toFixed(3)}_${polygon[0][1].toFixed(3)}`
+      : '';
+    const passKey = `${pass.id}_${pass.preset}_${userBbox ? userBbox.map((n) => n.toFixed(4)).join(',') : 'full'}${polyHash}`;
     const existingLayerIds = this.activePassLayers.get(pass.id);
 
     if (existingLayerIds && this.activePassKey === passKey) {
@@ -315,7 +330,7 @@ export class MapLayerController {
       const sourceId = `source-pass-${pass.id}-${idx}`;
       const layerId = `layer-pass-${pass.id}-${idx}`;
 
-      const tileUrl = buildGranuleTileUrl(granule, pass.preset, userBbox);
+      const tileUrl = buildGranuleTileUrl(granule, pass.preset, userBbox, polygon);
 
       if (!this.map.getSource(sourceId)) {
         this.map.addSource(sourceId, {

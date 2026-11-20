@@ -72,9 +72,11 @@ export function registerClippedProtocol(): void {
     const rawUrl = params.url.replace(/^clipped:\/\//, '');
     const urlObj = new URL(rawUrl);
     const aoiParam = urlObj.searchParams.get('aoi');
+    const polyParam = urlObj.searchParams.get('poly');
 
-    // Remove 'aoi' query before forwarding to tile server
+    // Remove clipping parameters before forwarding to tile server
     urlObj.searchParams.delete('aoi');
+    urlObj.searchParams.delete('poly');
     const fetchUrl = urlObj.toString();
 
     // 2. Extract XYZ coordinates from path (/tiles/{z}/{x}/{y}.png or /{z}/{x}/{y})
@@ -118,8 +120,8 @@ export function registerClippedProtocol(): void {
       return { data: emptyBuf };
     }
 
-    // Path B: Tile is completely inside the AOI -> fetch and return directly (0 canvas overhead)
-    if (pxMin <= 0 && pxMax >= tileSize && pyMin <= 0 && pyMax >= tileSize) {
+    // Path B: Tile is completely inside the AOI and no exact polygon requested -> direct pass-through
+    if (!polyParam && pxMin <= 0 && pxMax >= tileSize && pyMin <= 0 && pyMax >= tileSize) {
       const resp = await fetch(fetchUrl, { signal: abortController.signal });
       if (!resp.ok) throw new Error(`Tile fetch error: ${resp.status}`);
       const buffer = await resp.arrayBuffer();
@@ -127,7 +129,7 @@ export function registerClippedProtocol(): void {
       return { data: buffer };
     }
 
-    // Path C: Boundary tile -> fetch original raster and scissor pixels along AOI boundary
+    // Path C: Boundary tile or polygon tile -> fetch original raster and scissor pixels
     const resp = await fetch(fetchUrl, { signal: abortController.signal });
     if (!resp.ok) throw new Error(`Tile fetch error: ${resp.status}`);
     const blob = await resp.blob();
@@ -150,16 +152,39 @@ export function registerClippedProtocol(): void {
 
     let buffer: ArrayBuffer;
 
+    // Helper to draw clipped canvas (handles both rectangular AOI and arbitrary Polygon)
+    const drawClipped = (ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D) => {
+      ctx.clearRect(0, 0, actualTileSize, actualTileSize);
+      ctx.save();
+      ctx.beginPath();
+
+      if (polyParam) {
+        // Parse polygon points: "lng1,lat1;lng2,lat2;..."
+        const pts = polyParam.split(';').map((pair) => pair.split(',').map(Number));
+        pts.forEach(([lng, lat], i) => {
+          const wx = (lng + 180.0) / 360.0;
+          const px = (wx * n - x) * tileSize * scale;
+          const sLat = Math.sin((lat * Math.PI) / 180.0);
+          const wy = 0.5 - Math.log((1.0 + sLat) / (1.0 - sLat)) / (4.0 * Math.PI);
+          const py = (wy * n - y) * tileSize * scale;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.closePath();
+      } else {
+        ctx.rect(clipX, clipY, clipW, clipH);
+      }
+
+      ctx.clip();
+      ctx.drawImage(bitmap, 0, 0, actualTileSize, actualTileSize);
+      ctx.restore();
+    };
+
     if (typeof OffscreenCanvas !== 'undefined') {
       const canvas = new OffscreenCanvas(actualTileSize, actualTileSize);
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.clearRect(0, 0, actualTileSize, actualTileSize);
-        ctx.beginPath();
-        ctx.rect(clipX, clipY, clipW, clipH);
-        ctx.clip();
-        ctx.drawImage(bitmap, 0, 0, actualTileSize, actualTileSize);
-
+        drawClipped(ctx);
         try {
           const clippedBlob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.95 });
           buffer = await clippedBlob.arrayBuffer();
@@ -176,11 +201,7 @@ export function registerClippedProtocol(): void {
       canvas.height = actualTileSize;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.clearRect(0, 0, actualTileSize, actualTileSize);
-        ctx.beginPath();
-        ctx.rect(clipX, clipY, clipW, clipH);
-        ctx.clip();
-        ctx.drawImage(bitmap, 0, 0, actualTileSize, actualTileSize);
+        drawClipped(ctx);
         buffer = await new Promise<ArrayBuffer>((resolve) => {
           canvas.toBlob(async (b) => {
             resolve(await b!.arrayBuffer());
