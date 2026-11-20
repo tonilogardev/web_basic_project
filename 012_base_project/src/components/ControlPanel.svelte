@@ -11,6 +11,7 @@
 
   // Window state
   let collapsed = $state(false);
+  let showCloudInfo = $state(false);
 
   function setQuickRange(days: number) {
     const end = new Date();
@@ -206,7 +207,18 @@
       <!-- 4. Cloud Cover Threshold -->
       <section class="section-group">
         <div class="label-row">
-          <label for="cloud-slider" class="section-label">Max Cloud Cover</label>
+          <div class="label-with-info">
+            <label for="cloud-slider" class="section-label">Max Cloud Cover</label>
+            <button
+              type="button"
+              class="btn-info-icon"
+              onclick={() => (showCloudInfo = !showCloudInfo)}
+              title="Click to learn how clouds are scientifically detected via ESA SCL"
+              aria-label="Cloud detection info"
+            >
+              ℹ️
+            </button>
+          </div>
           <span
             class="cloud-badge"
             class:low={store.maxCloudCover <= 20}
@@ -216,6 +228,29 @@
             {store.maxCloudCover}%
           </span>
         </div>
+
+        {#if showCloudInfo}
+          <div class="cloud-info-box">
+            <div class="info-header">
+              <span class="info-title">🔬 ESA Sentinel-2 SCL Cloud Detection</span>
+              <button
+                type="button"
+                class="btn-close-info"
+                onclick={() => (showCloudInfo = false)}
+                aria-label="Close information"
+              >✕</button>
+            </div>
+            <p class="info-text">
+              Cloud cover is computed <strong>pixel-by-pixel inside your exact AOI boundary</strong> using the official European Space Agency (ESA) <strong>Scene Classification Layer (SCL)</strong> at 20-meter native resolution.
+            </p>
+            <ul class="info-list">
+              <li><strong>Zero False Averages</strong>: Standard catalog metadata averages over 10,000 km² (an entire satellite scene). Our Rust engine scans strictly inside your drawn water boundary.</li>
+              <li><strong>Detected Classes</strong>: Cloud shadows (3), medium/high probability clouds (8, 9), thin cirrus (10), and snow/ice (11).</li>
+              <li><strong>100% Threshold</strong>: Keeps all available passes so you miss no dates, while showing the true exact cloud % for each pass (<code>☁️ X.X% AOI</code>).</li>
+            </ul>
+          </div>
+        {/if}
+
         <input
           id="cloud-slider"
           type="range"
@@ -226,15 +261,9 @@
           bind:value={store.maxCloudCover}
         />
         <div class="cloud-mode-hint-row">
-          {#if store.maxCloudCover < 100}
-            <span class="cloud-hint-pill exact" title="Computes exact cloud & shadow percentages inside your AOI using 20m SCL bands in Rust">
-              ⚡ Exact 20m AOI Scan
-            </span>
-          {:else}
-            <span class="cloud-hint-pill fast" title="Full STAC query without SCL scan">
-              Fast STAC (All scenes)
-            </span>
-          {/if}
+          <span class="cloud-hint-pill exact" title="Exact 20m SCL pixel-by-pixel scan inside your AOI via Rust">
+            ⚡ Exact 20m SCL AOI Scan
+          </span>
         </div>
       </section>
 
@@ -628,6 +657,102 @@
     justify-content: flex-end;
   }
 
+  .label-with-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-info-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0;
+    line-height: 1;
+    opacity: 0.8;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  .btn-info-icon:hover {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+
+  .cloud-info-box {
+    margin: 0.4rem 0 0.6rem 0;
+    padding: 0.65rem 0.75rem;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    font-size: 0.72rem;
+    color: #e2e8f0;
+    line-height: 1.45;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 0.25rem;
+  }
+
+  .info-title {
+    font-weight: 700;
+    color: #38bdf8;
+    font-size: 0.74rem;
+  }
+
+  .btn-close-info {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0 2px;
+  }
+
+  .btn-close-info:hover {
+    color: #f1f5f9;
+  }
+
+  .info-text {
+    margin: 0 0 0.4rem 0;
+    color: #cbd5e1;
+  }
+
+  .info-list {
+    margin: 0;
+    padding-left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .info-list li {
+    color: #94a3b8;
+  }
+
+  .info-list strong {
+    color: #f1f5f9;
+  }
+
+  .info-list code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: #38bdf8;
+  }
+
   .cloud-hint-pill {
     font-size: 0.68rem;
     font-weight: 600;
@@ -640,12 +765,6 @@
     background: rgba(56, 189, 248, 0.12);
     color: #38bdf8;
     border: 1px solid rgba(56, 189, 248, 0.25);
-  }
-
-  .cloud-hint-pill.fast {
-    background: rgba(148, 163, 184, 0.12);
-    color: #94a3b8;
-    border: 1px dashed rgba(148, 163, 184, 0.25);
   }
 
   /* Primary Button */

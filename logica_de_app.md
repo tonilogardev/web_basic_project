@@ -1342,3 +1342,7 @@ Gemini may display inaccurate info, including about people, so double-check its 
 Google Privacy Policy Opens in a new window
 Google Terms of Service Opens in a new window
 Your privacy & Gemini Apps Opens in a new window
+
+
+ok, We need to concentrate in the window of the select image, to create tools useful for the user, like switch to sho to hide the image or "x" to delete the image. Filter to show imagenesTalk theoretically about it.
+Tell me your opinion, what kind of tools will be usefull for the user.

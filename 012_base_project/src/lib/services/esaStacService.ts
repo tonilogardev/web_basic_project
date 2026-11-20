@@ -54,10 +54,10 @@ export async function searchEsaPasses(
   const allPasses = groupGranulesIntoPasses(data.features || [], 'esa', filters.preset);
 
   // Exact 20m SCL Cloud Coverage Pipeline:
-  // If user sets MAX CLOUD COVER < 100%, scan the Scene Classification Layer (SCL)
-  // in parallel in Rust to calculate exact cloud percentage strictly inside the AOI.
-  if (filters.maxCloudCover < 100 && allPasses.length > 0) {
-    onProgress?.('Scanning SCL bands in AOI...');
+  // ALWAYS scan the Scene Classification Layer (SCL) in parallel in Rust
+  // to calculate exact cloud & shadow percentages strictly inside the AOI for every pass!
+  if (allPasses.length > 0) {
+    onProgress?.('Scanning 20m SCL bands in AOI...');
 
     const items = allPasses.map((p) => {
       const scl_urls: string[] = [];
@@ -102,11 +102,13 @@ export async function searchEsaPasses(
     }
   }
 
-  // Filter at the PASS level by exact AOI cloud coverage (or mean scene cover as fallback)
-  const filteredPasses = allPasses.filter((pass) => {
-    const effectiveCloud = pass.aoiCloudCover !== undefined ? pass.aoiCloudCover : pass.meanCloudCover;
-    return effectiveCloud <= filters.maxCloudCover;
-  });
+  // Filter at the PASS level by exact AOI cloud coverage if slider < 100%
+  const filteredPasses = filters.maxCloudCover < 100
+    ? allPasses.filter((pass) => {
+        const effectiveCloud = pass.aoiCloudCover !== undefined ? pass.aoiCloudCover : pass.meanCloudCover;
+        return effectiveCloud <= filters.maxCloudCover;
+      })
+    : allPasses;
 
   // Fallback: If strict threshold filtered everything, show the cleanest passes so user has context
   const passes = filteredPasses.length > 0 ? filteredPasses : allPasses.slice(0, 5);
