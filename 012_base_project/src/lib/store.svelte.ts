@@ -281,9 +281,12 @@ class AppStore {
   }
 
   removeSession(sessionId: string): void {
-    const idx = this.sessions.findIndex((s) => s.id === sessionId);
-    if (idx !== -1) {
-      this.sessions.splice(idx, 1);
+    this.sessions = this.sessions.filter((s) => s.id !== sessionId);
+    if (this.sessions.length === 0) {
+      this.passes = [];
+      this.activePassId = null;
+      this.activeBenchmark = null;
+      this.searchSnapshot = null;
     }
   }
 

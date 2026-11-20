@@ -165,7 +165,10 @@
           <button
             type="button"
             class="btn-icon-tiny btn-close-session"
-            onclick={handleClose}
+            onclick={(e) => {
+              e.stopPropagation();
+              handleClose();
+            }}
             aria-label="Close session window"
             title="Close this search window"
           >

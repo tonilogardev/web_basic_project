@@ -3,6 +3,7 @@ import { memoryCache } from '../services/MemoryCacheService';
 import { searchEsaPasses } from '../services/esaStacService';
 import { getPresetById, type SearchFilters } from '../types';
 import type { SearchSnapshot } from '../models/session.model';
+import { mapLayerController } from './MapLayerController';
 
 /**
  * Search Controller (Decoupled MVC Controller)
@@ -117,14 +118,6 @@ export class SearchController {
       if (clonedPasses.length > 0) {
         store.setSessionActivePass(session.id, clonedPasses[0].id);
       }
-
-      // Sync legacy store properties for backward compatibility
-      store.passes = clonedPasses;
-      store.activeBenchmark = cached.benchmark;
-      store.isCachedResult = true;
-      store.cacheHitRatio = hitRatio;
-      store.searchError = null;
-      if (clonedPasses.length > 0) store.setActivePass(clonedPasses[0].id);
       return;
     }
 
@@ -155,13 +148,6 @@ export class SearchController {
       if (clonedPasses.length > 0) {
         store.setSessionActivePass(session.id, clonedPasses[0].id);
       }
-
-      // Sync legacy store properties for backward compatibility
-      store.passes = clonedPasses;
-      store.activeBenchmark = result.benchmark;
-      store.isCachedResult = false;
-      store.cacheHitRatio = hitRatio;
-      if (clonedPasses.length > 0) store.setActivePass(clonedPasses[0].id);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to search satellite passes';
       store.updateSession(session.id, {
@@ -196,6 +182,7 @@ export class SearchController {
   }
 
   public static closeSession(sessionId: string): void {
+    mapLayerController.removeSessionLayers(sessionId);
     store.removeSession(sessionId);
   }
 

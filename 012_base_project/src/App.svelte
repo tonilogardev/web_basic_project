@@ -127,18 +127,7 @@
       }
     }
 
-    if (sessions.length > 0) {
-      mapLayerController.syncSessions(sessions);
-    } else {
-      const activePass = store.passes.find((p) => p.id === store.activePassId) || null;
-      const effectiveBbox = store.searchSnapshot?.boundingBox ?? store.boundingBox;
-      if (activePass) {
-        void activePass.preset;
-        void activePass.opacity;
-        void activePass.isVisible;
-      }
-      mapLayerController.syncActivePass(activePass, effectiveBbox);
-    }
+    mapLayerController.syncSessions(sessions);
   });
 
   function handleSearchTrigger() {
@@ -182,13 +171,9 @@
   <ControlPanel onSearch={handleSearchTrigger} />
 
   <!-- Independent Session Results Windows -->
-  {#if store.sessions.length > 0}
-    {#each store.sessions as session (session.id)}
-      <PassList {session} />
-    {/each}
-  {:else if store.passes.length > 0 || store.isSearching || store.searchError}
-    <PassList />
-  {/if}
+  {#each store.sessions as session (session.id)}
+    <PassList {session} />
+  {/each}
 </main>
 
 <style>
