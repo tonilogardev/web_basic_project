@@ -3,7 +3,6 @@ name: Build Images and Deploy to Hetzner VPS
 on:
   push:
     branches:
-      - main
       - main_dev_pro
   workflow_dispatch:
 
