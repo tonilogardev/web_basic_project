@@ -7,6 +7,11 @@ on:
       - main_dev_pro
   workflow_dispatch:
 
+# Garantiza que solo un despliegue corre a la vez en el VPS de Hetzner (evita colisiones y bloqueos de Docker)
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
 jobs:
   build-and-push:
     name: Build & Push Images to GHCR
