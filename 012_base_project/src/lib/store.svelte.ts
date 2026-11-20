@@ -175,16 +175,34 @@ class AppStore {
     }
   }
 
+  clearAreaSelection() {
+    this.boundingBox = null;
+    this.polygon = null;
+    this.activeShape = null;
+  }
+
   setDrawMode(mode: ActiveDrawMode) {
     this.activeDrawMode = mode;
   }
 
   toggleDrawBox() {
-    this.activeDrawMode = this.activeDrawMode === 'box' ? 'none' : 'box';
+    if (this.activeDrawMode === 'box') {
+      this.activeDrawMode = 'none';
+    } else {
+      // 1. Immediately clear any existing polygon and bounding box
+      this.clearAreaSelection();
+      this.activeDrawMode = 'box';
+    }
   }
 
   toggleDrawPolygon() {
-    this.activeDrawMode = this.activeDrawMode === 'polygon' ? 'none' : 'polygon';
+    if (this.activeDrawMode === 'polygon') {
+      this.activeDrawMode = 'none';
+    } else {
+      // 2. Immediately clear any existing bounding box and polygon
+      this.clearAreaSelection();
+      this.activeDrawMode = 'polygon';
+    }
   }
 
   toggleDrawing() {

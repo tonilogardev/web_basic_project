@@ -66,25 +66,36 @@
     };
   });
 
-  // React to drawing mode changes (Dual Mode: Box vs Polygon)
+  // React to drawing mode changes (Strict Mutual Exclusivity: Only 1 active shape ever)
   $effect(() => {
     if (!drawManager || !polygonDrawManager) return;
 
     if (store.activeDrawMode === 'box') {
-      polygonDrawManager.cancelDrawing();
-      if (store.activeShape !== 'polygon') {
-        polygonDrawManager.clear();
-      }
+      // 1. When clicking Draw Box: immediately clear any existing polygon and box from map
+      polygonDrawManager.clear();
+      drawManager.clear();
       drawManager.setDrawingMode(true);
+      polygonDrawManager.syncCursor(false);
     } else if (store.activeDrawMode === 'polygon') {
+      // 2. When clicking Draw Poly: immediately clear any existing box and polygon from map
+      drawManager.clear();
+      polygonDrawManager.clear();
       drawManager.setDrawingMode(false);
-      if (store.activeShape !== 'box') {
-        drawManager.clear();
-      }
       polygonDrawManager.syncCursor(true);
     } else {
+      // Idle / Finished
       drawManager.setDrawingMode(false);
       polygonDrawManager.syncCursor(false);
+
+      // 3. When a shape is finished: guarantee the alternate manager is completely wiped
+      if (store.activeShape === 'box') {
+        polygonDrawManager.clear();
+      } else if (store.activeShape === 'polygon') {
+        drawManager.clear();
+      } else {
+        drawManager.clear();
+        polygonDrawManager.clear();
+      }
     }
   });
 
